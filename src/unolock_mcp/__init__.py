@@ -1,0 +1,1 @@
+"""UnoLock MCP prototype package."""

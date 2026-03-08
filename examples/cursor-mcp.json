@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "unolock-agent": {
+      "type": "stdio",
+      "command": "unolock-agent-mcp",
+      "args": [
+        "mcp"
+      ],
+      "env": {
+        "UNOLOCK_BASE_URL": "http://127.0.0.1:3000",
+        "UNOLOCK_TPM_PROVIDER": "auto"
+      }
+    }
+  }
+}

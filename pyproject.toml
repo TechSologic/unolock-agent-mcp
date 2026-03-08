@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "unolock-agent-mcp"
+version = "0.1.0"
+description = "Prototype UnoLock MCP client"
+requires-python = ">=3.10"
+dependencies = [
+  "cryptography>=3.4.8",
+  "aws-encryption-sdk>=3.3.0",
+  "liboqs-python>=0.14.0",
+  "mcp>=1.26.0,<2",
+]
+
+[project.scripts]
+unolock-agent-probe = "unolock_mcp.cli:probe_main"
+unolock-agent-mcp = "unolock_mcp.cli:mcp_main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
