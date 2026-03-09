@@ -1,12 +1,12 @@
-# Agent MCP
+# UnoLock Agent MCP
 
-This directory is the dedicated home for UnoLock's Python agent/MCP client.
+This repository is the dedicated home for UnoLock's Python agent/MCP client.
 
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
-The current prototype proves the hardest integration seam first:
+The current MCP proves the hardest integration seam first:
 
 * live local `/start` flow compatibility
 * ML-DSA signature verification
@@ -27,32 +27,80 @@ Safe creation remains a human/browser responsibility, matching the product model
 Run this from the repo root after the local server is up on `http://127.0.0.1:3000`:
 
 ```bash
-./agent-mcp/scripts/bootstrap.sh
-./agent-mcp/scripts/run_local_probe.sh
-./agent-mcp/scripts/run_stdio_mcp.sh
-./agent-mcp/scripts/run_local_e2e_readonly.sh
+./scripts/bootstrap.sh
+./scripts/run_local_probe.sh
+./scripts/run_stdio_mcp.sh
+./scripts/run_local_e2e_readonly.sh
 ```
 
 For real MCP hosts, see:
 
-* [host-config.md](/home/mike/Unolock/agent-mcp/docs/host-config.md)
-* [support-matrix.md](/home/mike/Unolock/agent-mcp/docs/support-matrix.md)
-* [tool-catalog.md](/home/mike/Unolock/agent-mcp/docs/tool-catalog.md)
-* [claude-desktop-config.json](/home/mike/Unolock/agent-mcp/examples/claude-desktop-config.json)
-* [cursor-mcp.json](/home/mike/Unolock/agent-mcp/examples/cursor-mcp.json)
+* [Install Guide](docs/install.md)
+* [MCP Host Config](docs/host-config.md)
+* [Support Matrix](docs/support-matrix.md)
+* [Tool Catalog](docs/tool-catalog.md)
+* [Claude Desktop example](examples/claude-desktop-config.json)
+* [Cursor example](examples/cursor-mcp.json)
+* [Config file example](examples/unolock-agent-config.json)
 
 If you prefer manual install:
 
 ```bash
-cd agent-mcp
+git clone https://github.com/TechSologic/unolock-agent-mcp.git
+cd unolock-agent-mcp
 python3 -m pip install --user -e .
 unolock-agent-probe probe
 unolock-agent-mcp mcp
 python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --pin 0123 --list-records
 python3 -m unolock_mcp tpm-diagnose
+python3 -m unolock_mcp config-check
 ```
 
 The first `liboqs-python` run may build `liboqs` under your home directory. That can take a few minutes.
+
+## Standalone config
+
+When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock agent key connection URL. Environment variables and config files are primarily for overrides and custom deployments.
+
+Default config file location:
+
+```text
+~/.config/unolock-agent-mcp/config.json
+```
+
+Override example:
+
+```json
+{
+  "base_url": "https://api.unolock.example",
+  "transparency_origin": "https://safe.unolock.example",
+  "app_version": "1.2.3",
+  "signing_public_key_b64": "BASE64_SERVER_PQ_SIGNING_PUBLIC_KEY"
+}
+```
+
+For the standard hosted UnoLock deployment, the MCP can derive the API origin, UnoLock app version, and PQ validation key from the user-provided agent key connection URL automatically. If you want to force the same hosted deployment without waiting for a connection URL, this also works:
+
+```json
+{
+  "base_url": "https://api.safe.unolock.com"
+}
+```
+
+the MCP will derive `https://safe.unolock.com`, fetch `/unolock-client.json`, and read the published app version and `serverPQValidationKey`. If that hosted file is unavailable, it falls back to the transparency bundle.
+
+Use this command to verify what the MCP resolved:
+
+```bash
+python3 -m unolock_mcp config-check
+```
+
+Versioning is intentionally split:
+
+* MCP package version: the version of `unolock-agent-mcp` itself
+* UnoLock app version: the Safe client/server compatibility version sent as `x-app-version`
+
+For the standard hosted UnoLock deployment, the MCP resolves the UnoLock app version from the hosted client metadata rather than reusing the MCP package version.
 
 TPM provider selection:
 
@@ -66,7 +114,7 @@ On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe
 
 On macOS, `auto` now prefers the Secure Enclave provider when the Swift/Xcode command-line toolchain is available and the helper can create a non-exportable key. This path is implemented, but still needs validation on real macOS hardware.
 
-## Current prototype
+## Current capabilities
 
 The working path today is the local probe:
 
@@ -126,7 +174,9 @@ Registration discovery support:
 
 * the MCP can report whether it is registered
 * if not registered, it tells the agent to ask the user for the UnoLock agent key connection URL
+* in the cold-start path, the MCP now prefers that the agent ask for the connection URL and the optional PIN together
 * the agent key connection URL can be submitted and stored locally
+* `unolock_submit_agent_bootstrap` can submit the connection URL and optional PIN in one step
 * the optional agent PIN is held only in MCP process memory and cleared on restart or via `unolock_clear_agent_pin`
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
@@ -151,8 +201,7 @@ Current bootstrap limitation:
 
 ## Testing with a local Safe
 
-When you need a real Safe for local testing, use the browser Playwright harness under
-[`client/e2e-playwright`]( /home/mike/Unolock/client/e2e-playwright/README.md ).
+When you need a real Safe for local testing, use the UnoLock browser Playwright harness from a full UnoLock checkout under `client/e2e-playwright`.
 
 That harness already covers:
 
@@ -190,7 +239,7 @@ Current local fallback behavior:
 For a full local read-only regression run:
 
 ```bash
-./agent-mcp/scripts/run_local_e2e_readonly.sh
+./scripts/run_local_e2e_readonly.sh
 ```
 
 That script:
@@ -204,7 +253,7 @@ That script:
 ## Package layout
 
 ```text
-agent-mcp/
+unolock-agent-mcp/
   docs/
   scripts/
   src/

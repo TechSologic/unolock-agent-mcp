@@ -19,7 +19,7 @@ Each release should:
 
 The package version currently lives in:
 
-* [pyproject.toml](/home/mike/Unolock/agent-mcp/pyproject.toml)
+* [pyproject.toml](../pyproject.toml)
 
 For now, use semantic versioning:
 
@@ -68,7 +68,7 @@ That avoids storing a long-lived PyPI token in repository secrets.
 Local build:
 
 ```bash
-cd agent-mcp
+cd unolock-agent-mcp
 python3 -m pip install --user build
 python3 -m build
 ```

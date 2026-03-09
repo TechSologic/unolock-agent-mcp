@@ -20,7 +20,7 @@ from unolock_mcp.tpm.factory import create_tpm_dao
 class AgentAuthClient:
     def __init__(
         self,
-        flow_client: UnoLockFlowClient,
+        flow_client: UnoLockFlowClient | None,
         session_store: SessionStore,
         registration_store: RegistrationStore,
         tpm_dao: TpmDao | None = None,
@@ -33,6 +33,9 @@ class AgentAuthClient:
         self._agent_pin: str | None = None
         self._pending_server_keys: dict[str, str] = {}
         self._pending_client_data_keys: dict[str, bytes] = {}
+
+    def set_flow_client(self, flow_client: UnoLockFlowClient) -> None:
+        self._flow_client = flow_client
 
     def set_agent_pin(self, pin: str) -> dict[str, Any]:
         self._agent_pin = pin
@@ -140,6 +143,7 @@ class AgentAuthClient:
 
     def start_registration_from_stored_url(self) -> dict[str, Any]:
         registration = self._load_registration()
+        flow_client = self.require_flow_client()
         provider_ready = self._ensure_secure_provider()
         if provider_ready is not None:
             return provider_ready
@@ -154,12 +158,13 @@ class AgentAuthClient:
 
         flow = registration.connection_url.flow or "agentRegister"
         args = registration.connection_url.args or self._build_registration_args(registration)
-        session = self._flow_client.start(flow=flow, args=args)
+        session = flow_client.start(flow=flow, args=args)
         self._session_store.put(session)
         return self._advance_session(session.session_id)
 
     def authenticate_registered_agent(self) -> dict[str, Any]:
         registration = self._load_registration()
+        flow_client = self.require_flow_client()
         provider_mismatch = self._get_provider_mismatch(registration)
         if provider_mismatch is not None:
             return provider_mismatch
@@ -174,7 +179,7 @@ class AgentAuthClient:
                 "registration": registration.summary(),
             }
 
-        session = self._flow_client.start(flow="agentAccess", args=json.dumps({"accessID": access_id}))
+        session = flow_client.start(flow="agentAccess", args=json.dumps({"accessID": access_id}))
         self._session_store.put(session)
         return self._advance_session(session.session_id)
 
@@ -182,6 +187,7 @@ class AgentAuthClient:
         return self._advance_session(session_id)
 
     def _advance_session(self, session_id: str) -> dict[str, Any]:
+        flow_client = self.require_flow_client()
         session = self._session_store.get(session_id)
         registration = self._load_registration()
         steps: list[dict[str, Any]] = []
@@ -251,13 +257,21 @@ class AgentAuthClient:
                     "submitted": handled["submitted"],
                 }
             )
-            session = self._flow_client.continue_flow(
+            session = flow_client.continue_flow(
                 session,
                 callback_type=callback.type,
                 result=handled["result"],
             )
             self._session_store.put(session)
             registration = self._registration_store.load()
+
+    def require_flow_client(self) -> UnoLockFlowClient:
+        if self._flow_client is None:
+            raise ValueError(
+                "UnoLock runtime configuration is not resolved yet. Submit a UnoLock agent key connection URL first "
+                "or provide explicit UnoLock overrides."
+            )
+        return self._flow_client
 
     def _build_auto_response(self, session: FlowSession, registration: RegistrationState) -> dict[str, Any] | None:
         callback = session.current_callback

@@ -1,1 +1,1 @@
-"""Authenticated API clients for the UnoLock MCP prototype."""
+"""Authenticated API clients for the UnoLock Agent MCP."""

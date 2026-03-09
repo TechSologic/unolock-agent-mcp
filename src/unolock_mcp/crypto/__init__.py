@@ -1,1 +1,1 @@
-"""Cryptographic helpers for the UnoLock MCP prototype."""
+"""Cryptographic helpers for the UnoLock Agent MCP."""

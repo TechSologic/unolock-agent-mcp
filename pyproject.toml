@@ -7,14 +7,13 @@ name = "unolock-agent-mcp"
 version = "0.1.0"
 description = "Official UnoLock MCP for AI agents with TPM-backed authentication and zero-knowledge Safe access"
 readme = "README.md"
-license = {text = "Proprietary"}
+license = "LicenseRef-Proprietary"
 requires-python = ">=3.10"
 keywords = ["mcp", "unolock", "ai-agent", "security", "tpm", "webauthn", "zero-knowledge"]
 classifiers = [
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Intended Audience :: End Users/Desktop",
-  "License :: Other/Proprietary License",
   "Operating System :: MacOS",
   "Operating System :: Microsoft :: Windows",
   "Operating System :: POSIX :: Linux",

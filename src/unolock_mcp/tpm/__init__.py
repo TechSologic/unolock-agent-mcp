@@ -1,1 +1,1 @@
-"""TPM DAO abstractions and providers for the UnoLock MCP prototype."""
+"""TPM DAO abstractions and providers for the UnoLock Agent MCP."""

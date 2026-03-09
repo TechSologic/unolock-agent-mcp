@@ -26,6 +26,7 @@ Useful extra command:
 
 ```bash
 python3 -m unolock_mcp tpm-diagnose
+python3 -m unolock_mcp config-check
 ```
 
 ## Option 2: Install From GitHub With `pip`
@@ -71,22 +72,42 @@ unolock-agent-mcp mcp
 
 See:
 
-* [host-config.md](/home/mike/Unolock/agent-mcp/docs/host-config.md)
-* [tool-catalog.md](/home/mike/Unolock/agent-mcp/docs/tool-catalog.md)
+* [host-config.md](host-config.md)
+* [tool-catalog.md](tool-catalog.md)
 
 ## Environment Variables
 
 Common environment variables:
 
-* `UNOLOCK_BASE_URL`
 * `UNOLOCK_TPM_PROVIDER`
+* `UNOLOCK_BASE_URL` override
+* `UNOLOCK_TRANSPARENCY_ORIGIN` override
 * `UNOLOCK_APP_VERSION`
 * `UNOLOCK_SIGNING_PUBLIC_KEY`
+* `UNOLOCK_CONFIG_FILE`
+
+Instead of environment variables, you can also create a config file at:
+
+```text
+~/.config/unolock-agent-mcp/config.json
+```
+
+Override example:
+
+```json
+{
+  "base_url": "https://api.unolock.example",
+  "transparency_origin": "https://safe.unolock.example",
+  "app_version": "1.2.3",
+  "signing_public_key_b64": "BASE64_SERVER_PQ_SIGNING_PUBLIC_KEY"
+}
+```
 
 For most customers:
 
-* `UNOLOCK_BASE_URL` should point at the UnoLock server they are using
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
+* for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, app version, and PQ validation key from the UnoLock agent key connection URL
+* for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
 
 ## Upgrade
 

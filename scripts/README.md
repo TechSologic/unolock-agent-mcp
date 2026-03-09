@@ -17,4 +17,4 @@ Current scripts:
 
 Server-side probes should remain under:
 
-* `/home/mike/Unolock/server/safe-server/scripts/`
+* `server/safe-server/scripts/` in a full UnoLock monorepo checkout

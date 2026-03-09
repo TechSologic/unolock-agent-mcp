@@ -11,7 +11,8 @@ from unolock_mcp.auth.flow_client import UnoLockFlowClient
 from unolock_mcp.auth.local_probe import LocalServerProbe
 from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
-from unolock_mcp.config import load_unolock_config
+from unolock_mcp.config import resolve_unolock_config
+from unolock_mcp.domain.models import UnoLockConfig
 
 
 def _registration_status_payload(
@@ -72,8 +73,9 @@ def _registration_status_payload(
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
-            "Ask the user for the UnoLock agent key connection URL generated for an AI/agent key, "
-            "then call unolock_submit_connection_url."
+            "Ask the user for the UnoLock agent key connection URL and, if they configured one, the UnoLock "
+            "agent PIN at the same time. Then call unolock_submit_agent_bootstrap or submit the connection URL "
+            "and PIN separately."
         )
     else:
         next_action = "start_registration"
@@ -93,21 +95,39 @@ def _registration_status_payload(
 
 
 def create_mcp_server() -> FastMCP:
-    config = load_unolock_config()
-    flow_client = UnoLockFlowClient(config)
     session_store = SessionStore()
-    api_client = UnoLockApiClient(flow_client, session_store)
     registration_store = RegistrationStore()
-    agent_auth = AgentAuthClient(flow_client, session_store, registration_store)
-    readonly_records = UnoLockReadonlyRecordsClient(api_client, agent_auth)
+    agent_auth = AgentAuthClient(None, session_store, registration_store)
+
+    def resolve_runtime_config() -> UnoLockConfig:
+        registration = registration_store.load()
+        resolved = resolve_unolock_config(
+            base_url=registration.api_base_url,
+            transparency_origin=registration.transparency_origin,
+        )
+        if not resolved.is_complete():
+            raise ValueError(
+                "UnoLock runtime configuration is not resolved yet. Submit a UnoLock agent key connection URL first "
+                "or provide UNOLOCK_BASE_URL / UNOLOCK_APP_VERSION / UNOLOCK_SIGNING_PUBLIC_KEY overrides."
+            )
+        return UnoLockConfig(
+            base_url=resolved.base_url or "http://127.0.0.1:3000",
+            app_version=resolved.app_version or "",
+            signing_public_key_b64=resolved.signing_public_key_b64 or "",
+        )
+
+    def ensure_flow_client() -> UnoLockFlowClient:
+        flow_client = UnoLockFlowClient(resolve_runtime_config())
+        agent_auth.set_flow_client(flow_client)
+        return flow_client
 
     server = FastMCP(
         name="UnoLock Agent MCP",
         instructions=(
             "Use this server to probe UnoLock callback compatibility, start UnoLock auth flows, "
             "continue flow callbacks, and call a small set of authenticated UnoLock API actions. "
-            "If registration is not configured, ask the user for the UnoLock agent key connection URL and "
-            "submit it with unolock_submit_connection_url."
+            "If registration is not configured, ask the user for the UnoLock agent key connection URL and the "
+            "optional agent PIN together when possible, then submit them with unolock_submit_agent_bootstrap."
         ),
     )
 
@@ -131,8 +151,9 @@ def create_mcp_server() -> FastMCP:
                 "role": "user",
                 "content": (
                     "If UnoLock registration is not configured, ask the user to provide the UnoLock "
-                    "agent key connection URL for AI/agent registration. Once the user gives you that URL, call "
-                    "unolock_submit_connection_url with it."
+                    "agent key connection URL for AI/agent registration and, if they configured one, the UnoLock "
+                    "agent PIN at the same time. Once the user gives you those values, call "
+                    "unolock_submit_agent_bootstrap."
                 ),
             }
         ]
@@ -142,11 +163,15 @@ def create_mcp_server() -> FastMCP:
         description="Run the UnoLock local /start probe and return the next callback after PQ negotiation.",
     )
     def probe_local_server(
-        base_url: str = config.base_url,
+        base_url: str = "http://127.0.0.1:3000",
         flow: str = "access",
-        app_version: str = config.app_version,
-        signing_public_key: str = config.signing_public_key_b64,
+        app_version: str = "",
+        signing_public_key: str = "",
     ) -> dict[str, Any]:
+        if not app_version or not signing_public_key:
+            resolved = resolve_unolock_config(base_url=base_url)
+            app_version = app_version or resolved.app_version or ""
+            signing_public_key = signing_public_key or resolved.signing_public_key_b64 or ""
         probe = LocalServerProbe(
             base_url=base_url,
             app_version=app_version,
@@ -202,6 +227,29 @@ def create_mcp_server() -> FastMCP:
         return agent_auth.submit_connection_url(connection_url)
 
     @server.tool(
+        name="unolock_submit_agent_bootstrap",
+        description=(
+            "Accept the UnoLock agent key connection URL and an optional agent PIN together. "
+            "This is the preferred cold-start bootstrap tool."
+        ),
+    )
+    def submit_agent_bootstrap(connection_url: str, pin: str | None = None) -> dict[str, Any]:
+        status = agent_auth.submit_connection_url(connection_url)
+        if status.get("ok") is False or status.get("blocked"):
+            return status
+        if pin:
+            status = agent_auth.set_agent_pin(pin)
+        return {
+            "ok": True,
+            "registration": registration_store.load().summary(),
+            "runtime": agent_auth.runtime_status(),
+            "message": (
+                "UnoLock agent bootstrap material was accepted. If registration is not complete yet, "
+                "call unolock_bootstrap_agent."
+            ),
+        }
+
+    @server.tool(
         name="unolock_clear_connection_url",
         description="Clear the locally stored UnoLock agent key connection URL.",
     )
@@ -227,6 +275,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def start_registration_from_connection_url() -> dict[str, Any]:
+        ensure_flow_client()
         return agent_auth.start_registration_from_stored_url()
 
     @server.tool(
@@ -237,6 +286,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def continue_agent_session(session_id: str) -> dict[str, Any]:
+        ensure_flow_client()
         return agent_auth.advance_session(session_id)
 
     @server.tool(
@@ -247,6 +297,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def authenticate_agent() -> dict[str, Any]:
+        ensure_flow_client()
         return agent_auth.authenticate_registered_agent()
 
     @server.tool(
@@ -258,6 +309,7 @@ def create_mcp_server() -> FastMCP:
     )
     def bootstrap_agent() -> dict[str, Any]:
         status = _registration_status_payload(registration_store, session_store, agent_auth)
+        ensure_flow_client()
         if not status.get("has_connection_url"):
             return {
                 "ok": False,
@@ -282,6 +334,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def start_flow(flow: str = "access", args: str | None = None) -> dict[str, Any]:
+        flow_client = ensure_flow_client()
         session = flow_client.start(flow=flow, args=args)
         session_store.put(session)
         return session.summary()
@@ -302,6 +355,7 @@ def create_mcp_server() -> FastMCP:
         message: list[str] | None = None,
     ) -> dict[str, Any]:
         session = session_store.get(session_id)
+        flow_client = ensure_flow_client()
         updated = flow_client.continue_flow(
             session,
             callback_type=callback_type,
@@ -349,6 +403,7 @@ def create_mcp_server() -> FastMCP:
         reason: str | None = None,
         message: list[str] | None = None,
     ) -> dict[str, Any]:
+        api_client = UnoLockApiClient(ensure_flow_client(), session_store)
         return api_client.call_action(
             session_id,
             action=action,
@@ -363,6 +418,7 @@ def create_mcp_server() -> FastMCP:
         description="Call UnoLock GetSpaces for an authenticated session.",
     )
     def get_spaces(session_id: str) -> dict[str, Any]:
+        api_client = UnoLockApiClient(ensure_flow_client(), session_store)
         return api_client.get_spaces(session_id)
 
     @server.tool(
@@ -370,6 +426,7 @@ def create_mcp_server() -> FastMCP:
         description="Call UnoLock GetArchives for an authenticated session.",
     )
     def get_archives(session_id: str) -> dict[str, Any]:
+        api_client = UnoLockApiClient(ensure_flow_client(), session_store)
         return api_client.get_archives(session_id)
 
     @server.tool(
@@ -377,6 +434,7 @@ def create_mcp_server() -> FastMCP:
         description="List UnoLock spaces with record counts for an authenticated session.",
     )
     def list_spaces(session_id: str) -> dict[str, Any]:
+        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
         return readonly_records.list_spaces(session_id)
 
     @server.tool(
@@ -393,6 +451,7 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
+        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
         return readonly_records.list_records(
             session_id,
             kind=kind,
@@ -411,6 +470,7 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
+        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
         return readonly_records.list_records(
             session_id,
             kind="note",
@@ -429,6 +489,7 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
+        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
         return readonly_records.list_records(
             session_id,
             kind="checklist",
@@ -445,6 +506,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def get_record(session_id: str, record_ref: str) -> dict[str, Any]:
+        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
         return readonly_records.get_record(session_id, record_ref)
 
     return server

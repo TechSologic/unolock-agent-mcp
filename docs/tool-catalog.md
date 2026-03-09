@@ -5,7 +5,7 @@ This document describes the current UnoLock Agent MCP tool surface for the worki
 The recommended lifecycle is:
 
 1. Check registration and TPM readiness.
-2. Ask the user for an UnoLock agent key connection URL if needed.
+2. Ask the user for an UnoLock agent key connection URL and, if configured, the agent PIN if needed.
 3. Register or authenticate the agent.
 4. Use read-only space and record tools.
 
@@ -74,6 +74,26 @@ Common failure response:
 
 * `reason: wrong_connection_url_type`
   Used when the user provides a normal `#/register/...` key URL instead of an agent key URL.
+
+### `unolock_submit_agent_bootstrap`
+
+Purpose:
+Store the UnoLock agent key connection URL and an optional agent PIN together in one step.
+
+Arguments:
+
+* `connection_url: str`
+* `pin: str | null`
+
+Typical use:
+
+* cold start
+* reduce one round trip by asking the user for the connection URL and PIN together
+
+Notes:
+
+* the PIN remains in process memory only
+* if no PIN was configured for the agent key, omit it
 
 ### `unolock_clear_connection_url`
 

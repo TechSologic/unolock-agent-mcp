@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from unolock_mcp.config import derive_api_base_url
 from unolock_mcp.domain.models import ConnectionUrlInfo, RegistrationState
 
 
@@ -31,6 +32,8 @@ class RegistrationStore:
             key_id=raw.get("key_id"),
             bootstrap_secret=raw.get("bootstrap_secret"),
             tpm_provider=raw.get("tpm_provider"),
+            api_base_url=raw.get("api_base_url"),
+            transparency_origin=raw.get("transparency_origin"),
         )
 
     def save(self, state: RegistrationState) -> RegistrationState:
@@ -54,6 +57,8 @@ class RegistrationStore:
             key_id=None,
             bootstrap_secret=None,
             tpm_provider=None,
+            api_base_url=sanitized.api_base_url,
+            transparency_origin=sanitized.site_origin,
         )
         return self.save(state)
 
@@ -69,6 +74,8 @@ class RegistrationStore:
             key_id=current.key_id,
             bootstrap_secret=current.bootstrap_secret,
             tpm_provider=current.tpm_provider,
+            api_base_url=current.api_base_url,
+            transparency_origin=current.transparency_origin,
         )
         return self.save(state)
 
@@ -97,17 +104,24 @@ class RegistrationStore:
             key_id=key_id or current.key_id,
             bootstrap_secret=bootstrap_secret if bootstrap_secret is not None else current.bootstrap_secret,
             tpm_provider=tpm_provider or current.tpm_provider,
+            api_base_url=current.api_base_url or (current.connection_url.api_base_url if current.connection_url else None),
+            transparency_origin=current.transparency_origin or (current.connection_url.site_origin if current.connection_url else None),
         )
         return self.save(state)
 
 
 def parse_connection_url(connection_url: str) -> ConnectionUrlInfo:
     parsed = urlparse(connection_url.strip())
+    site_origin = f"{parsed.scheme}://{parsed.netloc}" if parsed.scheme and parsed.netloc else None
+    api_base_url = derive_api_base_url(site_origin)
     query = parse_qs(parsed.query)
     if parsed.fragment:
         hash_info = _parse_hash_connection_url(connection_url, parsed.fragment)
         if hash_info:
-            return hash_info
+            merged = asdict_without_raw(hash_info)
+            merged["site_origin"] = hash_info.site_origin or site_origin
+            merged["api_base_url"] = hash_info.api_base_url or api_base_url
+            return ConnectionUrlInfo(raw_url=connection_url, **merged)
 
     flow = _first(query, "type")
     args = _first(query, "args")
@@ -117,6 +131,8 @@ def parse_connection_url(connection_url: str) -> ConnectionUrlInfo:
             raw_url=connection_url,
             flow=flow,
             args=args,
+            site_origin=site_origin,
+            api_base_url=api_base_url,
             registration_code=registration_code,
             source="query",
         )
@@ -125,6 +141,8 @@ def parse_connection_url(connection_url: str) -> ConnectionUrlInfo:
         raw_url=connection_url,
         flow=None,
         args=None,
+        site_origin=site_origin,
+        api_base_url=api_base_url,
         source="raw",
     )
 
@@ -153,6 +171,8 @@ def _parse_hash_connection_url(connection_url: str, fragment: str) -> Connection
             args=args,
             action=action,
             access_id=access_id,
+            site_origin=None,
+            api_base_url=None,
             passphrase=bootstrap_secret,
             registration_code=registration_code,
             source="hash",
@@ -165,6 +185,8 @@ def _parse_hash_connection_url(connection_url: str, fragment: str) -> Connection
                 raw_url=connection_url,
                 flow="createFIDO2",
                 args=args,
+                site_origin=None,
+                api_base_url=None,
                 source="hash",
             )
         return None
@@ -178,6 +200,8 @@ def _parse_hash_connection_url(connection_url: str, fragment: str) -> Connection
         args=None,
         action=action,
         access_id=access_id,
+        site_origin=None,
+        api_base_url=None,
         passphrase=passphrase,
         key_name=key_name,
         source="hash",
@@ -217,8 +241,25 @@ def _sanitize_connection_info(info: ConnectionUrlInfo) -> ConnectionUrlInfo:
         args=sanitized_args,
         action=info.action,
         access_id=info.access_id,
+        site_origin=info.site_origin,
+        api_base_url=info.api_base_url,
         passphrase=None,
         key_name=info.key_name,
         registration_code=info.registration_code,
         source=info.source,
     )
+
+
+def asdict_without_raw(info: ConnectionUrlInfo) -> dict[str, Any]:
+    return {
+        "flow": info.flow,
+        "args": info.args,
+        "action": info.action,
+        "access_id": info.access_id,
+        "site_origin": info.site_origin,
+        "api_base_url": info.api_base_url,
+        "passphrase": info.passphrase,
+        "key_name": info.key_name,
+        "registration_code": info.registration_code,
+        "source": info.source,
+    }

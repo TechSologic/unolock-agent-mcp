@@ -1,0 +1,6 @@
+{
+  "base_url": "https://api.unolock.example",
+  "transparency_origin": "https://safe.unolock.example",
+  "app_version": "SET_THIS_TO_THE_UNOLOCK_SERVER_VERSION",
+  "signing_public_key_b64": "SET_THIS_TO_THE_UNOLOCK_SERVER_PQ_SIGNING_PUBLIC_KEY"
+}

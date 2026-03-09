@@ -1,6 +1,6 @@
 # Testing With A Local Safe
 
-The agent/MCP prototype must not create Safes.
+The agent/MCP must not create Safes.
 
 That boundary is intentional:
 
@@ -10,9 +10,7 @@ That boundary is intentional:
 
 ## Local test setup
 
-Use the existing browser Playwright suite in
-[client/e2e-playwright](/home/mike/Unolock/client/e2e-playwright/README.md)
-to create and validate a local Safe.
+Use the existing browser Playwright suite from a full UnoLock checkout in `client/e2e-playwright` to create and validate a local Safe.
 
 Relevant entrypoints:
 
@@ -31,7 +29,7 @@ The create-safe harness can also emit an agent registration artifact:
 
 ```bash
 E2E_AGENT_BOOTSTRAP_OUTPUT_FILE=/tmp/unolock-agent-bootstrap.json \
-npm --prefix client/e2e-playwright run test:create-safe
+npm --prefix /path/to/Unolock/client/e2e-playwright run test:create-safe
 ```
 
 The JSON artifact contains the UnoLock agent key connection URL that can be handed to the MCP.
@@ -51,7 +49,7 @@ Use the browser test harness for:
 * provisioning browser-side passkeys
 * validating normal human Safe lifecycle behavior
 
-Use `agent-mcp` for:
+Use `unolock-agent-mcp` for:
 
 * probing live `/start` compatibility
 * implementing agent registration

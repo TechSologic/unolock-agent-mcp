@@ -14,6 +14,18 @@ class UnoLockConfig:
 
 
 @dataclass(frozen=True)
+class UnoLockResolvedConfig:
+    base_url: str | None
+    transparency_origin: str | None
+    app_version: str | None
+    signing_public_key_b64: str | None
+    sources: dict[str, str]
+
+    def is_complete(self) -> bool:
+        return bool(self.base_url and self.app_version and self.signing_public_key_b64)
+
+
+@dataclass(frozen=True)
 class PqExchangeRequest:
     public_key_b64: str
     signature_b64: str
@@ -103,6 +115,8 @@ class ConnectionUrlInfo:
     args: str | None
     action: str | None = None
     access_id: str | None = None
+    site_origin: str | None = None
+    api_base_url: str | None = None
     passphrase: str | None = None
     key_name: str | None = None
     registration_code: str | None = None
@@ -114,6 +128,8 @@ class ConnectionUrlInfo:
             "has_args": self.args is not None,
             "action": self.action,
             "access_id": self.access_id,
+            "site_origin": self.site_origin,
+            "api_base_url": self.api_base_url,
             "has_passphrase": self.passphrase is not None,
             "key_name": self.key_name,
             "has_registration_code": self.registration_code is not None,
@@ -133,6 +149,8 @@ class RegistrationState:
     key_id: str | None = None
     bootstrap_secret: str | None = None
     tpm_provider: str | None = None
+    api_base_url: str | None = None
+    transparency_origin: str | None = None
 
     def summary(self) -> dict[str, Any]:
         return {
@@ -146,6 +164,8 @@ class RegistrationState:
             "session_id": self.session_id,
             "registered_at": self.registered_at,
             "tpm_provider": self.tpm_provider,
+            "api_base_url": self.api_base_url,
+            "transparency_origin": self.transparency_origin,
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
                 "If registration is needed, ask the user for the UnoLock agent key connection URL and pass it to "

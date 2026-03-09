@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 import urllib.request
 
+from unolock_mcp import __version__ as MCP_VERSION
+
 
 class HttpClient:
     def __init__(self, base_url: str, app_version: str) -> None:
@@ -13,6 +15,8 @@ class HttpClient:
     def default_headers(self) -> dict[str, str]:
         return {
             "x-app-version": self._app_version,
+            "x-unolock-agent-mcp-version": MCP_VERSION,
+            "User-Agent": f"unolock-agent-mcp/{MCP_VERSION}",
             "Content-Type": "application/json",
         }
 

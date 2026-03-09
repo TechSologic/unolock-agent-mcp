@@ -4,6 +4,7 @@ import argparse
 import json
 import sys
 
+from unolock_mcp import __version__ as MCP_VERSION
 from unolock_mcp.api.client import UnoLockApiClient
 from unolock_mcp.api.records import UnoLockReadonlyRecordsClient
 from unolock_mcp.auth.agent_auth import AgentAuthClient
@@ -11,23 +12,26 @@ from unolock_mcp.auth.flow_client import UnoLockFlowClient
 from unolock_mcp.auth.local_probe import LocalServerProbe
 from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
-from unolock_mcp.config import load_unolock_config
+from unolock_mcp.config import default_config_path, load_unolock_config, resolve_unolock_config
+from unolock_mcp.domain.models import UnoLockConfig
 from unolock_mcp.mcp.server import create_mcp_server
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="UnoLock agent prototype commands.")
+    parser = argparse.ArgumentParser(description="UnoLock Agent MCP commands.")
+    parser.add_argument("--version", action="version", version=f"%(prog)s {MCP_VERSION}")
+    parser.add_argument("--base-url", default=None)
+    parser.add_argument("--transparency-origin", default=None)
+    parser.add_argument("--app-version", default=None)
+    parser.add_argument("--signing-public-key", default=None)
     subparsers = parser.add_subparsers(dest="command", required=False)
 
     probe_parser = subparsers.add_parser(
         "probe",
         help="Run the UnoLock local-server PQ probe.",
-        description="Run the UnoLock agent prototype probe against a live local server.",
+        description="Run the UnoLock agent probe against a live local server.",
     )
-    probe_parser.add_argument("--base-url", default=None)
     probe_parser.add_argument("--flow", default="access")
-    probe_parser.add_argument("--app-version", default=None)
-    probe_parser.add_argument("--signing-public-key", default=None)
 
     mcp_parser = subparsers.add_parser(
         "mcp",
@@ -59,6 +63,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Diagnose TPM/vTPM readiness for the UnoLock agent MCP.",
         description="Inspect the active TPM DAO and host TPM/vTPM signals and print advice.",
     )
+
+    subparsers.add_parser(
+        "config-check",
+        help="Show the resolved UnoLock runtime configuration and missing values.",
+        description="Inspect UnoLock MCP configuration sources from arguments, environment, config file, and repo auto-discovery.",
+    )
     return parser
 
 
@@ -72,22 +82,53 @@ def main(argv: list[str] | None = None) -> int:
         server.run(args.transport)
         return 0
 
-    config = load_unolock_config(
-        base_url=getattr(args, "base_url", None),
-        app_version=getattr(args, "app_version", None),
-        signing_public_key_b64=getattr(args, "signing_public_key", None),
-    )
+    if command == "config-check":
+        registration = RegistrationStore().load()
+        resolved = resolve_unolock_config(
+            base_url=args.base_url or registration.api_base_url,
+            transparency_origin=args.transparency_origin or registration.transparency_origin,
+            app_version=args.app_version,
+            signing_public_key_b64=args.signing_public_key,
+        )
+        payload = {
+            "ok": resolved.is_complete(),
+            "mcp_version": MCP_VERSION,
+            "config_file": str(default_config_path()),
+            "resolved": {
+                "base_url": resolved.base_url,
+                "transparency_origin": resolved.transparency_origin,
+                "app_version": resolved.app_version,
+                "signing_public_key_b64": "<redacted>" if resolved.signing_public_key_b64 else None,
+            },
+            "sources": resolved.sources,
+            "missing": [
+                key for key, value in {
+                    "app_version": resolved.app_version,
+                    "signing_public_key_b64": resolved.signing_public_key_b64,
+                }.items() if not value
+            ],
+            "guidance": (
+                "In the normal flow, submit a UnoLock agent key connection URL and let the MCP derive the server "
+                "origin, app version, and PQ validation key automatically. Use environment variables or the config "
+                "file only for overrides and custom deployments."
+            ),
+        }
+        print(json.dumps(payload, indent=2))
+        return 0 if payload["ok"] else 1
 
-    probe = LocalServerProbe(
-        base_url=config.base_url,
-        app_version=config.app_version,
-        signing_public_key_b64=config.signing_public_key_b64,
-    )
+    def resolve_runtime_config(registration_store: RegistrationStore) -> UnoLockConfig:
+        registration = registration_store.load()
+        return load_unolock_config(
+            base_url=args.base_url or registration.api_base_url,
+            transparency_origin=args.transparency_origin or registration.transparency_origin,
+            app_version=args.app_version,
+            signing_public_key_b64=args.signing_public_key,
+        )
+
     if command == "bootstrap":
-        flow_client = UnoLockFlowClient(config)
         session_store = SessionStore()
         registration_store = RegistrationStore()
-        agent_auth = AgentAuthClient(flow_client, session_store, registration_store)
+        agent_auth = AgentAuthClient(None, session_store, registration_store)
         if args.connection_url:
             status = agent_auth.submit_connection_url(args.connection_url)
             if status.get("ok") is False or status.get("blocked"):
@@ -95,6 +136,9 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
         if args.pin:
             agent_auth.set_agent_pin(args.pin)
+
+        flow_client = UnoLockFlowClient(resolve_runtime_config(registration_store))
+        agent_auth.set_flow_client(flow_client)
 
         registration = registration_store.load()
         if not registration.registered:
@@ -115,22 +159,32 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if result.get("ok") and result.get("authorized") else 1
 
     if command == "disconnect":
-        flow_client = UnoLockFlowClient(config)
         session_store = SessionStore()
         registration_store = RegistrationStore()
-        agent_auth = AgentAuthClient(flow_client, session_store, registration_store)
+        agent_auth = AgentAuthClient(None, session_store, registration_store)
         result = agent_auth.disconnect()
         print(json.dumps(result, indent=2))
         return 0
 
     if command == "tpm-diagnose":
-        flow_client = UnoLockFlowClient(config)
         session_store = SessionStore()
         registration_store = RegistrationStore()
-        agent_auth = AgentAuthClient(flow_client, session_store, registration_store)
+        agent_auth = AgentAuthClient(None, session_store, registration_store)
         diagnostics = agent_auth.tpm_diagnostics()
         print(json.dumps(diagnostics, indent=2))
         return 0 if diagnostics.get("production_ready") else 1
+
+    config = load_unolock_config(
+        base_url=args.base_url,
+        transparency_origin=args.transparency_origin,
+        app_version=args.app_version,
+        signing_public_key_b64=args.signing_public_key,
+    )
+    probe = LocalServerProbe(
+        base_url=config.base_url,
+        app_version=config.app_version,
+        signing_public_key_b64=config.signing_public_key_b64,
+    )
 
     result = probe.run(flow=getattr(args, "flow", "access"))
     print(LocalServerProbe.to_json(result))

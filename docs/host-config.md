@@ -11,26 +11,31 @@ Checked against the official host docs on 2026-03-08:
 
 ## Recommended install mode
 
-For the current prototype, install from the UnoLock repo checkout itself:
+For customer use, install the MCP as a standalone package:
 
 ```bash
-cd /path/to/Unolock/agent-mcp
-python3 -m pip install --user -e .
+pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 ```
 
-That matters because the MCP can then auto-resolve:
+If you are running outside a UnoLock monorepo checkout, the MCP can normally derive the UnoLock server origin, app version, and PQ validation key from the UnoLock agent key connection URL itself. In most cases, the only host-level setting you should need is:
 
-* `UNOLOCK_APP_VERSION`
-* `UNOLOCK_SIGNING_PUBLIC_KEY`
-
-from the local UnoLock repo.
-
-If you run the package outside the UnoLock repo, set these environment variables explicitly:
-
-* `UNOLOCK_BASE_URL`
-* `UNOLOCK_APP_VERSION`
-* `UNOLOCK_SIGNING_PUBLIC_KEY`
 * optionally `UNOLOCK_TPM_PROVIDER`
+
+Use explicit config only when you need overrides or you are connecting to a custom deployment that does not publish the standard hosted metadata.
+
+You can also place them in:
+
+```text
+~/.config/unolock-agent-mcp/config.json
+```
+
+and verify the resolved values with:
+
+```bash
+python3 -m unolock_mcp config-check
+```
+
+For the standard hosted UnoLock deployment, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published app version and PQ validation key automatically.
 
 TPM provider modes:
 
@@ -66,7 +71,6 @@ Example snippet:
       "command": "/home/you/.local/bin/unolock-agent-mcp",
       "args": ["mcp"],
       "env": {
-        "UNOLOCK_BASE_URL": "http://127.0.0.1:3000",
         "UNOLOCK_TPM_PROVIDER": "auto"
       }
     }
@@ -77,10 +81,9 @@ Example snippet:
 Notes:
 
 * If `unolock-agent-mcp` is already on your `PATH`, you can use `"command": "unolock-agent-mcp"`.
-* For local development, keep `UNOLOCK_BASE_URL` pointed at the local SAM server.
-* If the install is not tied to the UnoLock repo checkout, also set:
-  * `UNOLOCK_APP_VERSION`
-  * `UNOLOCK_SIGNING_PUBLIC_KEY`
+* For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
+* For hosted UnoLock, the connection URL is enough for the MCP to resolve the published app version and PQ validation key automatically.
+* For custom deployments, set `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, `UNOLOCK_APP_VERSION`, or `UNOLOCK_SIGNING_PUBLIC_KEY` only when overrides are needed.
 
 ## Cursor
 
@@ -99,7 +102,6 @@ Example snippet:
       "command": "unolock-agent-mcp",
       "args": ["mcp"],
       "env": {
-        "UNOLOCK_BASE_URL": "http://127.0.0.1:3000",
         "UNOLOCK_TPM_PROVIDER": "auto"
       }
     }
@@ -117,7 +119,6 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
       "command": "${env:HOME}/.local/bin/unolock-agent-mcp",
       "args": ["mcp"],
       "env": {
-        "UNOLOCK_BASE_URL": "http://127.0.0.1:3000",
         "UNOLOCK_TPM_PROVIDER": "auto"
       }
     }
@@ -130,9 +131,9 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 Once the host can launch the MCP:
 
 1. Ask the MCP for registration status.
-2. If it says a connection URL is needed, ask the user for the UnoLock agent key connection URL.
-3. Submit the URL to the MCP.
-4. If the Safe uses an agent PIN, ask the user for it and set it in MCP memory.
+2. If it says a connection URL is needed, ask the user for the UnoLock agent key connection URL and, if they configured one, the agent PIN at the same time.
+3. Submit them to the MCP with `unolock_submit_agent_bootstrap`.
+4. If the PIN was not collected up front and the Safe later asks for it, set it in MCP memory.
 5. Call the one-shot bootstrap/auth flow.
 6. Start using read-only tools.
 
@@ -147,6 +148,7 @@ Relevant tools:
 
 * `unolock_get_registration_status`
 * `unolock_get_tpm_diagnostics`
+* `unolock_submit_agent_bootstrap`
 * `unolock_submit_connection_url`
 * `unolock_set_agent_pin`
 * `unolock_bootstrap_agent`
@@ -180,7 +182,6 @@ With the default Playwright PIN automation settings, the test PIN is:
 Before trusting the MCP in production, run:
 
 ```bash
-cd /path/to/Unolock/agent-mcp
 python3 -m unolock_mcp tpm-diagnose
 ```
 

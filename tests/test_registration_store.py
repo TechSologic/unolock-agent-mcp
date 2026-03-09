@@ -28,6 +28,8 @@ class RegistrationStoreTest(unittest.TestCase):
         self.assertEqual(parsed.access_id, access_id)
         self.assertEqual(parsed.registration_code, registration_code)
         self.assertEqual(parsed.passphrase, bootstrap_secret)
+        self.assertEqual(parsed.site_origin, "http://localhost:4200")
+        self.assertEqual(parsed.api_base_url, "http://127.0.0.1:3000")
         self.assertIsNotNone(parsed.args)
         self.assertIn(access_id, parsed.args or "")
         self.assertIn(registration_code, parsed.args or "")
@@ -62,6 +64,8 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertEqual(state.access_id, "aid")
             self.assertIsNone(state.bootstrap_secret)
             self.assertFalse(state.summary()["has_connection_url"])
+            self.assertEqual(state.api_base_url, "http://127.0.0.1:3000")
+            self.assertEqual(state.transparency_origin, "http://localhost:4200")
 
     def test_new_connection_url_resets_stale_registration_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
