@@ -61,7 +61,8 @@ macOS note:
 
 * on macOS, `auto` will prefer the Secure Enclave provider when the helper can create a Secure Enclave key
 * the current implementation uses a small Swift helper that talks to Security.framework
-* this path is implemented but still needs validation on a real Secure Enclave-capable Mac
+* install Apple Xcode Command Line Tools first with `xcode-select --install`
+* for a first customer trial, start with [macos.md](macos.md)
 
 ## Claude Desktop
 

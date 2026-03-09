@@ -6,6 +6,47 @@ Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
+## macOS Quick Start
+
+If you are installing on a Secure Enclave-capable Mac, especially Apple Silicon:
+
+1. Install Apple Xcode Command Line Tools:
+
+```bash
+xcode-select --install
+```
+
+2. Install `pipx` if you do not already have it:
+
+```bash
+python3 -m pip install --user pipx
+python3 -m pipx ensurepath
+```
+
+3. Install the MCP:
+
+```bash
+pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
+```
+
+4. Verify Secure Enclave readiness:
+
+```bash
+python3 -m unolock_mcp tpm-diagnose
+```
+
+Expected production-ready provider on macOS:
+
+* `mac-secure-enclave`
+
+Then configure your MCP host to launch:
+
+```bash
+unolock-agent-mcp mcp
+```
+
+The agent should then ask the user for the UnoLock Agent Key connection URL and optional PIN.
+
 ## Recommended Install Method
 
 For most customers, use `pipx` so the MCP is installed into an isolated environment but still exposes a normal command on `PATH`.

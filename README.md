@@ -36,6 +36,7 @@ Run this from the repo root after the local server is up on `http://127.0.0.1:30
 For real MCP hosts, see:
 
 * [Install Guide](docs/install.md)
+* [macOS Quick Start](docs/macos.md)
 * [MCP Host Config](docs/host-config.md)
 * [Support Matrix](docs/support-matrix.md)
 * [Tool Catalog](docs/tool-catalog.md)
@@ -55,6 +56,10 @@ python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --p
 python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
 ```
+
+For a first customer trial on Apple Silicon macOS, start with:
+
+* [macOS Quick Start](docs/macos.md)
 
 The first `liboqs-python` run may build `liboqs` under your home directory. That can take a few minutes.
 
