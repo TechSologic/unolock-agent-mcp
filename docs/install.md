@@ -80,6 +80,7 @@ See:
 Common environment variables:
 
 * `UNOLOCK_TPM_PROVIDER`
+* `UNOLOCK_ALLOW_INSECURE_PROVIDER` development-only override
 * `UNOLOCK_BASE_URL` override
 * `UNOLOCK_TRANSPARENCY_ORIGIN` override
 * `UNOLOCK_APP_VERSION`
@@ -108,6 +109,8 @@ For most customers:
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
 * for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, app version, and PQ validation key from the UnoLock agent key connection URL
 * for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
+* if no production-ready TPM, vTPM, or platform-backed provider is available, the MCP now fails closed by default
+* `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is for development only
 
 ## Upgrade
 

@@ -110,7 +110,7 @@ TPM provider selection:
 * force macOS Secure Enclave provider: `UNOLOCK_TPM_PROVIDER=mac`
 * force Windows TPM helper provider: `UNOLOCK_TPM_PROVIDER=windows`
 
-On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host. This has been validated on this local WSL2 setup with live key creation and challenge signing. If that path fails, it falls back to the test TPM provider.
+On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host. This has been validated on this local WSL2 setup with live key creation and challenge signing. If that path fails, the MCP now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set for development.
 
 On macOS, `auto` now prefers the Secure Enclave provider when the Swift/Xcode command-line toolchain is available and the helper can create a non-exportable key. This path is implemented, but still needs validation on real macOS hardware.
 
@@ -180,7 +180,7 @@ Registration discovery support:
 * the optional agent PIN is held only in MCP process memory and cleared on restart or via `unolock_clear_agent_pin`
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
-* the test TPM provider still persists a local ECDSA P-256 key so development registration/auth survive MCP restarts
+* the test TPM provider still exists for development, but it now requires `UNOLOCK_ALLOW_INSECURE_PROVIDER=1`
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating

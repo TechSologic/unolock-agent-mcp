@@ -39,17 +39,22 @@ For the standard hosted UnoLock deployment, no UnoLock runtime env vars are requ
 
 TPM provider modes:
 
-* `auto`: prefer a real TPM-backed provider for the current host, otherwise fall back to the test TPM provider
-* `test`: always use the test TPM provider
+* `auto`: require a production-ready TPM, vTPM, or platform-backed provider for the current host
+* `test`: force the test TPM provider for development only
 * `linux`: force the Linux TPM/vTPM provider
 * `mac`: force the macOS Secure Enclave provider
 * `windows`: force the Windows TPM helper provider
+
+Development-only override:
+
+* `UNOLOCK_ALLOW_INSECURE_PROVIDER=1`
+  allows the `test` provider and insecure fallback behavior for local development only
 
 WSL2 note:
 
 * WSL2 usually does not expose `/dev/tpmrm0` or `/dev/tpm0`
 * on WSL2, `auto` now prefers the Windows TPM helper provider
-* if the Windows helper cannot create TPM-backed keys, `auto` falls back to the test provider
+* if the Windows helper cannot create TPM-backed keys, `auto` now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set
 * for production use, WSL2 should use the Windows TPM helper path, not the Linux TPM path
 
 macOS note:
