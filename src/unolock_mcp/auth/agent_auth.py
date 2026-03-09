@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import secrets
+from datetime import datetime, timezone
 from typing import Any
 
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
@@ -448,14 +449,28 @@ class AgentAuthClient:
             aidk_keyring.init_with_safe_access_master_key(aidk)
             wrapped_server_key = aidk_keyring.encrypt_server_metadata_key(server_key)
             wrapped_client_key = aidk_keyring.encrypt_client_data_master_key(client_data_key)
+            data_keyring = self._get_data_keyring(access_id)
+            if data_keyring is None:
+                return {
+                    "blocked": True,
+                    "reason": "missing_data_keyring",
+                    "message": (
+                        "The MCP does not have the client data keyring needed to encrypt the agent assurance data."
+                    ),
+                }
+            device_assurance_enc = data_keyring.encrypt_string(
+                json.dumps(self._build_device_assurance_summary(key_id=self._resolve_key_id(registration, access_id)))
+            )
             return {
                 "result": {
                     "wrappedServerKey": wrapped_server_key,
                     "wrappedClientKey": wrapped_client_key,
+                    "deviceAssuranceEnc": device_assurance_enc,
                 },
                 "submitted": {
                     "wrappedServerKey": "<redacted>",
                     "wrappedClientKey": "<redacted>",
+                    "deviceAssuranceEnc": "<redacted>",
                 },
             }
 
@@ -709,6 +724,27 @@ class AgentAuthClient:
             ),
             "tpm_provider": self._tpm.provider_name(),
             "tpm_diagnostics": diagnostics.to_dict(),
+        }
+
+    def _build_device_assurance_summary(self, key_id: str) -> dict[str, Any]:
+        binding_info = self._tpm.get_binding_info(key_id)
+        diagnostics = self._tpm.diagnose()
+        return {
+            "scheme": "agent-mcp",
+            "provider": self._tpm.provider_name(),
+            "recordedAt": datetime.now(timezone.utc).isoformat(),
+            "binding": {
+                "protection": binding_info.protection,
+                "deviceBinding": binding_info.device_binding,
+                "exportable": binding_info.exportable,
+                "attestationSupported": binding_info.attestation_supported,
+            },
+            "diagnostics": {
+                "providerType": diagnostics.provider_type,
+                "productionReady": diagnostics.production_ready,
+                "available": diagnostics.available,
+                "summary": diagnostics.summary,
+            },
         }
 
     @staticmethod
