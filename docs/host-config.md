@@ -130,11 +130,18 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 Once the host can launch the MCP:
 
 1. Ask the MCP for registration status.
-2. If it says a connection URL is needed, ask the user for the UnoLock connection URL.
+2. If it says a connection URL is needed, ask the user for the UnoLock agent key connection URL.
 3. Submit the URL to the MCP.
 4. If the Safe uses an agent PIN, ask the user for it and set it in MCP memory.
 5. Call the one-shot bootstrap/auth flow.
 6. Start using read-only tools.
+
+After the MCP process restarts:
+
+1. Ask the MCP for registration status again.
+2. If it reports `authenticate_or_set_pin`, ask the user for the agent PIN.
+3. Set the PIN in MCP memory.
+4. Authenticate and continue using read-only tools.
 
 Relevant tools:
 
@@ -188,4 +195,4 @@ The diagnostic reports:
 If the MCP reports a TPM provider mismatch after you change hosts or switch `UNOLOCK_TPM_PROVIDER`, either:
 
 * re-run the MCP with the provider that originally registered the agent key
-* or generate a fresh UnoLock connection URL and register a new agent credential with the current provider
+* or generate a fresh UnoLock agent key connection URL and register a new agent credential with the current provider

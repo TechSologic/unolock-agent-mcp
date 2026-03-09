@@ -18,6 +18,7 @@ class CallbackDtoCodec:
             "AgentRegistrationCode",
             "AgentKeyRegistration",
             "AgentChallenge",
+            "AgentWrappedKeys",
             "DecodeKey",
             "GetPin",
             "GetSafeAccessID",

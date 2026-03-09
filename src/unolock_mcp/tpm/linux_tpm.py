@@ -166,6 +166,96 @@ class LinuxTpmDao(TpmDao):
         self._private_blob_path(key_id).unlink(missing_ok=True)
         self._public_der_path(key_id).unlink(missing_ok=True)
 
+    def store_secret(self, secret_id: str, secret: bytes) -> None:
+        self._ensure_usable()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            primary_ctx = temp / "primary.ctx"
+            secret_input = temp / "secret.bin"
+            pub_blob = temp / "secret.pub"
+            priv_blob = temp / "secret.priv"
+            secret_input.write_bytes(secret)
+
+            self._run(
+                "tpm2_createprimary",
+                "-Q",
+                "-C",
+                "o",
+                "-G",
+                "ecc",
+                "-g",
+                "sha256",
+                "-c",
+                str(primary_ctx),
+            )
+            self._run(
+                "tpm2_create",
+                "-Q",
+                "-C",
+                str(primary_ctx),
+                "-G",
+                "keyedhash",
+                "-i",
+                str(secret_input),
+                "-u",
+                str(pub_blob),
+                "-r",
+                str(priv_blob),
+            )
+            self._secret_public_blob_path(secret_id).write_bytes(pub_blob.read_bytes())
+            self._secret_private_blob_path(secret_id).write_bytes(priv_blob.read_bytes())
+
+    def load_secret(self, secret_id: str) -> bytes | None:
+        self._ensure_usable()
+        pub_path = self._secret_public_blob_path(secret_id)
+        priv_path = self._secret_private_blob_path(secret_id)
+        if not pub_path.exists() or not priv_path.exists():
+            return None
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp = Path(temp_dir)
+            primary_ctx = temp / "primary.ctx"
+            secret_ctx = temp / "secret.ctx"
+            secret_output = temp / "secret.bin"
+
+            self._run(
+                "tpm2_createprimary",
+                "-Q",
+                "-C",
+                "o",
+                "-G",
+                "ecc",
+                "-g",
+                "sha256",
+                "-c",
+                str(primary_ctx),
+            )
+            self._run(
+                "tpm2_load",
+                "-Q",
+                "-C",
+                str(primary_ctx),
+                "-u",
+                str(pub_path),
+                "-r",
+                str(priv_path),
+                "-c",
+                str(secret_ctx),
+            )
+            self._run(
+                "tpm2_unseal",
+                "-Q",
+                "-c",
+                str(secret_ctx),
+                "-o",
+                str(secret_output),
+            )
+            return secret_output.read_bytes()
+
+    def delete_secret(self, secret_id: str) -> None:
+        self._secret_public_blob_path(secret_id).unlink(missing_ok=True)
+        self._secret_private_blob_path(secret_id).unlink(missing_ok=True)
+
     def diagnose(self) -> TpmDiagnostics:
         diagnostics = detect_host_tpm_state(self.provider_name(), production_ready=True)
         details = dict(diagnostics.details)
@@ -213,6 +303,12 @@ class LinuxTpmDao(TpmDao):
 
     def _public_der_path(self, key_id: str) -> Path:
         return self._path / f"{self._safe_key_id(key_id)}.der"
+
+    def _secret_public_blob_path(self, secret_id: str) -> Path:
+        return self._path / f"{self._safe_key_id(secret_id)}.secret.pubblob"
+
+    def _secret_private_blob_path(self, secret_id: str) -> Path:
+        return self._path / f"{self._safe_key_id(secret_id)}.secret.privblob"
 
     def _safe_key_id(self, key_id: str) -> str:
         return "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in key_id)

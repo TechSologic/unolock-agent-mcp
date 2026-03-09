@@ -5,13 +5,43 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "unolock-agent-mcp"
 version = "0.1.0"
-description = "Prototype UnoLock MCP client"
+description = "Official UnoLock MCP for AI agents with TPM-backed authentication and zero-knowledge Safe access"
+readme = "README.md"
+license = {text = "Proprietary"}
 requires-python = ">=3.10"
+keywords = ["mcp", "unolock", "ai-agent", "security", "tpm", "webauthn", "zero-knowledge"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Developers",
+  "Intended Audience :: End Users/Desktop",
+  "License :: Other/Proprietary License",
+  "Operating System :: MacOS",
+  "Operating System :: Microsoft :: Windows",
+  "Operating System :: POSIX :: Linux",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Security :: Cryptography",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
 dependencies = [
   "cryptography>=3.4.8",
   "aws-encryption-sdk>=3.3.0",
   "liboqs-python>=0.14.0",
   "mcp>=1.26.0,<2",
+]
+
+[project.urls]
+Homepage = "https://github.com/TechSologic/unolock-agent-mcp"
+Repository = "https://github.com/TechSologic/unolock-agent-mcp"
+Documentation = "https://github.com/TechSologic/unolock-agent-mcp/tree/main/docs"
+Issues = "https://github.com/TechSologic/unolock-agent-mcp/issues"
+
+[project.optional-dependencies]
+dev = [
+  "build>=1.2.2",
+  "twine>=6.1.0",
 ]
 
 [project.scripts]

@@ -62,3 +62,15 @@ class TpmDao(ABC):
     @abstractmethod
     def diagnose(self) -> TpmDiagnostics:
         raise NotImplementedError
+
+    @abstractmethod
+    def store_secret(self, secret_id: str, secret: bytes) -> None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def load_secret(self, secret_id: str) -> bytes | None:
+        raise NotImplementedError
+
+    @abstractmethod
+    def delete_secret(self, secret_id: str) -> None:
+        raise NotImplementedError

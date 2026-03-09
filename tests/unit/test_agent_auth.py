@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import os
 import unittest
 import tempfile
 from pathlib import Path
@@ -9,7 +10,8 @@ from unittest.mock import Mock
 
 from unolock_mcp.auth.agent_auth import AgentAuthClient
 from unolock_mcp.auth.registration_store import RegistrationStore
-from unolock_mcp.domain.models import RegistrationState
+from unolock_mcp.auth.session_store import SessionStore
+from unolock_mcp.domain.models import CallbackAction, FlowSession, RegistrationState
 from unolock_mcp.tpm.test_tpm import TestTpmDao
 
 
@@ -65,6 +67,133 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertEqual(result["reason"], "tpm_provider_mismatch")
             self.assertEqual(result["stored_tpm_provider"], "windows-tpm")
             self.assertEqual(result["current_tpm_provider"], "test")
+
+    def test_authenticate_registered_agent_blocks_insecure_provider_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="test",
+            )
+            client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+            result = client.authenticate_registered_agent()
+            self.assertEqual(result["reason"], "insecure_tpm_provider")
+
+    def test_load_registration_restores_bootstrap_secret_from_provider_storage(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            dao.store_secret("bootstrap-access-123", b"pp:bootstrap")
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="test",
+            )
+            client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+
+            old_value = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER")
+            os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = "1"
+            try:
+                registration = client._load_registration()
+            finally:
+                if old_value is None:
+                    os.environ.pop("UNOLOCK_ALLOW_INSECURE_PROVIDER", None)
+                else:
+                    os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = old_value
+
+            self.assertEqual(registration.bootstrap_secret, "pp:bootstrap")
+
+    def test_submit_connection_url_stores_bootstrap_secret_only_in_provider(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = RegistrationStore(Path(tmpdir) / "registration.json")
+            client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+
+            old_value = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER")
+            os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = "1"
+            try:
+                summary = client.submit_connection_url(
+                    "http://localhost:4200/#/agent-register/"
+                    "YWNjZXNzLTEyMw/Y29kZS0xMjM/cHA6Ym9vdHN0cmFw"
+                )
+            finally:
+                if old_value is None:
+                    os.environ.pop("UNOLOCK_ALLOW_INSECURE_PROVIDER", None)
+                else:
+                    os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = old_value
+
+            self.assertEqual(summary["access_id"], "access-123")
+            self.assertFalse(summary["has_bootstrap_secret"])
+            self.assertEqual(dao.load_secret("bootstrap-access-123"), b"pp:bootstrap")
+
+    def test_submit_connection_url_rejects_regular_register_url(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = RegistrationStore(Path(tmpdir) / "registration.json")
+            client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+
+            old_value = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER")
+            os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = "1"
+            try:
+                result = client.submit_connection_url(
+                    "http://localhost:4200/#/register/"
+                    "YWNjZXNzLTEyMw/Y29kZS0xMjM"
+                )
+            finally:
+                if old_value is None:
+                    os.environ.pop("UNOLOCK_ALLOW_INSECURE_PROVIDER", None)
+                else:
+                    os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = old_value
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason"], "wrong_connection_url_type")
+            self.assertIn("regular key registration URL", result["message"])
+
+    def test_disconnect_removes_local_registration_material(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir) / "tpm")
+            dao.create_key("agent-access-123")
+            dao.store_secret("bootstrap-access-123", b"pp:bootstrap")
+            dao.store_secret("aidk-access-123", b"a" * 32)
+            store = RegistrationStore(Path(tmpdir) / "registration.json")
+            store.save(
+                RegistrationState(
+                    registered=True,
+                    registration_mode="registered",
+                    access_id="access-123",
+                    key_id="agent-access-123",
+                    tpm_provider="test",
+                )
+            )
+            session_store = SessionStore()
+            session_store.put(
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentAccess",
+                    state="state",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="GetPin"),
+                )
+            )
+            client = AgentAuthClient(Mock(), session_store, store, tpm_dao=dao)
+            client.set_agent_pin("1")
+
+            result = client.disconnect()
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["disconnected"])
+            self.assertIsNone(dao.load_secret("bootstrap-access-123"))
+            self.assertIsNone(dao.load_secret("aidk-access-123"))
+            with self.assertRaises(KeyError):
+                dao.get_public_key("agent-access-123")
+            self.assertEqual(store.load().registration_mode, "unconfigured")
+            self.assertFalse(store.load().registered)
+            self.assertEqual(session_store.list(), [])
+            self.assertFalse(client.runtime_status()["has_agent_pin"])
 
 
 if __name__ == "__main__":

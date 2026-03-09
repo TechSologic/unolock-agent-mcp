@@ -2,6 +2,10 @@
 
 This directory is the dedicated home for UnoLock's Python agent/MCP client.
 
+Official GitHub repository:
+
+* `https://github.com/TechSologic/unolock-agent-mcp`
+
 The current prototype proves the hardest integration seam first:
 
 * live local `/start` flow compatibility
@@ -26,12 +30,14 @@ Run this from the repo root after the local server is up on `http://127.0.0.1:30
 ./agent-mcp/scripts/bootstrap.sh
 ./agent-mcp/scripts/run_local_probe.sh
 ./agent-mcp/scripts/run_stdio_mcp.sh
+./agent-mcp/scripts/run_local_e2e_readonly.sh
 ```
 
 For real MCP hosts, see:
 
 * [host-config.md](/home/mike/Unolock/agent-mcp/docs/host-config.md)
 * [support-matrix.md](/home/mike/Unolock/agent-mcp/docs/support-matrix.md)
+* [tool-catalog.md](/home/mike/Unolock/agent-mcp/docs/tool-catalog.md)
 * [claude-desktop-config.json](/home/mike/Unolock/agent-mcp/examples/claude-desktop-config.json)
 * [cursor-mcp.json](/home/mike/Unolock/agent-mcp/examples/cursor-mcp.json)
 
@@ -119,14 +125,15 @@ Current MCP tools:
 Registration discovery support:
 
 * the MCP can report whether it is registered
-* if not registered, it tells the agent to ask the user for a UnoLock connection URL
-* the connection URL can be submitted and stored locally
+* if not registered, it tells the agent to ask the user for the UnoLock agent key connection URL
+* the agent key connection URL can be submitted and stored locally
 * the optional agent PIN is held only in MCP process memory and cleared on restart or via `unolock_clear_agent_pin`
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
 * the test TPM provider still persists a local ECDSA P-256 key so development registration/auth survive MCP restarts
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
-* registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for a connection URL, ask for a PIN, start registration, or authenticate
+* registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
+* after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating
 * registration state now remembers which TPM provider created the agent key and will tell the host to re-register or force the old provider if there is a provider mismatch
 * the MCP can diagnose the active TPM/vTPM provider and give host advice when no working TPM/vTPM is detected
 
@@ -168,7 +175,7 @@ cat /tmp/unolock-agent-bootstrap.json
 
 That artifact includes:
 
-* the generated UnoLock connection URL
+* the generated UnoLock agent key connection URL
 * the access ID used for the agent registration
 * the bootstrap secret encoding needed by the MCP
 * whether the browser had to fall back to the current access because the Safe tier could not create another device access
@@ -179,6 +186,20 @@ Current local fallback behavior:
 * if the Safe tier permits another device access, the harness creates a dedicated AI-marked access
 * if the tier blocks new device accesses, the harness issues an agent registration URL for the current authenticated access instead
 * the current-access fallback exists for local/dev testing and is not the preferred long-term product shape
+
+For a full local read-only regression run:
+
+```bash
+./agent-mcp/scripts/run_local_e2e_readonly.sh
+```
+
+That script:
+
+* creates a fresh local Safe and agent bootstrap artifact with Playwright
+* registers the MCP against that new agent key
+* authenticates and reads spaces/records
+* simulates an MCP restart
+* re-authenticates with the PIN and verifies read-only access again
 
 ## Package layout
 

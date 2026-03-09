@@ -3,10 +3,12 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import os
+import secrets
 from typing import Any
 
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
-from unolock_mcp.auth.registration_store import RegistrationStore
+from unolock_mcp.auth.registration_store import RegistrationStore, parse_connection_url
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.crypto.safe_keyring import SafeKeyringManager
 from unolock_mcp.domain.models import CallbackAction, FlowSession, RegistrationState
@@ -26,8 +28,10 @@ class AgentAuthClient:
         self._session_store = session_store
         self._registration_store = registration_store
         self._tpm = tpm_dao or create_tpm_dao()
-        self._keyrings: dict[str, SafeKeyringManager] = {}
+        self._data_keyrings: dict[str, SafeKeyringManager] = {}
         self._agent_pin: str | None = None
+        self._pending_server_keys: dict[str, str] = {}
+        self._pending_client_data_keys: dict[str, bytes] = {}
 
     def set_agent_pin(self, pin: str) -> dict[str, Any]:
         self._agent_pin = pin
@@ -37,10 +41,54 @@ class AgentAuthClient:
         self._agent_pin = None
         return self.runtime_status()
 
+    def disconnect(self) -> dict[str, Any]:
+        registration = self._load_registration()
+        access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
+        key_id = registration.key_id or self._resolve_key_id(registration, access_id)
+        deleted: dict[str, Any] = {
+            "key_id": None,
+            "bootstrap_secret_id": None,
+            "aidk_secret_id": None,
+        }
+
+        if key_id and key_id != "unolock-agent":
+            try:
+                self._tpm.delete_key(key_id)
+                deleted["key_id"] = key_id
+            except Exception:
+                deleted["key_id"] = key_id
+
+        if access_id:
+            bootstrap_secret_id = self._bootstrap_secret_id(access_id)
+            aidk_secret_id = self._aidk_secret_id(access_id)
+            self._tpm.delete_secret(bootstrap_secret_id)
+            self._tpm.delete_secret(aidk_secret_id)
+            deleted["bootstrap_secret_id"] = bootstrap_secret_id
+            deleted["aidk_secret_id"] = aidk_secret_id
+            self._pending_server_keys.pop(access_id, None)
+            self._pending_client_data_keys.pop(access_id, None)
+            self._data_keyrings.pop(access_id, None)
+
+        self._agent_pin = None
+        self._session_store.clear()
+        self._registration_store.reset()
+
+        return {
+            "ok": True,
+            "disconnected": True,
+            "local_only": True,
+            "message": (
+                "The local UnoLock agent registration was removed from this host. "
+                "A Safe admin must still delete or rotate the server-side access record if revocation is needed."
+            ),
+            "deleted": deleted,
+        }
+
     def runtime_status(self) -> dict[str, Any]:
         registration = self._load_registration()
         diagnostics = self._tpm.diagnose()
         provider_mismatch = self._get_provider_mismatch(registration)
+        access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
         return {
             "has_agent_pin": self._agent_pin is not None,
             "pin_mode": "ephemeral_memory" if self._agent_pin is not None else "unset",
@@ -48,6 +96,7 @@ class AgentAuthClient:
             "tpm_production_ready": diagnostics.production_ready,
             "tpm_available": diagnostics.available,
             "registered_tpm_provider": registration.tpm_provider,
+            "bootstrap_secret_available": bool(registration.bootstrap_secret or self._load_protected_bootstrap_secret(access_id)),
             "tpm_provider_mismatch": provider_mismatch is not None,
             "tpm_provider_mismatch_detail": provider_mismatch,
         }
@@ -55,16 +104,45 @@ class AgentAuthClient:
     def tpm_diagnostics(self) -> dict[str, Any]:
         return self._tpm.diagnose().to_dict()
 
+    def ensure_secure_provider(self) -> dict[str, Any] | None:
+        return self._ensure_secure_provider()
+
+    def submit_connection_url(self, connection_url: str) -> dict[str, Any]:
+        provider_ready = self._ensure_secure_provider()
+        if provider_ready is not None:
+            return provider_ready
+        parsed = parse_connection_url(connection_url)
+        validation_error = self._validate_agent_connection_url(parsed)
+        if validation_error is not None:
+            return validation_error
+        if parsed.passphrase and parsed.access_id:
+            self._store_protected_bootstrap_secret(parsed.access_id, parsed.passphrase)
+        state = self._registration_store.set_connection_url(connection_url)
+        return state.summary()
+
+    def secure_registration_material(self) -> dict[str, Any]:
+        provider_ready = self._ensure_secure_provider()
+        if provider_ready is not None:
+            return provider_ready
+        registration = self._load_registration()
+        self._protect_bootstrap_secret_if_needed(registration)
+        return self._registration_store.load().summary()
+
     def get_keyring_for_session(self, session_id: str) -> SafeKeyringManager:
         session = self._session_store.get(session_id)
         registration = self._registration_store.load()
         access_id = self._resolve_access_id(registration, session.current_callback, session)
-        keyring = self._get_bootstrap_keyring(registration, access_id)
+        keyring = self._get_data_keyring(access_id)
         if keyring is None:
-            raise ValueError("No UnoLock bootstrap keyring is available for this session")
+            raise ValueError("No UnoLock client data keyring is available for this session")
         return keyring
 
     def start_registration_from_stored_url(self) -> dict[str, Any]:
+        registration = self._load_registration()
+        provider_ready = self._ensure_secure_provider()
+        if provider_ready is not None:
+            return provider_ready
+        self._protect_bootstrap_secret_if_needed(registration)
         registration = self._load_registration()
         if registration.connection_url is None:
             return {
@@ -84,6 +162,9 @@ class AgentAuthClient:
         provider_mismatch = self._get_provider_mismatch(registration)
         if provider_mismatch is not None:
             return provider_mismatch
+        provider_ready = self._ensure_secure_provider()
+        if provider_ready is not None:
+            return provider_ready
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
         if not access_id:
             return {
@@ -107,12 +188,19 @@ class AgentAuthClient:
         while True:
             callback = session.current_callback
             if callback.type == "SUCCESS":
+                resolved_access_id = self._resolve_access_id(registration, callback, session)
+                if session.flow == "agentRegister" and resolved_access_id:
+                    self._delete_protected_bootstrap_secret(resolved_access_id)
                 updated = self._registration_store.mark_registered(
                     session_id=session.session_id,
-                    access_id=self._resolve_access_id(registration, callback, session),
+                    access_id=resolved_access_id,
                     key_id=self._resolve_key_id(registration),
+                    bootstrap_secret="",
                     tpm_provider=self._tpm.provider_name(),
                 )
+                if resolved_access_id:
+                    self._pending_server_keys.pop(resolved_access_id, None)
+                    self._pending_client_data_keys.pop(resolved_access_id, None)
                 self._session_store.put(session)
                 return {
                     "ok": True,
@@ -300,39 +388,75 @@ class AgentAuthClient:
             }
 
         if callback.type == "DecodeKey":
-            keyring = self._get_bootstrap_keyring(registration, access_id)
+            keyring = self._get_decode_key_keyring(session, registration, access_id)
             if keyring is None:
                 return {
                     "blocked": True,
-                    "reason": "missing_bootstrap_secret",
+                    "reason": "missing_bootstrap_keyring",
                     "message": (
-                        "The current agent flow reached DecodeKey, but no bootstrap secret is stored. "
-                        "For now the MCP needs bootstrap AIDK material to unwrap the Safe metadata key."
+                        "The current UnoLock flow reached DecodeKey, but no keyring is available to unwrap "
+                        "the Safe metadata key."
                     ),
                 }
             wrapped_key = str(callback.request.get("wrappedKey", ""))
             decoded = keyring.decrypt_server_metadata_key(wrapped_key)
+            if access_id:
+                self._pending_server_keys[access_id] = decoded
             return {
                 "result": {"key": decoded},
                 "submitted": {"key": "<redacted>"},
             }
 
         if callback.type == "ClientDataKey":
-            keyring = self._get_bootstrap_keyring(registration, access_id)
+            keyring = self._get_client_data_key_keyring(session, registration, access_id)
             if keyring is None:
                 return {
                     "blocked": True,
-                    "reason": "missing_bootstrap_secret",
+                    "reason": "missing_client_data_keyring",
                     "message": (
-                        "The current agent flow reached ClientDataKey, but no bootstrap secret is stored. "
-                        "For now the MCP needs bootstrap AIDK material to unwrap the client data key."
+                        "The current UnoLock flow reached ClientDataKey, but no keyring is available to unwrap "
+                        "the client data key."
                     ),
                 }
             wrapped_client_key = callback.result if isinstance(callback.result, str) else ""
-            keyring.unwrap_and_set_client_data_master_key(wrapped_client_key)
+            client_data_key = keyring.unwrap_and_set_client_data_master_key(wrapped_client_key)
+            if access_id:
+                self._pending_client_data_keys[access_id] = client_data_key
+                self._data_keyrings[access_id] = keyring
             return {
                 "result": wrapped_client_key,
                 "submitted": {"wrappedClientKey": "<redacted>"},
+            }
+
+        if callback.type == "AgentWrappedKeys":
+            if not access_id:
+                return {
+                    "blocked": True,
+                    "reason": "missing_access_id",
+                    "message": "No accessID is available to install the final agent-wrapped keys.",
+                }
+            server_key = self._pending_server_keys.get(access_id)
+            client_data_key = self._pending_client_data_keys.get(access_id)
+            if not server_key or client_data_key is None:
+                return {
+                    "blocked": True,
+                    "reason": "missing_rewrap_material",
+                    "message": "The MCP does not have both Safe keys needed to install the final agent AIDK-wrapped key material.",
+                }
+            aidk = self._load_or_create_agent_aidk(access_id)
+            aidk_keyring = SafeKeyringManager()
+            aidk_keyring.init_with_safe_access_master_key(aidk)
+            wrapped_server_key = aidk_keyring.encrypt_server_metadata_key(server_key)
+            wrapped_client_key = aidk_keyring.encrypt_client_data_master_key(client_data_key)
+            return {
+                "result": {
+                    "wrappedServerKey": wrapped_server_key,
+                    "wrappedClientKey": wrapped_client_key,
+                },
+                "submitted": {
+                    "wrappedServerKey": "<redacted>",
+                    "wrappedClientKey": "<redacted>",
+                },
             }
 
         return None
@@ -340,7 +464,15 @@ class AgentAuthClient:
     def _load_registration(self) -> RegistrationState:
         if self._registration_store is None:
             return RegistrationState()
-        return self._registration_store.load()
+        registration = self._registration_store.load()
+        if registration.bootstrap_secret:
+            return registration
+        access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
+        protected_secret = self._load_protected_bootstrap_secret(access_id)
+        if not protected_secret:
+            return registration
+        registration.bootstrap_secret = protected_secret
+        return registration
 
     def _get_provider_mismatch(self, registration: RegistrationState) -> dict[str, Any] | None:
         stored_provider = registration.tpm_provider
@@ -376,6 +508,48 @@ class AgentAuthClient:
             }
         )
 
+    def _validate_agent_connection_url(self, parsed) -> dict[str, Any] | None:
+        if parsed.action == "register":
+            return {
+                "ok": False,
+                "blocked": True,
+                "reason": "wrong_connection_url_type",
+                "message": (
+                    "This UnoLock URL is a regular key registration URL, not an agent connection URL. "
+                    "Ask the user for the agent URL generated for an AI/agent key. It should use "
+                    "the #/agent-register/... format."
+                ),
+                "expected_action": "agent-register",
+                "received_action": parsed.action,
+                "access_id": parsed.access_id,
+            }
+        if parsed.flow != "agentRegister":
+            return {
+                "ok": False,
+                "blocked": True,
+                "reason": "unsupported_connection_url",
+                "message": (
+                    "The supplied UnoLock URL is not an agent registration URL. Ask the user for the "
+                    "agent URL generated for an AI/agent key."
+                ),
+                "received_flow": parsed.flow,
+                "received_action": parsed.action,
+            }
+        if not parsed.access_id or not parsed.registration_code or not parsed.passphrase:
+            return {
+                "ok": False,
+                "blocked": True,
+                "reason": "invalid_agent_connection_url",
+                "message": (
+                    "The supplied agent connection URL is incomplete. Ask the user to copy the full "
+                    "UnoLock agent connection URL again."
+                ),
+                "has_access_id": bool(parsed.access_id),
+                "has_registration_code": bool(parsed.registration_code),
+                "has_bootstrap_secret": bool(parsed.passphrase),
+            }
+        return None
+
     def _resolve_access_id(self, registration: RegistrationState, callback: CallbackAction, session: FlowSession) -> str | None:
         if registration.access_id:
             return registration.access_id
@@ -405,15 +579,55 @@ class AgentAuthClient:
             return "unolock-agent"
         return f"agent-{resolved_access_id}"
 
+
     def _get_bootstrap_keyring(self, registration: RegistrationState, access_id: str | None) -> SafeKeyringManager | None:
-        if not access_id or not registration.bootstrap_secret:
+        del registration
+        return self._build_aidk_keyring(access_id)
+
+    def _get_registration_bootstrap_keyring(self, registration: RegistrationState, access_id: str | None) -> SafeKeyringManager | None:
+        if not access_id:
             return None
-        keyring = self._keyrings.get(access_id)
-        if keyring is None:
-            keyring = SafeKeyringManager()
-            self._init_bootstrap_keyring(keyring, registration.bootstrap_secret, access_id)
-            self._keyrings[access_id] = keyring
+        bootstrap_secret = registration.bootstrap_secret or self._load_protected_bootstrap_secret(access_id)
+        if not bootstrap_secret:
+            return None
+        keyring = SafeKeyringManager()
+        self._init_bootstrap_keyring(keyring, bootstrap_secret, access_id)
         return keyring
+
+    def _build_aidk_keyring(self, access_id: str | None) -> SafeKeyringManager | None:
+        if not access_id:
+            return None
+        aidk = self._load_agent_aidk(access_id)
+        if aidk is None:
+            return None
+        keyring = SafeKeyringManager()
+        keyring.init_with_safe_access_master_key(aidk)
+        return keyring
+
+    def _get_decode_key_keyring(
+        self,
+        session: FlowSession,
+        registration: RegistrationState,
+        access_id: str | None,
+    ) -> SafeKeyringManager | None:
+        if session.flow == "agentRegister":
+            return self._get_registration_bootstrap_keyring(registration, access_id)
+        return self._build_aidk_keyring(access_id)
+
+    def _get_client_data_key_keyring(
+        self,
+        session: FlowSession,
+        registration: RegistrationState,
+        access_id: str | None,
+    ) -> SafeKeyringManager | None:
+        if session.flow == "agentRegister":
+            return self._get_registration_bootstrap_keyring(registration, access_id)
+        return self._build_aidk_keyring(access_id)
+
+    def _get_data_keyring(self, access_id: str | None) -> SafeKeyringManager | None:
+        if not access_id:
+            return None
+        return self._data_keyrings.get(access_id)
 
     def _init_bootstrap_keyring(self, keyring: SafeKeyringManager, bootstrap_secret: str, access_id: str) -> None:
         if bootstrap_secret.startswith("pp:"):
@@ -440,3 +654,67 @@ class AgentAuthClient:
     def _build_agent_pin_hash(access_id: str, pin_challenge: str, pin: str) -> str:
         material = f"UnoLock:GetPin:{access_id}:{pin_challenge}:{pin}".encode("utf8")
         return base64.b64encode(hashlib.sha256(material).digest()).decode("ascii")
+
+    def _store_protected_bootstrap_secret(self, access_id: str | None, bootstrap_secret: str) -> None:
+        if not access_id or not bootstrap_secret:
+            return
+        self._tpm.store_secret(self._bootstrap_secret_id(access_id), bootstrap_secret.encode("utf8"))
+
+    def _load_protected_bootstrap_secret(self, access_id: str | None) -> str | None:
+        if not access_id:
+            return None
+        secret = self._tpm.load_secret(self._bootstrap_secret_id(access_id))
+        if not secret:
+            return None
+        return secret.decode("utf8")
+
+    def _delete_protected_bootstrap_secret(self, access_id: str | None) -> None:
+        if not access_id:
+            return
+        self._tpm.delete_secret(self._bootstrap_secret_id(access_id))
+
+    def _load_agent_aidk(self, access_id: str) -> bytes | None:
+        return self._tpm.load_secret(self._aidk_secret_id(access_id))
+
+    def _load_or_create_agent_aidk(self, access_id: str) -> bytes:
+        existing = self._load_agent_aidk(access_id)
+        if existing is not None:
+            return existing
+        aidk = secrets.token_bytes(32)
+        self._tpm.store_secret(self._aidk_secret_id(access_id), aidk)
+        return aidk
+
+    def _protect_bootstrap_secret_if_needed(self, registration: RegistrationState) -> None:
+        access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
+        if not access_id or not registration.bootstrap_secret:
+            return
+        self._store_protected_bootstrap_secret(access_id, registration.bootstrap_secret)
+        registration.bootstrap_secret = ""
+        self._registration_store.save(registration)
+
+    def _ensure_secure_provider(self) -> dict[str, Any] | None:
+        diagnostics = self._tpm.diagnose()
+        if diagnostics.production_ready:
+            return None
+        if os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER", "").strip().lower() in {"1", "true", "yes"}:
+            return None
+        return {
+            "ok": False,
+            "blocked": True,
+            "reason": "insecure_tpm_provider",
+            "message": (
+                f"The active TPM provider '{self._tpm.provider_name()}' is not production-ready. "
+                "Refusing to register or authenticate an UnoLock agent until a hardware-backed or "
+                "platform-backed provider is available. For development only, set UNOLOCK_ALLOW_INSECURE_PROVIDER=1."
+            ),
+            "tpm_provider": self._tpm.provider_name(),
+            "tpm_diagnostics": diagnostics.to_dict(),
+        }
+
+    @staticmethod
+    def _bootstrap_secret_id(access_id: str) -> str:
+        return f"bootstrap-{access_id}"
+
+    @staticmethod
+    def _aidk_secret_id(access_id: str) -> str:
+        return f"aidk-{access_id}"

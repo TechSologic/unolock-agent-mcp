@@ -43,6 +43,10 @@ func keyTag(_ name: String) -> Data {
     "com.unolock.agent.\(name)".data(using: .utf8)!
 }
 
+func secretService(_ name: String) -> String {
+    "com.unolock.agent.secret.\(name)"
+}
+
 func makeAccessControl() throws -> SecAccessControl {
     var error: Unmanaged<CFError>?
     guard let ac = SecAccessControlCreateWithFlags(
@@ -156,6 +160,66 @@ func deleteKey(_ name: String) -> [String: Any] {
     ]
 }
 
+func storeSecret(_ name: String, _ secretB64: String) throws -> [String: Any] {
+    guard let secret = Data(base64Encoded: secretB64) else {
+        throw NSError(domain: "UnoLockMacSecureEnclave", code: 6, userInfo: [NSLocalizedDescriptionKey: "invalid_secret_b64"])
+    }
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: secretService(name),
+        kSecAttrAccount as String: name,
+        kSecValueData as String: secret,
+        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+    ]
+    SecItemDelete(query as CFDictionary)
+    let status = SecItemAdd(query as CFDictionary, nil)
+    guard status == errSecSuccess else {
+        throw NSError(domain: "UnoLockMacSecureEnclave", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "secret_store_failed"])
+    }
+    return [
+        "ok": true,
+        "stored": name,
+    ]
+}
+
+func loadSecret(_ name: String) throws -> [String: Any] {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: secretService(name),
+        kSecAttrAccount as String: name,
+        kSecReturnData as String: true,
+        kSecMatchLimit as String: kSecMatchLimitOne,
+    ]
+    var item: CFTypeRef?
+    let status = SecItemCopyMatching(query as CFDictionary, &item)
+    if status == errSecItemNotFound {
+        return [
+            "ok": true,
+            "secret_b64": "",
+        ]
+    }
+    guard status == errSecSuccess, let data = item as? Data else {
+        throw NSError(domain: "UnoLockMacSecureEnclave", code: Int(status), userInfo: [NSLocalizedDescriptionKey: "secret_load_failed"])
+    }
+    return [
+        "ok": true,
+        "secret_b64": dataToBase64(data),
+    ]
+}
+
+func deleteSecret(_ name: String) -> [String: Any] {
+    let query: [String: Any] = [
+        kSecClass as String: kSecClassGenericPassword,
+        kSecAttrService as String: secretService(name),
+        kSecAttrAccount as String: name,
+    ]
+    SecItemDelete(query as CFDictionary)
+    return [
+        "ok": true,
+        "deleted_secret": name,
+    ]
+}
+
 func diagnose() throws -> [String: Any] {
     let testName = "UnoLockDiag-\(UUID().uuidString.replacingOccurrences(of: "-", with: ""))"
     let created = try createKey(testName)
@@ -202,6 +266,21 @@ do {
             throw NSError(domain: "UnoLockMacSecureEnclave", code: 3, userInfo: [NSLocalizedDescriptionKey: "missing_key_name"])
         }
         jsonOut(deleteKey(args[2]))
+    case "store-secret":
+        guard args.count >= 4 else {
+            throw NSError(domain: "UnoLockMacSecureEnclave", code: 7, userInfo: [NSLocalizedDescriptionKey: "missing_secret_args"])
+        }
+        jsonOut(try storeSecret(args[2], args[3]))
+    case "load-secret":
+        guard args.count >= 3 else {
+            throw NSError(domain: "UnoLockMacSecureEnclave", code: 3, userInfo: [NSLocalizedDescriptionKey: "missing_key_name"])
+        }
+        jsonOut(try loadSecret(args[2]))
+    case "delete-secret":
+        guard args.count >= 3 else {
+            throw NSError(domain: "UnoLockMacSecureEnclave", code: 3, userInfo: [NSLocalizedDescriptionKey: "missing_key_name"])
+        }
+        jsonOut(deleteSecret(args[2]))
     default:
         throw NSError(domain: "UnoLockMacSecureEnclave", code: 5, userInfo: [NSLocalizedDescriptionKey: "unknown_action"])
     }
@@ -249,6 +328,23 @@ class MacSecureEnclaveDao(TpmDao):
 
     def delete_key(self, key_id: str) -> None:
         self._run_helper("delete-key", key_id=key_id)
+
+    def store_secret(self, secret_id: str, secret: bytes) -> None:
+        self._run_helper(
+            "store-secret",
+            key_id=secret_id,
+            challenge_b64=base64.b64encode(secret).decode("ascii"),
+        )
+
+    def load_secret(self, secret_id: str) -> bytes | None:
+        payload = self._run_helper("load-secret", key_id=secret_id)
+        secret_b64 = str(payload.get("secret_b64", ""))
+        if not secret_b64:
+            return None
+        return base64.b64decode(secret_b64.encode("ascii"))
+
+    def delete_secret(self, secret_id: str) -> None:
+        self._run_helper("delete-secret", key_id=secret_id)
 
     def diagnose(self) -> TpmDiagnostics:
         details = {

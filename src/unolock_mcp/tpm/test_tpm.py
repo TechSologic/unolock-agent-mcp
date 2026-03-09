@@ -75,6 +75,18 @@ class TestTpmDao(TpmDao):
         self._keys.pop(key_id, None)
         self._key_path(key_id).unlink(missing_ok=True)
 
+    def store_secret(self, secret_id: str, secret: bytes) -> None:
+        self._secret_path(secret_id).write_bytes(secret)
+
+    def load_secret(self, secret_id: str) -> bytes | None:
+        path = self._secret_path(secret_id)
+        if not path.exists():
+            return None
+        return path.read_bytes()
+
+    def delete_secret(self, secret_id: str) -> None:
+        self._secret_path(secret_id).unlink(missing_ok=True)
+
     def diagnose(self) -> TpmDiagnostics:
         diagnostics = detect_host_tpm_state(self.provider_name(), production_ready=False)
         details = dict(diagnostics.details)
@@ -133,3 +145,7 @@ class TestTpmDao(TpmDao):
     def _key_path(self, key_id: str) -> Path:
         safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in key_id)
         return self._path / f"{safe_name}.pem"
+
+    def _secret_path(self, secret_id: str) -> Path:
+        safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in secret_id)
+        return self._path / f"{safe_name}.secret"

@@ -62,6 +62,21 @@ function Export-PublicBlobB64($key) {
   return [Convert]::ToBase64String($blob)
 }
 
+function Protect-Secret([string]$secretB64) {
+  $secure = ConvertTo-SecureString -String $secretB64 -AsPlainText -Force
+  return ConvertFrom-SecureString -SecureString $secure
+}
+
+function Unprotect-Secret([string]$secretB64) {
+  $secure = ConvertTo-SecureString -String $secretB64
+  $bstr = [System.Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+  try {
+    return [System.Runtime.InteropServices.Marshal]::PtrToStringBSTR($bstr)
+  } finally {
+    [System.Runtime.InteropServices.Marshal]::ZeroFreeBSTR($bstr)
+  }
+}
+
 try {
   switch ($Action) {
     'diagnose' {
@@ -123,6 +138,20 @@ try {
       })
       exit 0
     }
+    'protect-secret' {
+      To-JsonOut([ordered]@{
+        ok = $true
+        protected_secret_b64 = (Protect-Secret $ChallengeB64)
+      })
+      exit 0
+    }
+    'unprotect-secret' {
+      To-JsonOut([ordered]@{
+        ok = $true
+        secret_b64 = (Unprotect-Secret $ChallengeB64)
+      })
+      exit 0
+    }
     default {
       throw "Unknown action: $Action"
     }
@@ -172,6 +201,26 @@ class WindowsTpmDao(TpmDao):
 
     def delete_key(self, key_id: str) -> None:
         self._run_helper("delete-key", key_id=key_id)
+
+    def store_secret(self, secret_id: str, secret: bytes) -> None:
+        encrypted = self._run_helper(
+            "protect-secret",
+            challenge_b64=base64.b64encode(secret).decode("ascii"),
+        )
+        self._secret_path(secret_id).write_text(str(encrypted["protected_secret_b64"]), encoding="utf8")
+
+    def load_secret(self, secret_id: str) -> bytes | None:
+        path = self._secret_path(secret_id)
+        if not path.exists():
+            return None
+        payload = self._run_helper(
+            "unprotect-secret",
+            challenge_b64=path.read_text(encoding="utf8").strip(),
+        )
+        return base64.b64decode(str(payload["secret_b64"]).encode("ascii"))
+
+    def delete_secret(self, secret_id: str) -> None:
+        self._secret_path(secret_id).unlink(missing_ok=True)
 
     def diagnose(self) -> TpmDiagnostics:
         details = {
@@ -304,6 +353,13 @@ class WindowsTpmDao(TpmDao):
             return signature
         r, s = decode_dss_signature(signature)
         return r.to_bytes(32, "big") + s.to_bytes(32, "big")
+
+    @staticmethod
+    def _secret_path(secret_id: str) -> Path:
+        safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in secret_id)
+        path = Path.home() / ".config" / "unolock-agent-mcp" / "windows-tpm"
+        path.mkdir(parents=True, exist_ok=True)
+        return path / f"{safe_name}.secret"
 
 
 def _is_wsl() -> bool:

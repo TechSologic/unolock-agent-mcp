@@ -35,23 +35,25 @@ class RegistrationStore:
 
     def save(self, state: RegistrationState) -> RegistrationState:
         self._path.parent.mkdir(parents=True, exist_ok=True)
+        if state.connection_url is not None:
+            state.connection_url = _sanitize_connection_info(state.connection_url)
         payload = asdict(state)
         self._path.write_text(json.dumps(payload, indent=2), encoding="utf8")
         return state
 
     def set_connection_url(self, connection_url: str) -> RegistrationState:
-        current = self.load()
         parsed = parse_connection_url(connection_url)
+        sanitized = _sanitize_connection_info(parsed)
         state = RegistrationState(
             registered=False,
             registration_mode="pending_connection_url",
-            connection_url=parsed,
-            session_id=current.session_id,
-            registered_at=current.registered_at,
-            access_id=parsed.access_id or current.access_id,
-            key_id=current.key_id,
-            bootstrap_secret=parsed.passphrase or current.bootstrap_secret,
-            tpm_provider=current.tpm_provider,
+            connection_url=sanitized,
+            session_id=None,
+            registered_at=None,
+            access_id=sanitized.access_id,
+            key_id=None,
+            bootstrap_secret=None,
+            tpm_provider=None,
         )
         return self.save(state)
 
@@ -70,6 +72,10 @@ class RegistrationStore:
         )
         return self.save(state)
 
+    def reset(self) -> RegistrationState:
+        self._path.unlink(missing_ok=True)
+        return RegistrationState()
+
     def mark_registered(
         self,
         *,
@@ -80,13 +86,14 @@ class RegistrationStore:
         tpm_provider: str | None = None,
     ) -> RegistrationState:
         current = self.load()
+        resolved_access_id = access_id or current.access_id or (current.connection_url.access_id if current.connection_url else None)
         state = RegistrationState(
             registered=True,
             registration_mode="registered",
-            connection_url=current.connection_url,
+            connection_url=None,
             session_id=session_id or current.session_id,
             registered_at=datetime.now(timezone.utc).isoformat(),
-            access_id=access_id or current.access_id or (current.connection_url.access_id if current.connection_url else None),
+            access_id=resolved_access_id,
             key_id=key_id or current.key_id,
             bootstrap_secret=bootstrap_secret if bootstrap_secret is not None else current.bootstrap_secret,
             tpm_provider=tpm_provider or current.tpm_provider,
@@ -193,3 +200,25 @@ def _first(values: dict[str, list[str]], *keys: str) -> str | None:
         if items:
             return items[0]
     return None
+
+
+def _sanitize_connection_info(info: ConnectionUrlInfo) -> ConnectionUrlInfo:
+    sanitized_args = info.args
+    if info.access_id and info.registration_code and info.flow == "agentRegister":
+        sanitized_args = json.dumps(
+            {
+                "accessID": info.access_id,
+                "registrationCode": info.registration_code,
+            }
+        )
+    return ConnectionUrlInfo(
+        raw_url="",
+        flow=info.flow,
+        args=sanitized_args,
+        action=info.action,
+        access_id=info.access_id,
+        passphrase=None,
+        key_name=info.key_name,
+        registration_code=info.registration_code,
+        source=info.source,
+    )

@@ -45,6 +45,15 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap_parser.add_argument("--pin", default=None)
     bootstrap_parser.add_argument("--list-records", action="store_true")
 
+    subparsers.add_parser(
+        "disconnect",
+        help="Permanently disconnect the local UnoLock agent registration from this host.",
+        description=(
+            "Delete the local UnoLock agent TPM key, protected secrets, registration state, in-memory PIN, "
+            "and cached sessions. This does not delete the server-side access record."
+        ),
+    )
+
     diagnose_parser = subparsers.add_parser(
         "tpm-diagnose",
         help="Diagnose TPM/vTPM readiness for the UnoLock agent MCP.",
@@ -78,9 +87,12 @@ def main(argv: list[str] | None = None) -> int:
         flow_client = UnoLockFlowClient(config)
         session_store = SessionStore()
         registration_store = RegistrationStore()
-        if args.connection_url:
-            registration_store.set_connection_url(args.connection_url)
         agent_auth = AgentAuthClient(flow_client, session_store, registration_store)
+        if args.connection_url:
+            status = agent_auth.submit_connection_url(args.connection_url)
+            if status.get("ok") is False or status.get("blocked"):
+                print(json.dumps(status, indent=2))
+                return 1
         if args.pin:
             agent_auth.set_agent_pin(args.pin)
 
@@ -101,6 +113,15 @@ def main(argv: list[str] | None = None) -> int:
             result["records"] = records_client.list_records(result["session"]["session_id"])
         print(json.dumps(result, indent=2))
         return 0 if result.get("ok") and result.get("authorized") else 1
+
+    if command == "disconnect":
+        flow_client = UnoLockFlowClient(config)
+        session_store = SessionStore()
+        registration_store = RegistrationStore()
+        agent_auth = AgentAuthClient(flow_client, session_store, registration_store)
+        result = agent_auth.disconnect()
+        print(json.dumps(result, indent=2))
+        return 0
 
     if command == "tpm-diagnose":
         flow_client = UnoLockFlowClient(config)

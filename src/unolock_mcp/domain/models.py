@@ -1,5 +1,4 @@
 from __future__ import annotations
-
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -75,7 +74,6 @@ class CallbackAction:
             payload["type"] = self.type
         return payload
 
-
 @dataclass
 class FlowSession:
     session_id: str
@@ -113,14 +111,14 @@ class ConnectionUrlInfo:
     def summary(self) -> dict[str, Any]:
         return {
             "flow": self.flow,
-            "args": self.args,
+            "has_args": self.args is not None,
             "action": self.action,
             "access_id": self.access_id,
-            "passphrase": self.passphrase,
+            "has_passphrase": self.passphrase is not None,
             "key_name": self.key_name,
-            "registration_code": self.registration_code,
+            "has_registration_code": self.registration_code is not None,
             "source": self.source,
-            "raw_url": self.raw_url,
+            "has_raw_url": bool(self.raw_url),
         }
 
 
@@ -144,13 +142,13 @@ class RegistrationState:
             "has_connection_url": self.connection_url is not None,
             "access_id": self.access_id or (self.connection_url.access_id if self.connection_url else None),
             "key_id": self.key_id,
-            "has_bootstrap_secret": self.bootstrap_secret is not None,
+            "has_bootstrap_secret": bool(self.bootstrap_secret),
             "session_id": self.session_id,
             "registered_at": self.registered_at,
             "tpm_provider": self.tpm_provider,
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
-                "If registration is needed, ask the user for a UnoLock connection URL and pass it to "
+                "If registration is needed, ask the user for the UnoLock agent key connection URL and pass it to "
                 "unolock_submit_connection_url."
             ),
         }

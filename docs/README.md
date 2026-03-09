@@ -15,4 +15,5 @@ Current docs:
 
 * [support-matrix.md](/home/mike/Unolock/agent-mcp/docs/support-matrix.md)
 * [host-config.md](/home/mike/Unolock/agent-mcp/docs/host-config.md)
+* [tool-catalog.md](/home/mike/Unolock/agent-mcp/docs/tool-catalog.md)
 * [testing-with-local-safe.md](/home/mike/Unolock/agent-mcp/docs/testing-with-local-safe.md)

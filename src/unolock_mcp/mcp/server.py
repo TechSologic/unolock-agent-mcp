@@ -14,45 +14,79 @@ from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.config import load_unolock_config
 
 
-def _registration_status_payload(registration_store: RegistrationStore, agent_auth: AgentAuthClient) -> dict[str, Any]:
+def _registration_status_payload(
+    registration_store: RegistrationStore,
+    session_store: SessionStore,
+    agent_auth: AgentAuthClient,
+) -> dict[str, Any]:
     registration = registration_store.load().summary()
     runtime = agent_auth.runtime_status()
     tpm = agent_auth.tpm_diagnostics()
     provider_mismatch = runtime.get("tpm_provider_mismatch_detail")
     next_action = "authenticate_agent"
     guidance = "Agent registration is configured. Authenticate and start using read-only tools."
+    pending_session = None
+    session_id = registration.get("session_id")
+    if session_id:
+        try:
+            pending_session = session_store.get(str(session_id)).summary()
+        except KeyError:
+            pending_session = None
+
+    if pending_session and pending_session.get("current_callback_type") in {"SUCCESS", "FAILED"}:
+        pending_session = None
 
     if provider_mismatch:
         next_action = "resolve_tpm_provider_mismatch"
         guidance = str(provider_mismatch.get("message"))
+    elif pending_session is not None:
+        callback_type = pending_session.get("current_callback_type")
+        if callback_type == "GetPin" and not runtime.get("has_agent_pin"):
+            next_action = "ask_for_agent_pin_then_continue"
+            guidance = (
+                "A UnoLock flow is waiting at GetPin. Ask the user for the agent PIN, call "
+                "unolock_set_agent_pin, then call unolock_bootstrap_agent or unolock_continue_agent_session."
+            )
+        else:
+            next_action = "continue_pending_session"
+            guidance = (
+                "A UnoLock flow is already in progress. Continue it with unolock_bootstrap_agent or "
+                "unolock_continue_agent_session instead of starting over."
+            )
     elif not tpm.get("production_ready"):
         next_action = "review_tpm_diagnostics"
         guidance = (
             "The current TPM/vTPM provider is not production-ready. Call unolock_get_tpm_diagnostics "
             "and follow the advice before relying on this MCP for production access."
         )
+    elif registration.get("registered"):
+        if not runtime.get("has_agent_pin"):
+            next_action = "authenticate_or_set_pin"
+            guidance = (
+                "Registration is configured. If the Safe requires an agent PIN, ask the user for it and "
+                "call unolock_set_agent_pin before authenticating."
+            )
+        else:
+            next_action = "authenticate_agent"
+            guidance = "Agent registration is configured. Authenticate and start using read-only tools."
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
-            "Ask the user for a UnoLock connection URL, then call unolock_submit_connection_url."
+            "Ask the user for the UnoLock agent key connection URL generated for an AI/agent key, "
+            "then call unolock_submit_connection_url."
         )
-    elif not registration.get("registered"):
+    else:
         next_action = "start_registration"
         guidance = (
-            "A UnoLock connection URL is stored. Call unolock_start_registration_from_connection_url "
-            "to register this MCP."
-        )
-    elif not runtime.get("has_agent_pin"):
-        next_action = "authenticate_or_set_pin"
-        guidance = (
-            "Registration is configured. If the Safe requires an agent PIN, ask the user for it and "
-            "call unolock_set_agent_pin before authenticating."
+            "An UnoLock agent key connection URL is stored. Call "
+            "unolock_start_registration_from_connection_url to register this MCP."
         )
 
     return {
         **registration,
         **runtime,
         "tpm_diagnostics": tpm,
+        "pending_session": pending_session,
         "recommended_next_action": next_action,
         "guidance": guidance,
     }
@@ -72,7 +106,7 @@ def create_mcp_server() -> FastMCP:
         instructions=(
             "Use this server to probe UnoLock callback compatibility, start UnoLock auth flows, "
             "continue flow callbacks, and call a small set of authenticated UnoLock API actions. "
-            "If registration is not configured, ask the user for a UnoLock connection URL and "
+            "If registration is not configured, ask the user for the UnoLock agent key connection URL and "
             "submit it with unolock_submit_connection_url."
         ),
     )
@@ -84,12 +118,12 @@ def create_mcp_server() -> FastMCP:
         mime_type="application/json",
     )
     def registration_status_resource() -> dict[str, Any]:
-        return _registration_status_payload(registration_store, agent_auth)
+        return _registration_status_payload(registration_store, session_store, agent_auth)
 
     @server.prompt(
         name="unolock_request_connection_url",
         title="Request UnoLock Connection URL",
-        description="Prompt content telling the agent how to ask the user for a UnoLock connection URL.",
+        description="Prompt content telling the agent how to ask the user for an UnoLock agent key connection URL.",
     )
     def request_connection_url_prompt() -> list[dict[str, Any]]:
         return [
@@ -97,7 +131,7 @@ def create_mcp_server() -> FastMCP:
                 "role": "user",
                 "content": (
                     "If UnoLock registration is not configured, ask the user to provide the UnoLock "
-                    "connection URL for agent registration. Once the user gives you that URL, call "
+                    "agent key connection URL for AI/agent registration. Once the user gives you that URL, call "
                     "unolock_submit_connection_url with it."
                 ),
             }
@@ -124,11 +158,11 @@ def create_mcp_server() -> FastMCP:
         name="unolock_get_registration_status",
         description=(
             "Return whether this MCP is already registered. If not registered, the response will say "
-            "that the agent should ask the user for a UnoLock connection URL."
+            "that the agent should ask the user for the UnoLock agent key connection URL."
         ),
     )
     def get_registration_status() -> dict[str, Any]:
-        return _registration_status_payload(registration_store, agent_auth)
+        return _registration_status_payload(registration_store, session_store, agent_auth)
 
     @server.tool(
         name="unolock_set_agent_pin",
@@ -160,19 +194,30 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_submit_connection_url",
         description=(
-            "Accept a UnoLock connection URL from the user, persist it locally, and parse any flow/args "
-            "or registration code embedded in it."
+            "Accept a UnoLock agent key connection URL from the user, persist it locally, and parse any "
+            "flow/args or registration code embedded in it."
         ),
     )
     def submit_connection_url(connection_url: str) -> dict[str, Any]:
-        return registration_store.set_connection_url(connection_url).summary()
+        return agent_auth.submit_connection_url(connection_url)
 
     @server.tool(
         name="unolock_clear_connection_url",
-        description="Clear the locally stored UnoLock connection URL.",
+        description="Clear the locally stored UnoLock agent key connection URL.",
     )
     def clear_connection_url() -> dict[str, Any]:
         return registration_store.clear_connection_url().summary()
+
+    @server.tool(
+        name="unolock_disconnect_agent",
+        description=(
+            "Permanently disconnect this local MCP host from its current UnoLock agent registration by "
+            "deleting local TPM keys, protected secrets, registration state, sessions, and in-memory PINs. "
+            "This does not delete the server-side access record."
+        ),
+    )
+    def disconnect_agent() -> dict[str, Any]:
+        return agent_auth.disconnect()
 
     @server.tool(
         name="unolock_start_registration_from_connection_url",
@@ -212,7 +257,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def bootstrap_agent() -> dict[str, Any]:
-        status = _registration_status_payload(registration_store, agent_auth)
+        status = _registration_status_payload(registration_store, session_store, agent_auth)
         if not status.get("has_connection_url"):
             return {
                 "ok": False,

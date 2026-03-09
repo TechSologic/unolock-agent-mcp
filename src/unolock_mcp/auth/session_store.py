@@ -25,6 +25,9 @@ class SessionStore:
     def list(self) -> list[dict]:
         return [session.summary() for session in self._sessions.values()]
 
+    def clear(self) -> None:
+        self._sessions.clear()
+
     def update(
         self,
         session_id: str,
