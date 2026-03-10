@@ -26,8 +26,22 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         self.assertEqual(
             items,
             [
-                {"id": 4, "text": "First item", "done": False, "order": 0},
-                {"id": 5, "text": "Second", "done": True, "order": 1},
+                {
+                    "id": 4,
+                    "text": "First item",
+                    "done": False,
+                    "checked": False,
+                    "state": "unchecked",
+                    "order": 0,
+                },
+                {
+                    "id": 5,
+                    "text": "Second",
+                    "done": True,
+                    "checked": True,
+                    "state": "checked",
+                    "order": 1,
+                },
             ],
         )
 

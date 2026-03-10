@@ -288,11 +288,14 @@ class UnoLockReadonlyRecordsClient:
             except (TypeError, ValueError):
                 numeric_id = index
             text = self._strip_html(str(checkbox.get("data", "")))
+            done = bool(checkbox.get("done"))
             items.append(
                 {
                     "id": numeric_id,
                     "text": text,
-                    "done": bool(checkbox.get("done")),
+                    "done": done,
+                    "checked": done,
+                    "state": "checked" if done else "unchecked",
                     "order": index,
                 }
             )

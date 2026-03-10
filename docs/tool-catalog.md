@@ -271,6 +271,15 @@ Each `records[]` item includes:
 * `raw_delta`
 * `raw_checkboxes`
 
+For checklist records, each `checklist_items[]` item includes:
+
+* `id`
+* `text`
+* `done`
+* `checked`
+* `state`
+* `order`
+
 ### `unolock_list_notes`
 
 Purpose:
