@@ -14,7 +14,11 @@ from unolock_mcp.tpm.windows_tpm import WindowsTpmDao
 
 class TpmFactoryTest(unittest.TestCase):
     def test_forced_test_provider_requires_explicit_insecure_override(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test"}, clear=False):
+        with patch.dict(
+            os.environ,
+            {"UNOLOCK_TPM_PROVIDER": "test", "UNOLOCK_ALLOW_INSECURE_PROVIDER": ""},
+            clear=False,
+        ):
             with self.assertRaises(ValueError):
                 create_tpm_dao()
 
@@ -34,7 +38,11 @@ class TpmFactoryTest(unittest.TestCase):
             self.assertIsInstance(dao, MacSecureEnclaveDao)
 
     def test_auto_provider_fails_closed_when_linux_tpm_unavailable(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=False):
+        with patch.dict(
+            os.environ,
+            {"UNOLOCK_TPM_PROVIDER": "auto", "UNOLOCK_ALLOW_INSECURE_PROVIDER": ""},
+            clear=False,
+        ):
             with patch("platform.system", return_value="Linux"):
                 with patch("platform.release", return_value="6.8.0-generic"):
                     with patch.object(LinuxTpmDao, "diagnose") as diagnose:
