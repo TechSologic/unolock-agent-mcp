@@ -6,7 +6,7 @@ from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
-from unolock_mcp.tpm.macos_secure_enclave import MacSecureEnclaveDao
+from unolock_mcp.tpm.macos_secure_enclave import MACOS_SECURE_ENCLAVE_HELPER, MacSecureEnclaveDao
 
 
 class MacSecureEnclaveDaoTest(unittest.TestCase):
@@ -55,6 +55,13 @@ class MacSecureEnclaveDaoTest(unittest.TestCase):
         self.assertFalse(diagnostics.production_ready)
         self.assertIn("-34018", diagnostics.summary)
         self.assertTrue(any("login keychain" in item for item in diagnostics.advice))
+
+    def test_helper_limits_key_queries_to_secure_enclave(self) -> None:
+        self.assertGreaterEqual(MACOS_SECURE_ENCLAVE_HELPER.count("kSecAttrTokenIDSecureEnclave"), 4)
+
+    def test_helper_uses_when_unlocked_device_only_accessibility(self) -> None:
+        self.assertIn("kSecAttrAccessibleWhenUnlockedThisDeviceOnly", MACOS_SECURE_ENCLAVE_HELPER)
+        self.assertNotIn("kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly", MACOS_SECURE_ENCLAVE_HELPER)
 
 
 if __name__ == "__main__":

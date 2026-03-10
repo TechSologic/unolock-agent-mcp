@@ -52,7 +52,7 @@ func makeAccessControl() throws -> SecAccessControl {
     var error: Unmanaged<CFError>?
     guard let ac = SecAccessControlCreateWithFlags(
         nil,
-        kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
         [.privateKeyUsage],
         &error
     ) else {
@@ -67,6 +67,7 @@ func createKey(_ name: String) throws -> [String: Any] {
         kSecClass as String: kSecClassKey,
         kSecAttrApplicationTag as String: tag,
         kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
         kSecReturnRef as String: true,
     ]
     var existing: CFTypeRef?
@@ -122,6 +123,7 @@ func sign(_ name: String, _ challengeB64: String) throws -> [String: Any] {
         kSecClass as String: kSecClassKey,
         kSecAttrApplicationTag as String: tag,
         kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
         kSecReturnRef as String: true,
     ]
     var item: CFTypeRef?
@@ -153,6 +155,7 @@ func deleteKey(_ name: String) -> [String: Any] {
         kSecClass as String: kSecClassKey,
         kSecAttrApplicationTag as String: tag,
         kSecAttrKeyType as String: kSecAttrKeyTypeECSECPrimeRandom,
+        kSecAttrTokenID as String: kSecAttrTokenIDSecureEnclave,
     ]
     SecItemDelete(query as CFDictionary)
     return [
@@ -170,7 +173,7 @@ func storeSecret(_ name: String, _ secretB64: String) throws -> [String: Any] {
         kSecAttrService as String: secretService(name),
         kSecAttrAccount as String: name,
         kSecValueData as String: secret,
-        kSecAttrAccessible as String: kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly,
+        kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly,
     ]
     SecItemDelete(query as CFDictionary)
     let status = SecItemAdd(query as CFDictionary, nil)
