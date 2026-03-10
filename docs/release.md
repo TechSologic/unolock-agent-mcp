@@ -12,6 +12,7 @@ Each release should:
 
 * pass Python unit tests
 * produce a source distribution and wheel
+* produce standalone binaries for macOS, Windows, and Linux
 * attach build artifacts to a GitHub Release
 * optionally publish to PyPI once trusted publishing is configured
 
@@ -51,6 +52,7 @@ Recommended workflows:
   * runs unit tests and compile checks on push and pull request
 * `release.yml`
   * builds a wheel and source distribution on version tags
+  * builds standalone binaries on macOS, Windows, and Linux
   * uploads them to the GitHub Release
 
 ## PyPI Publishing
@@ -71,6 +73,14 @@ Local build:
 cd unolock-agent-mcp
 python3 -m pip install --user build
 python3 -m build
+```
+
+Local standalone binary build:
+
+```bash
+cd unolock-agent-mcp
+python3 -m pip install --user -e .[dev]
+python3 scripts/build_binary.py --clean
 ```
 
 Optional artifact validation:

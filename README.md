@@ -21,6 +21,11 @@ Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
+Recommended customer install source:
+
+* GitHub Releases binaries when available
+* `pipx install` as the fallback source install path
+
 If you are new to UnoLock itself, start with these docs first:
 
 * UnoLock Knowledge Base: `https://safe.unolock.com/docs/`
@@ -87,6 +92,12 @@ For a first customer trial on Apple Silicon macOS, start with:
 The first `liboqs-python` run may build or locate `liboqs` under your home directory. That can take a few minutes.
 
 The MCP currently pins `liboqs-python==0.14.0` to avoid upstream install breakage from newer unresolved versions.
+
+## Preferred Customer Install
+
+When available, prefer the standalone GitHub Release binaries instead of installing from Git.
+
+That avoids most of the Python packaging and source-build overhead for customers.
 
 ## Standalone config
 

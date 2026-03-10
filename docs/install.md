@@ -72,7 +72,23 @@ The agent should then ask the user for the UnoLock Agent Key connection URL and 
 
 ## Recommended Install Method
 
-For most customers, use `pipx` so the MCP is installed into an isolated environment but still exposes a normal command on `PATH`.
+For most customers, prefer a standalone GitHub Release binary when one is available for your platform.
+
+That avoids most local Python packaging and source-build overhead.
+
+If you are installing from source, use `pipx` so the MCP is installed into an isolated environment but still exposes a normal command on `PATH`.
+
+## Option 0: Install A Standalone Release Binary
+
+If the GitHub Releases page includes a binary for your platform, download that first.
+
+Expected artifact names:
+
+* `unolock-agent-mcp-macos-arm64`
+* `unolock-agent-mcp-windows-amd64.exe`
+* `unolock-agent-mcp-linux-x86_64`
+
+Then configure your MCP host to run that binary directly.
 
 ## Option 1: Install From GitHub With `pipx`
 
