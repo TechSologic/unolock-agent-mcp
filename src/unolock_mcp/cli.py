@@ -196,6 +196,8 @@ def probe_main() -> int:
 
 
 def mcp_main() -> int:
+    if len(sys.argv) > 1 and sys.argv[1] in {"--help", "-h", "--version"}:
+        return main(sys.argv[1:])
     return main(["mcp", *sys.argv[1:]])
 
 
