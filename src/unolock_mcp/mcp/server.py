@@ -58,7 +58,7 @@ def _registration_status_payload(
         next_action = "review_tpm_diagnostics"
         guidance = (
             "The current TPM/vTPM provider is not production-ready. Call unolock_get_tpm_diagnostics "
-            "and follow the advice before relying on this MCP for production access."
+            "and follow the environment-specific advice before relying on this MCP for production access."
         )
     elif registration.get("registered"):
         if not runtime.get("has_agent_pin"):

@@ -218,8 +218,11 @@ The diagnostic reports:
 * active provider name
 * whether the provider is production-ready
 * whether the host appears to have a working TPM/vTPM
+* whether the host looks like Docker or another container environment
 * concrete advice when the host does not
 * whether a stored agent registration was created with a different TPM provider than the one currently selected
+
+If the MCP detects that it is running in Docker or another plain container without TPM/vTPM access, the advice now says that explicitly and points to the UnoLock docs for current environment guidance.
 
 If the MCP reports a TPM provider mismatch after you change hosts or switch `UNOLOCK_TPM_PROVIDER`, either:
 

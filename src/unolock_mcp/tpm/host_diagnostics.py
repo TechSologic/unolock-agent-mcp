@@ -8,15 +8,24 @@ from pathlib import Path
 
 from .base import TpmDiagnostics
 
+AGENTIC_SAFE_ACCESS_DOC = "https://safe.unolock.com/docs/features/agentic-safe-access/"
+CONNECTING_AGENT_DOC = "https://safe.unolock.com/docs/howto/connecting-an-ai-agent/"
+
 
 def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmDiagnostics:
     system = platform.system().lower()
     machine = platform.machine().lower()
     release = platform.release().lower()
+    environment = detect_host_environment(system=system, release=release)
     details: dict[str, object] = {
         "os": system,
         "machine": machine,
         "release": release,
+        "environment": environment,
+        "docs": {
+            "agentic_safe_access": AGENTIC_SAFE_ACCESS_DOC,
+            "connecting_an_ai_agent": CONNECTING_AGENT_DOC,
+        },
     }
     advice: list[str] = []
     available = False
@@ -36,6 +45,17 @@ def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmD
         elif is_wsl:
             summary = "Running under WSL without a Linux TPM device."
             advice.append("Use native Linux, Windows, or a VM with vTPM for production UnoLock agent keys.")
+        elif bool(environment.get("is_container")):
+            runtime = str(environment.get("container_runtime") or "container")
+            summary = f"Running inside {runtime} without a visible TPM/vTPM device."
+            advice.append(
+                f"This host looks like a {runtime} environment. Plain containers usually do not expose TPM/vTPM "
+                "or a strong platform key store by default."
+            )
+            advice.append(
+                "Use a host or VM with TPM/vTPM, or arrange a host-backed signer path instead of relying on the "
+                "container alone."
+            )
         else:
             advice.append("Enable a physical TPM or attach a vTPM to this host or VM.")
             advice.append("On Linux, UnoLock expects a working TPM device such as /dev/tpmrm0.")
@@ -64,6 +84,11 @@ def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmD
         if not available:
             advice.append("You can keep using the test TPM provider for development while enabling TPM/vTPM for production later.")
 
+    if not available:
+        advice.append(
+            f"For current setup guidance, see {CONNECTING_AGENT_DOC} and {AGENTIC_SAFE_ACCESS_DOC}"
+        )
+
     return TpmDiagnostics(
         provider_name=provider_name,
         provider_type="test" if provider_name == "test" else "hardware",
@@ -73,6 +98,52 @@ def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmD
         details=details,
         advice=advice,
     )
+
+
+def detect_host_environment(*, system: str | None = None, release: str | None = None) -> dict[str, object]:
+    host_system = system or platform.system().lower()
+    host_release = release or platform.release().lower()
+    environment: dict[str, object] = {
+        "is_container": False,
+        "container_runtime": "",
+        "is_wsl": False,
+    }
+
+    if host_system == "linux":
+        environment["is_wsl"] = "microsoft" in host_release or "WSL_INTEROP" in os.environ
+        container_runtime = _detect_linux_container_runtime()
+        if container_runtime:
+            environment["is_container"] = True
+            environment["container_runtime"] = container_runtime
+
+    return environment
+
+
+def _detect_linux_container_runtime() -> str:
+    if Path("/.dockerenv").exists():
+        return "docker"
+    if Path("/run/.containerenv").exists():
+        return "podman"
+
+    cgroup_candidates = [Path("/proc/1/cgroup"), Path("/proc/self/cgroup")]
+    for cgroup_path in cgroup_candidates:
+        if not cgroup_path.exists():
+            continue
+        try:
+            text = cgroup_path.read_text(encoding="utf8", errors="ignore").lower()
+        except OSError:
+            continue
+        if "docker" in text:
+            return "docker"
+        if "containerd" in text:
+            return "containerd"
+        if "kubepods" in text or "kube" in text:
+            return "kubernetes"
+        if "podman" in text:
+            return "podman"
+        if "lxc" in text:
+            return "lxc"
+    return ""
 
 
 def _run_powershell_tpm_query() -> dict[str, object]:
