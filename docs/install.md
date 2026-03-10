@@ -21,6 +21,14 @@ Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
+If you are new to UnoLock, these docs explain the product concepts behind the MCP:
+
+* UnoLock Knowledge Base: `https://safe.unolock.com/docs/`
+* Agentic Safe Access: `https://safe.unolock.com/docs/features/agentic-safe-access/`
+* Access Keys & Safe Access: `https://safe.unolock.com/docs/features/multi-device-access/`
+* Spaces: `https://safe.unolock.com/docs/features/spaces/`
+* Connect an AI Agent to a Safe: `https://safe.unolock.com/docs/howto/connecting-an-ai-agent/`
+
 ## macOS Quick Start
 
 If you are installing on a Secure Enclave-capable Mac, especially Apple Silicon:
