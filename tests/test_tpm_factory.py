@@ -14,35 +14,27 @@ from unolock_mcp.tpm.windows_tpm import WindowsTpmDao
 
 class TpmFactoryTest(unittest.TestCase):
     def test_forced_test_provider_requires_explicit_insecure_override(self) -> None:
-        with patch.dict(
-            os.environ,
-            {"UNOLOCK_TPM_PROVIDER": "test", "UNOLOCK_ALLOW_INSECURE_PROVIDER": ""},
-            clear=False,
-        ):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test"}, clear=True):
             with self.assertRaises(ValueError):
                 create_tpm_dao()
 
     def test_forced_test_provider_returns_test_dao_with_insecure_override(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test", "UNOLOCK_ALLOW_INSECURE_PROVIDER": "1"}, clear=False):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test", "UNOLOCK_ALLOW_INSECURE_PROVIDER": "1"}, clear=True):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, TestTpmDao)
 
     def test_forced_linux_provider_returns_linux_dao(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "linux"}, clear=False):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "linux"}, clear=True):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, LinuxTpmDao)
 
     def test_forced_mac_provider_returns_macos_dao(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "mac"}, clear=False):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "mac"}, clear=True):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, MacSecureEnclaveDao)
 
     def test_auto_provider_fails_closed_when_linux_tpm_unavailable(self) -> None:
-        with patch.dict(
-            os.environ,
-            {"UNOLOCK_TPM_PROVIDER": "auto", "UNOLOCK_ALLOW_INSECURE_PROVIDER": ""},
-            clear=False,
-        ):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=True):
             with patch("platform.system", return_value="Linux"):
                 with patch("platform.release", return_value="6.8.0-generic"):
                     with patch.object(LinuxTpmDao, "diagnose") as diagnose:
@@ -62,7 +54,7 @@ class TpmFactoryTest(unittest.TestCase):
         with patch.dict(
             os.environ,
             {"UNOLOCK_TPM_PROVIDER": "auto", "UNOLOCK_ALLOW_INSECURE_PROVIDER": "1"},
-            clear=False,
+            clear=True,
         ):
             with patch("platform.system", return_value="Linux"):
                 with patch("platform.release", return_value="6.8.0-generic"):
@@ -80,7 +72,7 @@ class TpmFactoryTest(unittest.TestCase):
                         self.assertIsInstance(dao, TestTpmDao)
 
     def test_auto_provider_prefers_windows_tpm_on_wsl(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=False):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=True):
             with patch("platform.system", return_value="Linux"):
                 with patch("platform.release", return_value="5.15.0-microsoft-standard-WSL2"):
                     with patch.object(WindowsTpmDao, "diagnose") as diagnose:
@@ -97,7 +89,7 @@ class TpmFactoryTest(unittest.TestCase):
                         self.assertIsInstance(dao, WindowsTpmDao)
 
     def test_auto_provider_prefers_macos_secure_enclave_on_darwin(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=False):
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=True):
             with patch("platform.system", return_value="Darwin"):
                 with patch.object(MacSecureEnclaveDao, "diagnose") as diagnose:
                     diagnose.return_value = TpmDiagnostics(
