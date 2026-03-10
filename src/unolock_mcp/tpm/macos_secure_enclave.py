@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import hashlib
 import json
 import platform
 import shutil
@@ -298,6 +299,7 @@ do {
 class MacSecureEnclaveDao(TpmDao):
     def __init__(self, swift_path: str | None = None) -> None:
         self._swift = swift_path or shutil.which("swift") or shutil.which("xcrun")
+        self._swiftc = shutil.which("swiftc") or (self._swift if self._swift and Path(self._swift).name == "xcrun" else None)
 
     def provider_name(self) -> str:
         return "mac-secure-enclave"
@@ -412,6 +414,31 @@ class MacSecureEnclaveDao(TpmDao):
     ) -> dict[str, object]:
         if not self._swift:
             raise RuntimeError("swift or xcrun is not available")
+        helper_binary = self._ensure_compiled_helper()
+        if helper_binary:
+            command = [str(helper_binary)]
+            if action:
+                command.append(action)
+            if key_id is not None:
+                command.append(key_id)
+            if challenge_b64 is not None:
+                command.append(challenge_b64)
+            proc = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=20,
+            )
+            stdout = proc.stdout.strip()
+            stderr = proc.stderr.strip()
+            if not stdout:
+                raise RuntimeError(stderr or "macOS Secure Enclave helper returned no output")
+            payload = json.loads(stdout)
+            if proc.returncode != 0 or not payload.get("ok"):
+                raise RuntimeError(str(payload.get("error") or stderr or "macOS Secure Enclave helper failed"))
+            return payload
+
         with tempfile.NamedTemporaryFile("w", suffix=".swift", delete=False, encoding="utf8") as handle:
             script_path = Path(handle.name)
             handle.write(MACOS_SECURE_ENCLAVE_HELPER)
@@ -440,12 +467,53 @@ class MacSecureEnclaveDao(TpmDao):
         finally:
             script_path.unlink(missing_ok=True)
 
+    def _ensure_compiled_helper(self) -> Path | None:
+        if not self._swiftc:
+            return None
+        cache_dir = self._cache_dir()
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        helper_binary = cache_dir / f"mac-secure-enclave-helper-{self._helper_hash()}"
+        if helper_binary.exists():
+            return helper_binary
+
+        source_path = cache_dir / f"{helper_binary.name}.swift"
+        source_path.write_text(MACOS_SECURE_ENCLAVE_HELPER, encoding="utf8")
+        try:
+            compile_command = self._build_compile_command(source_path, helper_binary)
+            proc = subprocess.run(
+                compile_command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=60,
+            )
+            if proc.returncode != 0:
+                stderr = proc.stderr.strip()
+                raise RuntimeError(stderr or "macOS Secure Enclave helper compilation failed")
+            helper_binary.chmod(0o700)
+            return helper_binary
+        finally:
+            source_path.unlink(missing_ok=True)
+
+    def _cache_dir(self) -> Path:
+        return Path.home() / "Library" / "Caches" / "unolock-agent-mcp"
+
+    def _helper_hash(self) -> str:
+        return hashlib.sha256(MACOS_SECURE_ENCLAVE_HELPER.encode("utf8")).hexdigest()[:12]
+
     def _build_command(self, script_path: Path) -> list[str]:
         if self._swift and Path(self._swift).name == "xcrun":
             return [self._swift, "swift", str(script_path)]
         if self._swift:
             return [self._swift, str(script_path)]
         raise RuntimeError("swift or xcrun is not available")
+
+    def _build_compile_command(self, script_path: Path, output_path: Path) -> list[str]:
+        if self._swiftc and Path(self._swiftc).name == "xcrun":
+            return [self._swiftc, "swiftc", str(script_path), "-o", str(output_path)]
+        if self._swiftc:
+            return [self._swiftc, str(script_path), "-o", str(output_path)]
+        raise RuntimeError("swiftc or xcrun is not available")
 
     def _binding_info_from_payload(self, payload: object) -> KeyBindingInfo:
         if not isinstance(payload, dict):

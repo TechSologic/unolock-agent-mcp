@@ -19,6 +19,24 @@ class MacSecureEnclaveDaoTest(unittest.TestCase):
         command = dao._build_command(Path("/tmp/helper.swift"))
         self.assertEqual(command, ["/usr/bin/swift", "/tmp/helper.swift"])
 
+    def test_build_compile_command_uses_xcrun_when_present(self) -> None:
+        dao = MacSecureEnclaveDao(swift_path="/usr/bin/xcrun")
+        dao._swiftc = "/usr/bin/xcrun"
+        command = dao._build_compile_command(Path("/tmp/helper.swift"), Path("/tmp/helper"))
+        self.assertEqual(
+            command,
+            ["/usr/bin/xcrun", "swiftc", "/tmp/helper.swift", "-o", "/tmp/helper"],
+        )
+
+    def test_build_compile_command_uses_swiftc_directly(self) -> None:
+        dao = MacSecureEnclaveDao(swift_path="/usr/bin/swift")
+        dao._swiftc = "/usr/bin/swiftc"
+        command = dao._build_compile_command(Path("/tmp/helper.swift"), Path("/tmp/helper"))
+        self.assertEqual(
+            command,
+            ["/usr/bin/swiftc", "/tmp/helper.swift", "-o", "/tmp/helper"],
+        )
+
     def test_normalize_signature_converts_der_to_raw(self) -> None:
         r = int.from_bytes(bytes([3] * 32), "big")
         s = int.from_bytes(bytes([4] * 32), "big")
