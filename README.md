@@ -84,7 +84,9 @@ For a first customer trial on Apple Silicon macOS, start with:
 
 * [macOS Quick Start](docs/macos.md)
 
-The first `liboqs-python` run may build `liboqs` under your home directory. That can take a few minutes.
+The first `liboqs-python` run may build or locate `liboqs` under your home directory. That can take a few minutes.
+
+The MCP currently pins `liboqs-python==0.14.0` to avoid upstream install breakage from newer unresolved versions.
 
 ## Standalone config
 

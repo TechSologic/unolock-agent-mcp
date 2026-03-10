@@ -126,6 +126,12 @@ Check TPM/vTPM readiness:
 python3 -m unolock_mcp tpm-diagnose
 ```
 
+If you want to confirm that the PQ dependency is importable before first live use:
+
+```bash
+python3 -c "import oqs; print('liboqs-python ok')"
+```
+
 ## Host Configuration
 
 Once installed, configure your MCP host to run:
@@ -209,3 +215,15 @@ If you also want to remove the local UnoLock registration from the host before u
 ```bash
 python3 -m unolock_mcp disconnect
 ```
+
+## Troubleshooting `liboqs-python`
+
+The UnoLock Agent MCP currently depends on `liboqs-python==0.14.0`.
+
+If your environment already has a working local `liboqs` installation, you can point Python at it with:
+
+```bash
+export OQS_INSTALL_PATH=/path/to/liboqs-install
+```
+
+This should be treated as an advanced override or temporary workaround, not a normal customer setup step.
