@@ -91,7 +91,7 @@ For a first customer trial on Apple Silicon macOS, start with:
 
 The first `liboqs-python` run may build or locate `liboqs` under your home directory. That can take a few minutes.
 
-The MCP currently pins `liboqs-python==0.14.0` to avoid upstream install breakage from newer unresolved versions.
+For the best customer experience, prefer GitHub Release binaries over source installs. Source installs still depend on the local `liboqs-python` / `liboqs` environment.
 
 ## Preferred Customer Install
 

@@ -27,7 +27,7 @@ classifiers = [
 dependencies = [
   "cryptography>=3.4.8",
   "aws-encryption-sdk>=3.3.0",
-  "liboqs-python==0.14.0",
+  "liboqs-python>=0.14.1,<0.15",
   "mcp>=1.26.0,<2",
 ]
 

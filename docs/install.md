@@ -234,7 +234,7 @@ python3 -m unolock_mcp disconnect
 
 ## Troubleshooting `liboqs-python`
 
-The UnoLock Agent MCP currently depends on `liboqs-python==0.14.0`.
+The UnoLock Agent MCP currently depends on `liboqs-python` `0.14.x`.
 
 If your environment already has a working local `liboqs` installation, you can point Python at it with:
 
@@ -243,3 +243,5 @@ export OQS_INSTALL_PATH=/path/to/liboqs-install
 ```
 
 This should be treated as an advanced override or temporary workaround, not a normal customer setup step.
+
+If you want to avoid local `liboqs` setup friction entirely, prefer the standalone GitHub Release binary for your platform when one is available.
