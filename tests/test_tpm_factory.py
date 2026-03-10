@@ -7,6 +7,7 @@ from unittest.mock import patch
 from unolock_mcp.tpm.base import TpmDiagnostics
 from unolock_mcp.tpm.factory import create_tpm_dao
 from unolock_mcp.tpm.linux_tpm import LinuxTpmDao
+from unolock_mcp.tpm.macos_keychain import MacKeychainDao
 from unolock_mcp.tpm.macos_secure_enclave import MacSecureEnclaveDao
 from unolock_mcp.tpm.test_tpm import TestTpmDao
 from unolock_mcp.tpm.windows_tpm import WindowsTpmDao
@@ -28,10 +29,30 @@ class TpmFactoryTest(unittest.TestCase):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, LinuxTpmDao)
 
-    def test_forced_mac_provider_returns_macos_dao(self) -> None:
+    def test_forced_mac_provider_returns_best_macos_dao(self) -> None:
         with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "mac"}, clear=True):
+            with patch.object(MacSecureEnclaveDao, "diagnose") as se_diagnose:
+                se_diagnose.return_value = TpmDiagnostics(
+                    provider_name="mac-secure-enclave",
+                    provider_type="hardware",
+                    production_ready=True,
+                    available=True,
+                    summary="ok",
+                    details={},
+                    advice=[],
+                )
+                dao = create_tpm_dao()
+                self.assertIsInstance(dao, MacSecureEnclaveDao)
+
+    def test_forced_mac_secure_enclave_provider_returns_secure_enclave_dao(self) -> None:
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "mac-se"}, clear=True):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, MacSecureEnclaveDao)
+
+    def test_forced_mac_keychain_provider_returns_keychain_dao(self) -> None:
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "mac-keychain"}, clear=True):
+            dao = create_tpm_dao()
+            self.assertIsInstance(dao, MacKeychainDao)
 
     def test_auto_provider_fails_closed_when_linux_tpm_unavailable(self) -> None:
         with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=True):
@@ -103,6 +124,32 @@ class TpmFactoryTest(unittest.TestCase):
                     )
                     dao = create_tpm_dao()
                     self.assertIsInstance(dao, MacSecureEnclaveDao)
+
+    def test_auto_provider_falls_back_to_macos_keychain_on_darwin(self) -> None:
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=True):
+            with patch("platform.system", return_value="Darwin"):
+                with patch.object(MacSecureEnclaveDao, "diagnose") as se_diagnose:
+                    with patch.object(MacKeychainDao, "diagnose") as kc_diagnose:
+                        se_diagnose.return_value = TpmDiagnostics(
+                            provider_name="mac-secure-enclave",
+                            provider_type="hardware",
+                            production_ready=False,
+                            available=False,
+                            summary="secure enclave unavailable",
+                            details={},
+                            advice=[],
+                        )
+                        kc_diagnose.return_value = TpmDiagnostics(
+                            provider_name="mac-keychain",
+                            provider_type="platform",
+                            production_ready=True,
+                            available=True,
+                            summary="ok",
+                            details={},
+                            advice=[],
+                        )
+                        dao = create_tpm_dao()
+                        self.assertIsInstance(dao, MacKeychainDao)
 
 
 if __name__ == "__main__":

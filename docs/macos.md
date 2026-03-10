@@ -1,6 +1,6 @@
 # macOS Quick Start
 
-macOS support is not production-ready yet. This guide is for evaluation on a Secure Enclave-capable Mac, including Apple Silicon systems such as an M4 Mac.
+macOS support is still alpha. This guide is for evaluation on a Secure Enclave-capable Mac, including Apple Silicon systems such as an M4 Mac.
 
 ## Prerequisites
 
@@ -42,11 +42,12 @@ Run:
 python3 -m unolock_mcp tpm-diagnose
 ```
 
-Expected provider when the experimental macOS path works:
+Expected provider when the macOS host path works:
 
 * `mac-secure-enclave`
+* or `mac-keychain`
 
-If the MCP does not find a production-ready provider, it now fails closed by default. On macOS today, that means the agent should not continue registration on that host until the Secure Enclave path is working and verified for that launch context.
+If the MCP does not find a production-ready provider, it now fails closed by default. On macOS, the MCP now tries Secure Enclave first and then falls back to a non-exportable Keychain-backed provider. If neither works, do not continue registration on that host.
 
 ## Configure Your MCP Host
 
@@ -70,12 +71,12 @@ See:
    * the UnoLock Agent Key connection URL
    * the optional agent PIN, if one was configured
 4. The MCP derives the UnoLock origins and runtime compatibility values from the connection URL.
-5. If the host path works, the MCP registers the agent with a Secure Enclave-backed key.
+5. If the host path works, the MCP registers the agent with either a Secure Enclave-backed key or a non-exportable Keychain-backed key.
 6. After restart, the agent remains registered but must ask the user for the PIN again before re-authenticating.
 
 ## Troubleshooting
 
-If `tpm-diagnose` does not report `mac-secure-enclave`:
+If `tpm-diagnose` does not report either `mac-secure-enclave` or `mac-keychain`:
 
 * make sure Xcode Command Line Tools are installed
 * make sure you are running on a Secure Enclave-capable Mac
@@ -93,4 +94,4 @@ If the host still cannot use Secure Enclave, do not fall back to an insecure pro
 
 ## Notes
 
-The macOS Secure Enclave provider is implemented, but macOS support is not production-ready yet. The current blocker is launch-context reliability around Secure Enclave/keychain access. Apple Silicon trials are still useful, but treat them as evaluation, not production rollout.
+The macOS Secure Enclave provider is implemented, but Secure Enclave launch-context reliability is still the main blocker on some Macs. The new Keychain-backed non-exportable provider is there to broaden support while keeping a platform-bound key model. Apple Silicon trials are still useful, but treat the overall macOS path as alpha, not broad production rollout.

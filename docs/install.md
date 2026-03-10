@@ -33,7 +33,7 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 ## macOS Quick Start
 
-macOS support is not production-ready yet. Use it for evaluation only until Secure Enclave launch-context issues are resolved.
+macOS support is still alpha. The MCP now prefers Secure Enclave first and falls back to a non-exportable Keychain-backed provider for broader compatibility on real Macs.
 
 If you are installing on a Secure Enclave-capable Mac, especially Apple Silicon:
 
@@ -62,9 +62,10 @@ pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 python3 -m unolock_mcp tpm-diagnose
 ```
 
-Expected provider on macOS when the experimental path works:
+Expected provider on macOS when the host is working:
 
 * `mac-secure-enclave`
+* or `mac-keychain`
 
 Then configure your MCP host to launch:
 

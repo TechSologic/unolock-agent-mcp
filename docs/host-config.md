@@ -61,7 +61,9 @@ TPM provider modes:
 * `auto`: require a production-ready TPM, vTPM, or platform-backed provider for the current host
 * `test`: force the test TPM provider for development only
 * `linux`: force the Linux TPM/vTPM provider
-* `mac`: force the macOS Secure Enclave provider
+* `mac`: force the best available macOS provider
+* `mac-se` / `mac-secure-enclave`: force the macOS Secure Enclave provider
+* `mac-keychain` / `mac-platform`: force the macOS Keychain-backed provider
 * `windows`: force the Windows TPM helper provider
 
 Development-only override:
@@ -78,7 +80,7 @@ WSL2 note:
 
 macOS note:
 
-* on macOS, `auto` will prefer the Secure Enclave provider when the helper can create a Secure Enclave key
+* on macOS, `auto` now prefers Secure Enclave and falls back to a non-exportable Keychain-backed provider
 * the current implementation uses a small Swift helper that talks to Security.framework
 * install Apple Xcode Command Line Tools first with `xcode-select --install`
 * for a first customer trial, start with [macos.md](macos.md)

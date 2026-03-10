@@ -60,7 +60,7 @@ These are important, but either need another provider or stronger operational gu
 
 | Environment | Why it matters | Preferred DAO | Current status | Assurance |
 | --- | --- | --- | --- | --- |
-| macOS desktop/laptop | Major local developer and Claude/Desktop host | `MacSecureEnclaveDao` | Experimental, not production-ready yet | Hardware-backed |
+| macOS desktop/laptop | Major local developer and Claude/Desktop host | `MacSecureEnclaveDao`, fallback `MacKeychainDao` | Alpha, broader compatibility path available | Hardware-backed or platform-backed |
 | Windows VM with vTPM | Enterprise desktop and remote dev shape | `WindowsTpmDao` | Expected once Windows TPM is available in guest | Virtual hardware-backed |
 | Kubernetes nodes with vTPM-backed VMs | Growing home for background agents | `LinuxTpmDao` | Depends on node/VM design | Virtual hardware-backed |
 | Self-hosted CI runners | Common automation target when secrets matter | OS-specific production DAO | Supported if host exposes secure hardware | Host-dependent |
@@ -126,6 +126,7 @@ Use:
 Target behavior:
 
 * non-exportable key in Secure Enclave when available
+* fallback to non-exportable key stored in the user's macOS Keychain when Secure Enclave is unreliable in the current launch context
 * Keychain-backed fallback only if it preserves UnoLock’s device-bound intent
 
 ## Production guidance by environment
@@ -143,7 +144,7 @@ Target behavior:
 * Windows VM with vTPM
 * Kubernetes on vTPM-backed worker VMs
 * self-hosted CI runners with explicit TPM/vTPM support
-* macOS desktop agents once Secure Enclave launch-context reliability is solved and validated
+* macOS desktop agents using Secure Enclave where available, otherwise the Keychain-backed fallback path
 
 ### Development-only path
 
