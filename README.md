@@ -17,6 +17,24 @@ If the host does not provide one of those, the MCP now fails closed by default.
 
 That requirement is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model, rather than falling back to a reusable password or API-key style secret.
 
+## Intended Environment
+
+UnoLock Agent MCP is best suited to **user-adjacent desktop agents** running in a normal logged-in user session.
+
+That includes:
+
+* desktop AI assistants
+* local MCP hosts such as Claude Desktop or Cursor
+* user-controlled workstations, laptops, and VMs with TPM/vTPM or Secure Enclave access
+
+It is a weaker fit for:
+
+* fully headless background agents
+* remote sandboxes
+* plain containers without hardware-backed key access
+
+This is a product tradeoff, not an accident. Strong device-bound secret protection is much easier to preserve in user-controlled environments than in arbitrary unattended ones.
+
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`

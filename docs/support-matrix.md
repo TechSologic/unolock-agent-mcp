@@ -18,6 +18,18 @@ Checked against current host/platform docs on 2026-03-08:
 
 Use the strongest non-exportable key provider available on the current host.
 
+## Product Fit
+
+UnoLock Agent MCP is primarily designed for **user-adjacent desktop agents**:
+
+* local AI assistants
+* desktop MCP hosts
+* environments where the user can provide a connection URL and, if needed, a PIN
+
+It is **not** designed first for every possible headless or background-agent environment.
+
+That is an intentional tradeoff. Strong device-bound security is easier to preserve in a normal user session than in remote, sandboxed, or unattended environments.
+
 Selection policy:
 
 * default to `UNOLOCK_TPM_PROVIDER=auto`
@@ -122,12 +134,14 @@ Target behavior:
 * WSL2 using the Windows TPM helper
 * native Linux with TPM
 * Linux VM with vTPM
+* user-adjacent desktop agents running in a normal logged-in session
 
 ### Acceptable with more validation
 
 * Windows VM with vTPM
 * Kubernetes on vTPM-backed worker VMs
 * self-hosted CI runners with explicit TPM/vTPM support
+* macOS desktop agents once Secure Enclave launch-context validation is completed
 
 ### Development-only path
 
@@ -143,6 +157,15 @@ Do not treat it as:
 
 * password-equivalent production auth
 * acceptable long-term agent registration storage
+
+### Not a first-class production target
+
+These environments are likely to be difficult or unreliable for strong device-bound security:
+
+* fully headless background agents with no normal user session
+* remote agent sandboxes with limited keychain or TPM access
+* plain containers without TPM/vTPM passthrough
+* hosted agent environments where the operator does not control hardware-backed key access
 
 ## Rollout plan
 
