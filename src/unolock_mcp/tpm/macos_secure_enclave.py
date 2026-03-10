@@ -393,14 +393,13 @@ class MacSecureEnclaveDao(TpmDao):
             )
         except Exception as exc:
             details["error"] = str(exc)
-            advice.append("Use a Secure Enclave-capable Mac and make sure the login keychain is available.")
-            advice.append("Install Xcode command line tools if the Swift helper cannot run.")
+            advice.extend(self._diagnostic_advice_for_exception(exc))
             return TpmDiagnostics(
                 provider_name=self.provider_name(),
                 provider_type="hardware",
                 production_ready=False,
                 available=False,
-                summary="Secure Enclave helper could not create a signing key.",
+                summary=self._diagnostic_summary_for_exception(exc),
                 details=details,
                 advice=advice,
             )
@@ -531,3 +530,26 @@ class MacSecureEnclaveDao(TpmDao):
             return signature
         r, s = decode_dss_signature(signature)
         return r.to_bytes(32, "big") + s.to_bytes(32, "big")
+
+    @staticmethod
+    def _diagnostic_summary_for_exception(exc: Exception) -> str:
+        text = str(exc)
+        if "-34018" in text:
+            return "Secure Enclave key creation failed with OSStatus -34018."
+        return "Secure Enclave helper could not create a signing key."
+
+    @staticmethod
+    def _diagnostic_advice_for_exception(exc: Exception) -> list[str]:
+        text = str(exc)
+        advice = [
+            "Use a Secure Enclave-capable Mac and make sure the login keychain is available.",
+            "Install Xcode command line tools if the Swift helper cannot run.",
+        ]
+        if "-34018" in text:
+            advice = [
+                "Run the MCP from a normal logged-in macOS user session, not a headless or restricted launch context.",
+                "Make sure the login keychain is unlocked and available to the current process.",
+                "Try launching the MCP from Terminal.app or another normal user shell first, then rerun tpm-diagnose.",
+                "If a GUI MCP host is launching the MCP, make sure that host is allowed to access the user's login keychain.",
+            ] + advice
+        return advice

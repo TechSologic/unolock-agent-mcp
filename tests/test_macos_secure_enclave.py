@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from cryptography.hazmat.primitives.asymmetric.utils import encode_dss_signature
 
@@ -44,6 +45,16 @@ class MacSecureEnclaveDaoTest(unittest.TestCase):
         raw = MacSecureEnclaveDao._normalize_signature(der)
         self.assertEqual(raw[:32], bytes([3] * 32))
         self.assertEqual(raw[32:], bytes([4] * 32))
+
+    def test_diagnose_reports_osstatus_34018_helpfully(self) -> None:
+        dao = MacSecureEnclaveDao(swift_path="/usr/bin/swift")
+        with patch("platform.system", return_value="Darwin"):
+            with patch.object(dao, "_run_helper", side_effect=RuntimeError("OSStatus error -34018")):
+                diagnostics = dao.diagnose()
+
+        self.assertFalse(diagnostics.production_ready)
+        self.assertIn("-34018", diagnostics.summary)
+        self.assertTrue(any("login keychain" in item for item in diagnostics.advice))
 
 
 if __name__ == "__main__":

@@ -82,6 +82,13 @@ If `tpm-diagnose` does not report `mac-secure-enclave`:
 * check that the MCP host process can run the Swift helper locally
 * retry `python3 -m unolock_mcp tpm-diagnose`
 
+If diagnostics report `OSStatus -34018`:
+
+* run the MCP from a normal logged-in macOS user session
+* make sure the login keychain is unlocked and available
+* try launching from Terminal.app first
+* if a GUI MCP host is launching the MCP, make sure that host can access the user keychain
+
 If the host still cannot use Secure Enclave, do not fall back to an insecure provider for customer use.
 
 ## Notes
