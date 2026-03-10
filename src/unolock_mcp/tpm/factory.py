@@ -8,6 +8,7 @@ from .linux_tpm import LinuxTpmDao
 from .macos_keychain import MacKeychainDao
 from .macos_secure_enclave import MacSecureEnclaveDao
 from .test_tpm import TestTpmDao
+from .windows_cng import WindowsCngDao
 from .windows_tpm import WindowsTpmDao
 
 
@@ -30,21 +31,25 @@ def create_tpm_dao(provider: str | None = None) -> TpmDao:
     if selected in {"mac-keychain", "mac-platform"}:
         return MacKeychainDao()
     if selected == "windows":
+        return _create_best_windows_dao()
+    if selected in {"windows-tpm", "win-tpm"}:
         return WindowsTpmDao()
+    if selected in {"windows-cng", "windows-platform", "win-cng"}:
+        return WindowsCngDao()
     if selected != "auto":
         raise ValueError(
             "UNOLOCK_TPM_PROVIDER must be one of: auto, test, linux, mac, mac-se, mac-secure-enclave, "
-            "mac-keychain, mac-platform, windows"
+            "mac-keychain, mac-platform, windows, windows-tpm, win-tpm, windows-cng, windows-platform, win-cng"
         )
 
     system = platform.system().lower()
     if system == "windows":
-        windows = WindowsTpmDao()
-        if windows.diagnose().available:
+        windows = _try_create_best_windows_dao()
+        if windows is not None:
             return windows
     if system == "linux" and _is_wsl():
-        windows = WindowsTpmDao()
-        if windows.diagnose().available:
+        windows = _try_create_best_windows_dao()
+        if windows is not None:
             return windows
     if system == "linux":
         linux = LinuxTpmDao()
@@ -84,4 +89,24 @@ def _try_create_best_macos_dao() -> TpmDao | None:
     keychain = MacKeychainDao()
     if keychain.diagnose().available:
         return keychain
+    return None
+
+
+def _create_best_windows_dao() -> TpmDao:
+    dao = _try_create_best_windows_dao()
+    if dao is not None:
+        return dao
+    raise ValueError(
+        "No production-ready UnoLock TPM/vTPM/platform provider is available on this host. "
+        "For development only, set UNOLOCK_ALLOW_INSECURE_PROVIDER=1 to enable the test provider."
+    )
+
+
+def _try_create_best_windows_dao() -> TpmDao | None:
+    tpm = WindowsTpmDao()
+    if tpm.diagnose().available:
+        return tpm
+    cng = WindowsCngDao()
+    if cng.diagnose().available:
+        return cng
     return None

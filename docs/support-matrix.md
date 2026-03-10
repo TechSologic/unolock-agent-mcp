@@ -49,8 +49,8 @@ These should be treated as first-class production targets.
 
 | Environment | Why it matters | Preferred DAO | Current status | Assurance |
 | --- | --- | --- | --- | --- |
-| Windows desktop/laptop | Common local agent host for Claude Desktop and Cursor | `WindowsTpmDao` | Implemented | Hardware-backed |
-| WSL2 on Windows | Common developer and agent host shape | `WindowsTpmDao` via Windows helper | Implemented and live-validated | Hardware-backed |
+| Windows desktop/laptop | Common local agent host for Claude Desktop and Cursor | `WindowsTpmDao`, fallback `WindowsCngDao` | Implemented | Hardware-backed or platform-backed |
+| WSL2 on Windows | Common developer and agent host shape | `WindowsTpmDao` via Windows helper, fallback `WindowsCngDao` | Implemented and live-validated | Hardware-backed or platform-backed |
 | Native Linux | Common server, workstation, and self-hosted agent environment | `LinuxTpmDao` | Implemented, needs more live host coverage | Hardware-backed or vTPM |
 | Linux VM with vTPM | Strong production shape for hosted agents | `LinuxTpmDao` | Expected to work if TPM device is exposed | Virtual hardware-backed |
 
@@ -84,6 +84,7 @@ The startup factory should think in terms of runtime shape, not just OS name.
 Use:
 
 * `WindowsTpmDao`
+* fallback `WindowsCngDao`
 
 Detect with:
 
@@ -95,6 +96,7 @@ Detect with:
 Use:
 
 * `WindowsTpmDao`
+* fallback `WindowsCngDao`
 
 Detect with:
 
@@ -172,11 +174,12 @@ These environments are likely to be difficult or unreliable for strong device-bo
 
 ## Rollout plan
 
-1. Keep `WindowsTpmDao` as the default production path for Windows and WSL2.
-2. Validate `LinuxTpmDao` on native Linux and Linux VMs with vTPM.
-3. Validate `MacSecureEnclaveDao` on real Secure Enclave-capable Macs.
-4. Add clearer runtime detection for containers, CI, and Kubernetes.
-5. Keep `TestTpmDao` only as an explicit development fallback.
+1. Keep `WindowsTpmDao` as the preferred production path for Windows and WSL2.
+2. Use `WindowsCngDao` as the non-exportable platform fallback when TPM-backed creation is unavailable.
+3. Validate `LinuxTpmDao` on native Linux and Linux VMs with vTPM.
+4. Validate `MacSecureEnclaveDao` on real Secure Enclave-capable Macs.
+5. Add clearer runtime detection for containers, CI, and Kubernetes.
+6. Keep `TestTpmDao` only as an explicit development fallback.
 
 ## Factory expectations
 

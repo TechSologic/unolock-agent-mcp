@@ -19,6 +19,8 @@ If the MCP cannot find one, it fails closed by default.
 
 This is deliberate. The point of the Agent MCP is to keep AI access device-bound and resistant to secret export, not to turn UnoLock into a password-style or API-key-style integration.
 
+On Windows and WSL, the MCP now prefers a TPM-backed key first and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable.
+
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`

@@ -29,6 +29,7 @@ That includes:
 * local MCP hosts such as Claude Desktop or Cursor
 * user-controlled workstations, laptops, and VMs with TPM/vTPM access
 * macOS hosts that can use either Secure Enclave or a non-exportable Keychain-backed key
+* Windows or WSL hosts that can use either TPM-backed keys or the non-exportable Windows CNG fallback
 
 It is a weaker fit for:
 

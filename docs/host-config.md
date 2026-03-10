@@ -70,7 +70,9 @@ TPM provider modes:
 * `mac`: force the best available macOS provider
 * `mac-se` / `mac-secure-enclave`: force the macOS Secure Enclave provider
 * `mac-keychain` / `mac-platform`: force the macOS Keychain-backed provider
-* `windows`: force the Windows TPM helper provider
+* `windows`: force the best available Windows provider
+* `windows-tpm` / `win-tpm`: force the Windows TPM helper provider
+* `windows-cng` / `windows-platform` / `win-cng`: force the Windows CNG fallback provider
 
 Development-only override:
 
@@ -80,9 +82,9 @@ Development-only override:
 WSL2 note:
 
 * WSL2 usually does not expose `/dev/tpmrm0` or `/dev/tpm0`
-* on WSL2, `auto` now prefers the Windows TPM helper provider
-* if the Windows helper cannot create TPM-backed keys, `auto` now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set
-* for production use, WSL2 should use the Windows TPM helper path, not the Linux TPM path
+* on WSL2, `auto` now prefers the Windows TPM helper provider and falls back to the Windows CNG provider
+* if neither Windows provider works, `auto` now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set
+* for production use, WSL2 should use the Windows provider path, not the Linux TPM path
 
 macOS note:
 

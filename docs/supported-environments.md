@@ -4,8 +4,8 @@ UnoLock Agent MCP is best suited to **user-adjacent desktop or VM hosts** where 
 
 ## Best fit today
 
-* Windows desktop/laptop with TPM
-* WSL2 using the Windows TPM helper
+* Windows desktop/laptop with TPM or the non-exportable Windows CNG fallback
+* WSL2 using the Windows TPM helper or the Windows CNG fallback
 * Linux desktop, workstation, or VM with TPM/vTPM
 * macOS desktop/laptop when either:
   * Secure Enclave works cleanly in the current launch context
