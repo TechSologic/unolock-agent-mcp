@@ -25,7 +25,7 @@ That includes:
 
 * desktop AI assistants
 * local MCP hosts such as Claude Desktop or Cursor
-* user-controlled workstations, laptops, and VMs with TPM/vTPM or Secure Enclave access
+* user-controlled workstations, laptops, and VMs with TPM/vTPM access
 
 It is a weaker fit for:
 
@@ -104,7 +104,7 @@ unolock-agent-tpm-check
 python3 -m unolock_mcp config-check
 ```
 
-For a first customer trial on Apple Silicon macOS, start with:
+macOS support is not production-ready yet. If you are evaluating it on Apple Silicon, start with:
 
 * [macOS Quick Start](docs/macos.md)
 
@@ -172,7 +172,7 @@ TPM provider selection:
 
 On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host. This has been validated on this local WSL2 setup with live key creation and challenge signing. If that path fails, the MCP now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set for development.
 
-On macOS, `auto` now prefers the Secure Enclave provider when the Swift/Xcode command-line toolchain is available and the helper can create a non-exportable key. This path is implemented, but still needs validation on real macOS hardware.
+On macOS, `auto` tries the Secure Enclave provider when the Swift/Xcode command-line toolchain is available and the helper can create a non-exportable key. This path is experimental and not production-ready yet.
 
 ## Current capabilities
 

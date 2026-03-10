@@ -58,7 +58,7 @@ These are important, but either need another provider or stronger operational gu
 
 | Environment | Why it matters | Preferred DAO | Current status | Assurance |
 | --- | --- | --- | --- | --- |
-| macOS desktop/laptop | Major local developer and Claude/Desktop host | `MacSecureEnclaveDao` | Implemented, needs real hardware validation | Hardware-backed |
+| macOS desktop/laptop | Major local developer and Claude/Desktop host | `MacSecureEnclaveDao` | Experimental, not production-ready yet | Hardware-backed |
 | Windows VM with vTPM | Enterprise desktop and remote dev shape | `WindowsTpmDao` | Expected once Windows TPM is available in guest | Virtual hardware-backed |
 | Kubernetes nodes with vTPM-backed VMs | Growing home for background agents | `LinuxTpmDao` | Depends on node/VM design | Virtual hardware-backed |
 | Self-hosted CI runners | Common automation target when secrets matter | OS-specific production DAO | Supported if host exposes secure hardware | Host-dependent |
@@ -141,7 +141,7 @@ Target behavior:
 * Windows VM with vTPM
 * Kubernetes on vTPM-backed worker VMs
 * self-hosted CI runners with explicit TPM/vTPM support
-* macOS desktop agents once Secure Enclave launch-context validation is completed
+* macOS desktop agents once Secure Enclave launch-context reliability is solved and validated
 
 ### Development-only path
 

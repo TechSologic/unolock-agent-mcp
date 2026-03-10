@@ -1,6 +1,6 @@
 # macOS Quick Start
 
-This guide is the shortest path for trying the UnoLock Agent MCP on a Secure Enclave-capable Mac, including Apple Silicon systems such as an M4 Mac.
+macOS support is not production-ready yet. This guide is for evaluation on a Secure Enclave-capable Mac, including Apple Silicon systems such as an M4 Mac.
 
 ## Prerequisites
 
@@ -42,11 +42,11 @@ Run:
 python3 -m unolock_mcp tpm-diagnose
 ```
 
-Expected production-ready provider:
+Expected provider when the experimental macOS path works:
 
 * `mac-secure-enclave`
 
-If the MCP does not find a production-ready provider, it now fails closed by default. That means the agent should not continue registration on that host until the Secure Enclave path is working.
+If the MCP does not find a production-ready provider, it now fails closed by default. On macOS today, that means the agent should not continue registration on that host until the Secure Enclave path is working and verified for that launch context.
 
 ## Configure Your MCP Host
 
@@ -70,7 +70,7 @@ See:
    * the UnoLock Agent Key connection URL
    * the optional agent PIN, if one was configured
 4. The MCP derives the UnoLock origins and runtime compatibility values from the connection URL.
-5. The MCP registers the agent with a Secure Enclave-backed key.
+5. If the host path works, the MCP registers the agent with a Secure Enclave-backed key.
 6. After restart, the agent remains registered but must ask the user for the PIN again before re-authenticating.
 
 ## Troubleshooting
@@ -93,4 +93,4 @@ If the host still cannot use Secure Enclave, do not fall back to an insecure pro
 
 ## Notes
 
-The macOS Secure Enclave provider is implemented and intended for production use, but it still needs broader real-hardware validation across more Macs. An Apple Silicon trial is exactly the right next step.
+The macOS Secure Enclave provider is implemented, but macOS support is not production-ready yet. The current blocker is launch-context reliability around Secure Enclave/keychain access. Apple Silicon trials are still useful, but treat them as evaluation, not production rollout.

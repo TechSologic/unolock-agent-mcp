@@ -31,6 +31,8 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 ## macOS Quick Start
 
+macOS support is not production-ready yet. Use it for evaluation only until Secure Enclave launch-context issues are resolved.
+
 If you are installing on a Secure Enclave-capable Mac, especially Apple Silicon:
 
 1. Install Apple Xcode Command Line Tools:
@@ -58,7 +60,7 @@ pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 python3 -m unolock_mcp tpm-diagnose
 ```
 
-Expected production-ready provider on macOS:
+Expected provider on macOS when the experimental path works:
 
 * `mac-secure-enclave`
 
