@@ -73,6 +73,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
 
             self.assertEqual(payload["recommended_next_action"], "ask_for_connection_url")
             self.assertIn("agent key connection URL", payload["guidance"])
+            self.assertIn("one-time-use", payload["guidance"])
             self.assertIn("agent PIN", payload["guidance"])
 
 

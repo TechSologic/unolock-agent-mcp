@@ -5,7 +5,7 @@ This document describes the current UnoLock Agent MCP tool surface for the worki
 The recommended lifecycle is:
 
 1. Check registration and TPM readiness.
-2. Ask the user for an UnoLock agent key connection URL and, if configured, the agent PIN if needed.
+2. Ask the user for a one-time-use UnoLock agent key connection URL and, if configured, the agent PIN if needed.
 3. Register or authenticate the agent.
 4. Use read-only space and record tools.
 
@@ -15,6 +15,10 @@ The recommended lifecycle is:
 
 Purpose:
 Return whether this MCP host is already registered, whether it has a stored agent key connection URL, and what the agent should do next.
+
+Notes:
+
+* When registration is needed, the MCP should tell the agent that the agent key connection URL is one-time-use and for enrollment only.
 
 Arguments:
 None.
@@ -60,7 +64,7 @@ Important response fields:
 ### `unolock_submit_connection_url`
 
 Purpose:
-Store and parse a UnoLock agent key connection URL from the user.
+Store and parse a one-time-use UnoLock agent key connection URL from the user.
 
 Arguments:
 
@@ -68,7 +72,7 @@ Arguments:
 
 Expected input:
 
-* agent URL format: `#/agent-register/...`
+* one-time-use agent URL format: `#/agent-register/...`
 
 Common failure response:
 
@@ -78,7 +82,7 @@ Common failure response:
 ### `unolock_submit_agent_bootstrap`
 
 Purpose:
-Store the UnoLock agent key connection URL and an optional agent PIN together in one step.
+Store the one-time-use UnoLock agent key connection URL and an optional agent PIN together in one step.
 
 Arguments:
 
@@ -92,13 +96,14 @@ Typical use:
 
 Notes:
 
+* the connection URL is one-time-use and for enrollment only
 * the PIN remains in process memory only
 * if no PIN was configured for the agent key, omit it
 
 ### `unolock_clear_connection_url`
 
 Purpose:
-Remove the locally stored UnoLock agent key connection URL.
+Remove the locally stored one-time-use UnoLock agent key connection URL.
 
 Arguments:
 None.
@@ -151,7 +156,7 @@ What it does not remove:
 ### `unolock_start_registration_from_connection_url`
 
 Purpose:
-Start agent registration from the stored agent key connection URL.
+Start agent registration from the stored one-time-use agent key connection URL.
 
 Arguments:
 None.
@@ -321,7 +326,7 @@ These are useful for debugging or deeper integration work, but they are not the 
 ## Recommended Happy Path
 
 1. Call `unolock_get_registration_status`.
-2. If needed, ask the user for the UnoLock agent key connection URL.
+2. If needed, ask the user for the one-time-use UnoLock agent key connection URL.
 3. Call `unolock_submit_connection_url`.
 4. If needed, call `unolock_start_registration_from_connection_url` or `unolock_bootstrap_agent`.
 5. If the MCP says it needs the agent PIN, ask the user for it and call `unolock_set_agent_pin`.

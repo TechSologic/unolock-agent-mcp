@@ -156,7 +156,8 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 Once the host can launch the MCP:
 
 1. Ask the MCP for registration status.
-2. If it says a connection URL is needed, ask the user for the UnoLock agent key connection URL and, if they configured one, the agent PIN at the same time.
+2. If it says a connection URL is needed, ask the user for the one-time-use UnoLock agent key connection URL and, if they configured one, the agent PIN at the same time.
+   Treat that URL as enrollment-only, not as a reusable credential.
 3. Submit them to the MCP with `unolock_submit_agent_bootstrap`.
 4. If the PIN was not collected up front and the Safe later asks for it, set it in MCP memory.
 5. Call the one-shot bootstrap/auth flow.

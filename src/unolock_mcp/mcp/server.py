@@ -73,14 +73,15 @@ def _registration_status_payload(
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
-            "Ask the user for the UnoLock agent key connection URL and, if they configured one, the UnoLock "
-            "agent PIN at the same time. Then call unolock_submit_agent_bootstrap or submit the connection URL "
-            "and PIN separately."
+            "Ask the user for the one-time-use UnoLock agent key connection URL and, if they configured one, the "
+            "UnoLock agent PIN at the same time. The connection URL is for enrollment only and should not be reused "
+            "or treated like a persistent secret. Then call unolock_submit_agent_bootstrap or submit the connection "
+            "URL and PIN separately."
         )
     else:
         next_action = "start_registration"
         guidance = (
-            "An UnoLock agent key connection URL is stored. Call "
+            "A one-time-use UnoLock agent key connection URL is stored. Call "
             "unolock_start_registration_from_connection_url to register this MCP."
         )
 
@@ -126,8 +127,9 @@ def create_mcp_server() -> FastMCP:
         instructions=(
             "Use this server to probe UnoLock callback compatibility, start UnoLock auth flows, "
             "continue flow callbacks, and call a small set of authenticated UnoLock API actions. "
-            "If registration is not configured, ask the user for the UnoLock agent key connection URL and the "
-            "optional agent PIN together when possible, then submit them with unolock_submit_agent_bootstrap."
+            "If registration is not configured, ask the user for the one-time-use UnoLock agent key connection URL "
+            "and the optional agent PIN together when possible, then submit them with "
+            "unolock_submit_agent_bootstrap. The connection URL is for enrollment only."
         ),
     )
 
@@ -150,9 +152,10 @@ def create_mcp_server() -> FastMCP:
             {
                 "role": "user",
                 "content": (
-                    "If UnoLock registration is not configured, ask the user to provide the UnoLock "
+                "If UnoLock registration is not configured, ask the user to provide the UnoLock "
                     "agent key connection URL for AI/agent registration and, if they configured one, the UnoLock "
-                    "agent PIN at the same time. Once the user gives you those values, call "
+                    "agent PIN at the same time. The connection URL is one-time-use and for enrollment only. Once "
+                    "the user gives you those values, call "
                     "unolock_submit_agent_bootstrap."
                 ),
             }
@@ -183,7 +186,7 @@ def create_mcp_server() -> FastMCP:
         name="unolock_get_registration_status",
         description=(
             "Return whether this MCP is already registered. If not registered, the response will say "
-            "that the agent should ask the user for the UnoLock agent key connection URL."
+            "that the agent should ask the user for the one-time-use UnoLock agent key connection URL."
         ),
     )
     def get_registration_status() -> dict[str, Any]:
@@ -219,8 +222,8 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_submit_connection_url",
         description=(
-            "Accept a UnoLock agent key connection URL from the user, persist it locally, and parse any "
-            "flow/args or registration code embedded in it."
+            "Accept a one-time-use UnoLock agent key connection URL from the user, persist it locally for "
+            "enrollment, and parse any flow/args or registration code embedded in it."
         ),
     )
     def submit_connection_url(connection_url: str) -> dict[str, Any]:
@@ -229,7 +232,7 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_submit_agent_bootstrap",
         description=(
-            "Accept the UnoLock agent key connection URL and an optional agent PIN together. "
+            "Accept the one-time-use UnoLock agent key connection URL and an optional agent PIN together. "
             "This is the preferred cold-start bootstrap tool."
         ),
     )
@@ -270,7 +273,7 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_start_registration_from_connection_url",
         description=(
-            "Attempt to start UnoLock registration from the stored connection URL. If the server-side "
+            "Attempt to start UnoLock registration from the stored one-time-use connection URL. If the server-side "
             "agent registration flow is not implemented yet, this returns a clear pending/unsupported result."
         ),
     )

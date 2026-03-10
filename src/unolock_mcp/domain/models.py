@@ -135,6 +135,7 @@ class ConnectionUrlInfo:
             "has_registration_code": self.registration_code is not None,
             "source": self.source,
             "has_raw_url": bool(self.raw_url),
+            "one_time_use": True,
         }
 
 
@@ -168,7 +169,8 @@ class RegistrationState:
             "transparency_origin": self.transparency_origin,
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
-                "If registration is needed, ask the user for the UnoLock agent key connection URL and pass it to "
-                "unolock_submit_connection_url."
+                "If registration is needed, ask the user for the one-time-use UnoLock agent key connection URL and "
+                "pass it to unolock_submit_connection_url. The connection URL is for enrollment only and should not "
+                "be treated as a reusable credential."
             ),
         }
