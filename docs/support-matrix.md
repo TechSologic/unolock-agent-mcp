@@ -2,6 +2,8 @@
 
 This document defines which agent-host environments UnoLock should support first and which TPM DAO should be used in each environment.
 
+UnoLock Agent MCP is currently an alpha feature. This matrix describes the current evaluation state, not a final GA support commitment.
+
 Checked against current host/platform docs on 2026-03-08:
 
 * Anthropic Claude Code setup: https://code.claude.com/docs/en/setup

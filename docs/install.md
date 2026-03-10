@@ -2,6 +2,8 @@
 
 This guide explains the recommended ways for customers to install the UnoLock Agent MCP.
 
+UnoLock Agent MCP is currently in alpha. The install flow is available for evaluation and early testing, but it is not ready for broad production rollout yet.
+
 ## Security Requirement
 
 UnoLock Agent MCP is intended for high-security AI access to Safe data.

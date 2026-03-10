@@ -2,6 +2,8 @@
 
 This repository is the dedicated home for UnoLock's Python agent/MCP client.
 
+UnoLock Agent MCP is currently in alpha. It is available for evaluation and early testing, but it is not ready for broad production rollout yet.
+
 ## Security Requirement
 
 UnoLock Agent MCP is built for customers who want the strongest practical protection for AI-accessed secrets.
