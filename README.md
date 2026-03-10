@@ -86,6 +86,7 @@ For real MCP hosts, see:
 
 * [Install Guide](docs/install.md)
 * [macOS Quick Start](docs/macos.md)
+* [Supported Environments](docs/supported-environments.md)
 * [MCP Host Config](docs/host-config.md)
 * [Support Matrix](docs/support-matrix.md)
 * [Tool Catalog](docs/tool-catalog.md)
@@ -104,6 +105,7 @@ unolock-agent-mcp mcp
 python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --pin 0123 --list-records
 python3 -m unolock_mcp tpm-diagnose
 unolock-agent-tpm-check
+unolock-agent-self-test
 python3 -m unolock_mcp config-check
 ```
 

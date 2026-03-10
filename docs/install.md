@@ -23,6 +23,12 @@ Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
+The quickest post-install readiness summary is:
+
+```bash
+unolock-agent-self-test
+```
+
 If you are new to UnoLock, these docs explain the product concepts behind the MCP:
 
 * UnoLock Knowledge Base: `https://safe.unolock.com/docs/`
@@ -111,6 +117,7 @@ Useful extra command:
 
 ```bash
 unolock-agent-tpm-check
+unolock-agent-self-test
 python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
 ```

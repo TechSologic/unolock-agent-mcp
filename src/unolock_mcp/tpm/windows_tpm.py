@@ -14,6 +14,7 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 from .base import CreatedKey, KeyBindingInfo, TpmDao, TpmDiagnostics
+from .host_diagnostics import AGENTIC_SAFE_ACCESS_DOC, CONNECTING_AGENT_DOC, detect_host_environment
 
 
 WINDOWS_TPM_HELPER = r"""
@@ -228,6 +229,14 @@ class WindowsTpmDao(TpmDao):
             "release": platform.release().lower(),
             "powershell_path": self._powershell,
             "is_wsl": _is_wsl(),
+            "environment": detect_host_environment(
+                system=platform.system().lower(),
+                release=platform.release().lower(),
+            ),
+            "docs": {
+                "agentic_safe_access": AGENTIC_SAFE_ACCESS_DOC,
+                "connecting_an_ai_agent": CONNECTING_AGENT_DOC,
+            },
         }
         advice: list[str] = []
         if not self._powershell:

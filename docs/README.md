@@ -15,6 +15,7 @@ Current docs:
 
 * [install.md](install.md)
 * [macos.md](macos.md)
+* [supported-environments.md](supported-environments.md)
 * [support-matrix.md](support-matrix.md)
 * [host-config.md](host-config.md)
 * [tool-catalog.md](tool-catalog.md)

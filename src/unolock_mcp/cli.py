@@ -75,6 +75,16 @@ def build_parser() -> argparse.ArgumentParser:
     )
     tpm_check_parser.add_argument("--json", action="store_true", help="Print the fail-fast result as JSON.")
 
+    self_test_parser = subparsers.add_parser(
+        "self-test",
+        help="Run a one-shot UnoLock Agent MCP readiness check.",
+        description=(
+            "Check whether this host is suitable for UnoLock Agent MCP bootstrap, summarize the detected "
+            "environment, and report the next recommended action."
+        ),
+    )
+    self_test_parser.add_argument("--json", action="store_true", help="Print the self-test result as JSON.")
+
     subparsers.add_parser(
         "config-check",
         help="Show the resolved UnoLock runtime configuration and missing values.",
@@ -125,6 +135,30 @@ def main(argv: list[str] | None = None) -> int:
             ),
         }
         print(json.dumps(payload, indent=2))
+        return 0 if payload["ok"] else 1
+
+    if command == "self-test":
+        session_store = SessionStore()
+        registration_store = RegistrationStore()
+        agent_auth = AgentAuthClient(None, session_store, registration_store)
+        registration = registration_store.load().summary()
+        diagnostics = agent_auth.tpm_diagnostics()
+        resolved = resolve_unolock_config(
+            base_url=args.base_url or registration.get("api_base_url"),
+            transparency_origin=args.transparency_origin or registration.get("transparency_origin"),
+            app_version=args.app_version,
+            signing_public_key_b64=args.signing_public_key,
+        )
+        payload = _build_self_test_payload(
+            diagnostics=diagnostics,
+            registration=registration,
+            resolved=resolved,
+        )
+        if getattr(args, "json", False):
+            print(json.dumps(payload, indent=2))
+        else:
+            status = "OK" if payload["ok"] else "NOT_READY"
+            print(f"{status}: {payload['summary']}")
         return 0 if payload["ok"] else 1
 
     def resolve_runtime_config(registration_store: RegistrationStore) -> UnoLockConfig:
@@ -230,6 +264,73 @@ def mcp_main() -> int:
 
 def tpm_check_main() -> int:
     return main(["tpm-check", *sys.argv[1:]])
+
+
+def self_test_main() -> int:
+    return main(["self-test", *sys.argv[1:]])
+
+
+def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved) -> dict:
+    environment = diagnostics.get("details", {}).get("environment", {})
+    recommended_host_shape = _recommended_host_shape(environment)
+    docs = diagnostics.get("details", {}).get("docs", {})
+
+    if registration.get("registered"):
+        next_action = "authenticate_agent"
+        guidance = "This host is ready. Ask the user for the agent PIN if needed, then authenticate."
+    else:
+        next_action = "ask_for_connection_url"
+        guidance = (
+            "This host is ready for bootstrap. Ask the user for the one-time-use UnoLock agent key connection URL "
+            "and optional PIN, then start registration."
+        )
+
+    ok = bool(diagnostics.get("production_ready"))
+    if not ok:
+        next_action = "review_tpm_diagnostics"
+        guidance = (
+            "This host is not ready for production UnoLock agent use yet. Review the TPM/environment diagnostics "
+            "and the linked setup docs before continuing."
+        )
+
+    summary = str(diagnostics.get("summary") or "UnoLock Agent MCP self-test completed.")
+    if ok and environment.get("is_container"):
+        summary = f"{summary} Containerized environments still need a real host or VM trust path."
+
+    return {
+        "ok": ok,
+        "mcp_version": MCP_VERSION,
+        "provider_name": diagnostics.get("provider_name"),
+        "provider_type": diagnostics.get("provider_type"),
+        "production_ready": bool(diagnostics.get("production_ready")),
+        "environment": environment,
+        "recommended_host_shape": recommended_host_shape,
+        "registration": {
+            "registered": bool(registration.get("registered")),
+            "access_id": registration.get("access_id"),
+            "tpm_provider": registration.get("tpm_provider"),
+        },
+        "runtime_config": {
+            "base_url": getattr(resolved, "base_url", None),
+            "transparency_origin": getattr(resolved, "transparency_origin", None),
+            "app_version_available": bool(getattr(resolved, "app_version", None)),
+            "pq_validation_key_available": bool(getattr(resolved, "signing_public_key_b64", None)),
+        },
+        "summary": summary,
+        "recommended_next_action": next_action,
+        "guidance": guidance,
+        "docs": docs,
+        "tpm_diagnostics": diagnostics,
+    }
+
+
+def _recommended_host_shape(environment: dict) -> str:
+    if environment.get("is_wsl"):
+        return "WSL using the Windows TPM helper"
+    if environment.get("is_container"):
+        runtime = environment.get("container_runtime") or "container"
+        return f"{runtime} backed by a real host or VM TPM/vTPM path"
+    return "normal logged-in desktop or VM session with TPM/vTPM/platform-backed key access"
 
 
 if __name__ == "__main__":

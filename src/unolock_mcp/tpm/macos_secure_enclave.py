@@ -12,6 +12,7 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
 from .base import CreatedKey, KeyBindingInfo, TpmDao, TpmDiagnostics
+from .host_diagnostics import AGENTIC_SAFE_ACCESS_DOC, CONNECTING_AGENT_DOC, detect_host_environment
 
 
 MACOS_SECURE_ENCLAVE_HELPER = r"""
@@ -356,6 +357,14 @@ class MacSecureEnclaveDao(TpmDao):
             "os": platform.system().lower(),
             "release": platform.release().lower(),
             "swift_path": self._swift,
+            "environment": detect_host_environment(
+                system=platform.system().lower(),
+                release=platform.release().lower(),
+            ),
+            "docs": {
+                "agentic_safe_access": AGENTIC_SAFE_ACCESS_DOC,
+                "connecting_an_ai_agent": CONNECTING_AGENT_DOC,
+            },
         }
         advice: list[str] = []
         if platform.system().lower() != "darwin":

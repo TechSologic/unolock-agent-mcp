@@ -54,6 +54,12 @@ and verify the resolved values with:
 python3 -m unolock_mcp config-check
 ```
 
+For a one-shot readiness summary after install, run:
+
+```bash
+unolock-agent-self-test
+```
+
 For the standard hosted UnoLock deployment, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published app version and PQ validation key automatically.
 
 TPM provider modes:
@@ -211,6 +217,7 @@ Before trusting the MCP in production, run:
 
 ```bash
 python3 -m unolock_mcp tpm-diagnose
+unolock-agent-self-test
 ```
 
 The diagnostic reports:
