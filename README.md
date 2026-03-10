@@ -82,6 +82,7 @@ unolock-agent-probe probe
 unolock-agent-mcp mcp
 python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --pin 0123 --list-records
 python3 -m unolock_mcp tpm-diagnose
+unolock-agent-tpm-check
 python3 -m unolock_mcp config-check
 ```
 
@@ -183,6 +184,8 @@ Installed commands:
   * run the packaged local probe
 * `unolock-agent-mcp`
   * run the stdio MCP server
+* `unolock-agent-tpm-check`
+  * run the fail-fast production-readiness TPM check
 
 Current MCP tools:
 

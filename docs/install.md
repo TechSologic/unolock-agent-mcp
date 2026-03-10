@@ -105,6 +105,7 @@ unolock-agent-mcp mcp
 Useful extra command:
 
 ```bash
+unolock-agent-tpm-check
 python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
 ```
@@ -139,6 +140,7 @@ python3 -m unolock_mcp --help
 Check TPM/vTPM readiness:
 
 ```bash
+unolock-agent-tpm-check
 python3 -m unolock_mcp tpm-diagnose
 ```
 

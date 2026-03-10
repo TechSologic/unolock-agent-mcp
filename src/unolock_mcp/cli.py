@@ -63,6 +63,17 @@ def build_parser() -> argparse.ArgumentParser:
         help="Diagnose TPM/vTPM readiness for the UnoLock agent MCP.",
         description="Inspect the active TPM DAO and host TPM/vTPM signals and print advice.",
     )
+    diagnose_parser.add_argument("--json", action="store_true", help="Print full JSON diagnostics.")
+
+    tpm_check_parser = subparsers.add_parser(
+        "tpm-check",
+        help="Fail-fast check for production-ready TPM/vTPM/platform-backed key access.",
+        description=(
+            "Run a minimal UnoLock TPM readiness check and exit nonzero if a production-ready TPM, vTPM, "
+            "Secure Enclave, or equivalent platform-backed provider is not available."
+        ),
+    )
+    tpm_check_parser.add_argument("--json", action="store_true", help="Print the fail-fast result as JSON.")
 
     subparsers.add_parser(
         "config-check",
@@ -166,13 +177,29 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(result, indent=2))
         return 0
 
-    if command == "tpm-diagnose":
+    if command in {"tpm-diagnose", "tpm-check"}:
         session_store = SessionStore()
         registration_store = RegistrationStore()
         agent_auth = AgentAuthClient(None, session_store, registration_store)
         diagnostics = agent_auth.tpm_diagnostics()
-        print(json.dumps(diagnostics, indent=2))
-        return 0 if diagnostics.get("production_ready") else 1
+        if command == "tpm-diagnose":
+            print(json.dumps(diagnostics, indent=2))
+            return 0 if diagnostics.get("production_ready") else 1
+
+        payload = {
+            "ok": bool(diagnostics.get("production_ready")),
+            "provider_name": diagnostics.get("provider_name"),
+            "provider_type": diagnostics.get("provider_type"),
+            "production_ready": bool(diagnostics.get("production_ready")),
+            "summary": diagnostics.get("summary"),
+            "advice": diagnostics.get("advice", []),
+        }
+        if getattr(args, "json", False):
+            print(json.dumps(payload, indent=2))
+        else:
+            status = "OK" if payload["ok"] else "NOT_READY"
+            print(f"{status}: {payload['summary']}")
+        return 0 if payload["ok"] else 1
 
     config = load_unolock_config(
         base_url=args.base_url,
@@ -199,6 +226,10 @@ def mcp_main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] in {"--help", "-h", "--version"}:
         return main(sys.argv[1:])
     return main(["mcp", *sys.argv[1:]])
+
+
+def tpm_check_main() -> int:
+    return main(["tpm-check", *sys.argv[1:]])
 
 
 if __name__ == "__main__":

@@ -23,6 +23,14 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(result, 0)
         main_mock.assert_called_once_with(["mcp"])
 
+    def test_tpm_check_main_defaults_to_tpm_check_subcommand(self) -> None:
+        with patch.object(cli, "main", return_value=0) as main_mock:
+            with patch("sys.argv", ["unolock-agent-tpm-check"]):
+                result = cli.tpm_check_main()
+
+        self.assertEqual(result, 0)
+        main_mock.assert_called_once_with(["tpm-check"])
+
 
 if __name__ == "__main__":
     unittest.main()
