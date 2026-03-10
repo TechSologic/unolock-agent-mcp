@@ -2,6 +2,21 @@
 
 This guide explains the recommended ways for customers to install the UnoLock Agent MCP.
 
+## Security Requirement
+
+UnoLock Agent MCP is intended for high-security AI access to Safe data.
+
+For normal customer use, the host must provide a production-ready:
+
+* TPM
+* vTPM
+* Secure Enclave
+* or equivalent platform-backed non-exportable key store
+
+If the MCP cannot find one, it fails closed by default.
+
+This is deliberate. The point of the Agent MCP is to keep AI access device-bound and resistant to secret export, not to turn UnoLock into a password-style or API-key-style integration.
+
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`

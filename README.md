@@ -2,6 +2,21 @@
 
 This repository is the dedicated home for UnoLock's Python agent/MCP client.
 
+## Security Requirement
+
+UnoLock Agent MCP is built for customers who want the strongest practical protection for AI-accessed secrets.
+
+For normal customer use, the MCP requires a production-ready:
+
+* TPM
+* vTPM
+* Secure Enclave
+* or equivalent platform-backed non-exportable key store
+
+If the host does not provide one of those, the MCP now fails closed by default.
+
+That requirement is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model, rather than falling back to a reusable password or API-key style secret.
+
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`

@@ -2,6 +2,19 @@
 
 This document shows the current easiest way to run the UnoLock agent MCP in real MCP hosts.
 
+## Security Requirement
+
+For normal customer use, UnoLock Agent MCP expects a production-ready:
+
+* TPM
+* vTPM
+* Secure Enclave
+* or equivalent platform-backed non-exportable key store
+
+If the current host does not provide one, the MCP fails closed by default.
+
+That is the point of the product: keep AI agent access device-bound and aligned with UnoLock's strongest security model for secrets.
+
 Checked against the official host docs on 2026-03-08:
 
 * Anthropic Claude Code / Claude Desktop MCP docs:
