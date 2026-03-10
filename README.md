@@ -173,10 +173,10 @@ TPM provider selection:
 * default: `UNOLOCK_TPM_PROVIDER=auto`
 * force test provider: `UNOLOCK_TPM_PROVIDER=test`
 * force Linux TPM/vTPM provider: `UNOLOCK_TPM_PROVIDER=linux`
-* force macOS Secure Enclave provider: `UNOLOCK_TPM_PROVIDER=mac`
-* force Windows TPM helper provider: `UNOLOCK_TPM_PROVIDER=windows`
+* force best macOS provider: `UNOLOCK_TPM_PROVIDER=mac`
+* force best Windows provider: `UNOLOCK_TPM_PROVIDER=windows`
 
-On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host. This has been validated on this local WSL2 setup with live key creation and challenge signing. If that path fails, the MCP now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set for development.
+On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host, and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable. This has been validated locally with live registration and authentication. If neither Windows path works, the MCP fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set for development.
 
 On macOS, `auto` now tries the Secure Enclave provider first and then falls back to a non-exportable Keychain-backed provider. Secure Enclave remains the higher-assurance path, but the Keychain path is there to reduce launch-context friction on real Macs.
 
@@ -249,6 +249,7 @@ Registration discovery support:
 * the optional agent PIN is held only in MCP process memory and cleared on restart or via `unolock_clear_agent_pin`
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
+* the Windows CNG non-exportable fallback provider is now also usable from Windows/WSL when TPM-backed creation is unavailable
 * the test TPM provider still exists for development, but it now requires `UNOLOCK_ALLOW_INSECURE_PROVIDER=1`
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
