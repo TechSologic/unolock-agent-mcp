@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -30,6 +31,10 @@ class TestTpmDaoTest(unittest.TestCase):
 
             reloaded = TestTpmDao(Path(temp_dir))
             self.assertEqual(reloaded.get_public_key("agent-aid"), created.public_key)
+            self.assertTrue(created.binding_info.exportable)
+
+            key_mode = os.stat(Path(temp_dir) / "agent-aid.pem").st_mode & 0o777
+            self.assertEqual(key_mode, 0o600)
 
     def test_diagnose_reports_test_provider(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -38,6 +43,8 @@ class TestTpmDaoTest(unittest.TestCase):
             self.assertEqual(diagnostics.provider_name, "software")
             self.assertIn("persisted_key_count", diagnostics.details)
             self.assertIsInstance(diagnostics.advice, list)
+            dir_mode = os.stat(Path(temp_dir)).st_mode & 0o777
+            self.assertEqual(dir_mode, 0o700)
 
 
 if __name__ == "__main__":

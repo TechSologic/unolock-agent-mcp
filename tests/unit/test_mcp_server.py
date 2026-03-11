@@ -25,6 +25,7 @@ class _FakeAgentAuth:
             "bootstrap_secret_available": False,
             "tpm_provider_mismatch": False,
             "tpm_provider_mismatch_detail": None,
+            "reduced_assurance_acknowledged": True,
         }
 
     def tpm_diagnostics(self) -> dict[str, object]:
@@ -75,6 +76,40 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("agent key connection URL", payload["guidance"])
             self.assertIn("one-time-use", payload["guidance"])
             self.assertIn("agent PIN", payload["guidance"])
+
+    def test_unacknowledged_reduced_assurance_changes_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            auth = _FakeAgentAuth(has_agent_pin=False)
+            auth.runtime_status = lambda: {
+                "has_agent_pin": False,
+                "pin_mode": "unset",
+                "tpm_provider": "software",
+                "tpm_production_ready": False,
+                "tpm_available": False,
+                "registered_tpm_provider": None,
+                "bootstrap_secret_available": False,
+                "tpm_provider_mismatch": False,
+                "tpm_provider_mismatch_detail": None,
+                "reduced_assurance_acknowledged": False,
+                "security_warning": {"message": "reduced assurance"},
+            }
+            auth.tpm_diagnostics = lambda: {
+                "provider_name": "software",
+                "provider_type": "software",
+                "production_ready": False,
+                "available": False,
+                "summary": "software fallback",
+                "details": {},
+                "advice": [],
+            }
+
+            payload = _registration_status_payload(
+                RegistrationStore(Path(tmpdir) / "registration.json"),
+                SessionStore(),
+                auth,
+            )
+
+            self.assertEqual(payload["recommended_next_action"], "acknowledge_reduced_assurance")
 
 
 if __name__ == "__main__":

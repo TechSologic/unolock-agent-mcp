@@ -15,7 +15,7 @@ For normal customer use, the preferred deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance instead of pretending it met UnoLock’s preferred key-storage requirements.
+If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance, requires an explicit acknowledgment before use, and protects the persisted AIDK with the agent PIN in software mode instead of pretending it met UnoLock’s preferred key-storage requirements.
 
 This is deliberate. The point of the Agent MCP is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
 
@@ -122,6 +122,12 @@ unolock-agent-tpm-check
 unolock-agent-self-test
 python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
+```
+
+If the MCP falls back to the software provider, acknowledge that reduced-assurance mode explicitly before using it:
+
+```bash
+python3 -m unolock_mcp bootstrap --allow-reduced-assurance --connection-url '<unoLock connection url>' --pin 0123
 ```
 
 ## Option 2: Install From GitHub With `pip`

@@ -48,6 +48,7 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap_parser.add_argument("--connection-url", default=None)
     bootstrap_parser.add_argument("--pin", default=None)
     bootstrap_parser.add_argument("--list-records", action="store_true")
+    bootstrap_parser.add_argument("--allow-reduced-assurance", action="store_true")
 
     subparsers.add_parser(
         "disconnect",
@@ -181,6 +182,8 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
         if args.pin:
             agent_auth.set_agent_pin(args.pin)
+        if args.allow_reduced_assurance:
+            agent_auth.acknowledge_reduced_assurance()
 
         flow_client = UnoLockFlowClient(resolve_runtime_config(registration_store))
         agent_auth.set_flow_client(flow_client)

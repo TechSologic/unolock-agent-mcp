@@ -93,8 +93,34 @@ class AgentAuthClientTest(unittest.TestCase):
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
             result = client.authenticate_registered_agent()
-            self.assertIn("security_warning", result)
-            self.assertEqual(result["security_warning"]["reason"], "insecure_tpm_provider")
+            self.assertEqual(result["reason"], "reduced_assurance_acknowledgement_required")
+
+    def test_acknowledge_reduced_assurance_unblocks_software_mode(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="software",
+            )
+            flow_client = Mock()
+            flow_client.start.return_value = FlowSession(
+                session_id="session-1",
+                flow="agentAccess",
+                state="state",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="FAILED"),
+            )
+            session_store = SessionStore()
+            client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
+
+            client.acknowledge_reduced_assurance()
+            result = client.authenticate_registered_agent()
+
+            self.assertEqual(result["reason"], "insecure_tpm_provider")
+            flow_client.start.assert_called_once()
 
     def test_load_registration_restores_bootstrap_secret_from_provider_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -184,6 +210,19 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertFalse(store.load().registered)
             self.assertEqual(session_store.list(), [])
             self.assertFalse(client.runtime_status()["has_agent_pin"])
+
+    def test_software_mode_encrypts_aidk_with_pin(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            client = AgentAuthClient(None, None, None, tpm_dao=dao)  # type: ignore[arg-type]
+            client.set_agent_pin("1234")
+
+            aidk = client._load_or_create_agent_aidk("access-123")
+            stored = dao.load_secret("aidk-access-123")
+
+            self.assertIsNotNone(stored)
+            self.assertTrue(stored.startswith(b"uaidk1:"))
+            self.assertNotEqual(stored, aidk)
 
 
 if __name__ == "__main__":

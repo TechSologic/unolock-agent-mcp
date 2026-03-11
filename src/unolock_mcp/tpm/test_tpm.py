@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,6 +32,7 @@ class TestTpmDao(TpmDao):
         self._keys: dict[str, _StoredKey] = {}
         self._path = path or (Path.home() / ".config" / "unolock-agent-mcp" / "test-tpm")
         self._path.mkdir(parents=True, exist_ok=True)
+        self._chmod_best_effort(self._path, 0o700)
 
     def provider_name(self) -> str:
         return "software"
@@ -48,7 +50,7 @@ class TestTpmDao(TpmDao):
         )
         binding = KeyBindingInfo(
             protection="software",
-            exportable=False,
+            exportable=True,
             attestation_supported=False,
             device_binding="software",
         )
@@ -76,7 +78,9 @@ class TestTpmDao(TpmDao):
         self._key_path(key_id).unlink(missing_ok=True)
 
     def store_secret(self, secret_id: str, secret: bytes) -> None:
-        self._secret_path(secret_id).write_bytes(secret)
+        path = self._secret_path(secret_id)
+        path.write_bytes(secret)
+        self._chmod_best_effort(path, 0o600)
 
     def load_secret(self, secret_id: str) -> bytes | None:
         path = self._secret_path(secret_id)
@@ -128,7 +132,7 @@ class TestTpmDao(TpmDao):
         )
         binding = KeyBindingInfo(
             protection="software",
-            exportable=False,
+            exportable=True,
             attestation_supported=False,
             device_binding="software",
         )
@@ -140,7 +144,9 @@ class TestTpmDao(TpmDao):
             format=PrivateFormat.PKCS8,
             encryption_algorithm=NoEncryption(),
         )
-        self._key_path(key_id).write_bytes(pem)
+        path = self._key_path(key_id)
+        path.write_bytes(pem)
+        self._chmod_best_effort(path, 0o600)
 
     def _key_path(self, key_id: str) -> Path:
         safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in key_id)
@@ -149,3 +155,10 @@ class TestTpmDao(TpmDao):
     def _secret_path(self, secret_id: str) -> Path:
         safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in secret_id)
         return self._path / f"{safe_name}.secret"
+
+    @staticmethod
+    def _chmod_best_effort(path: Path, mode: int) -> None:
+        try:
+            os.chmod(path, mode)
+        except OSError:
+            pass

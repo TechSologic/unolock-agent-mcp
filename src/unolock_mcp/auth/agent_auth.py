@@ -7,6 +7,9 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
+
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
 from unolock_mcp.auth.registration_store import RegistrationStore, parse_connection_url
 from unolock_mcp.auth.session_store import SessionStore
@@ -30,6 +33,7 @@ class AgentAuthClient:
         self._tpm = tpm_dao or create_tpm_dao()
         self._data_keyrings: dict[str, SafeKeyringManager] = {}
         self._agent_pin: str | None = None
+        self._reduced_assurance_acknowledged = False
         self._pending_server_keys: dict[str, str] = {}
         self._pending_client_data_keys: dict[str, bytes] = {}
 
@@ -44,10 +48,15 @@ class AgentAuthClient:
         self._agent_pin = None
         return self.runtime_status()
 
+    def acknowledge_reduced_assurance(self) -> dict[str, Any]:
+        self._reduced_assurance_acknowledged = True
+        return self.runtime_status()
+
     def disconnect(self) -> dict[str, Any]:
         registration = self._load_registration()
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
         key_id = registration.key_id or self._resolve_key_id(registration, access_id)
+        errors: list[str] = []
         deleted: dict[str, Any] = {
             "key_id": None,
             "bootstrap_secret_id": None,
@@ -58,14 +67,20 @@ class AgentAuthClient:
             try:
                 self._tpm.delete_key(key_id)
                 deleted["key_id"] = key_id
-            except Exception:
-                deleted["key_id"] = key_id
+            except Exception as exc:
+                errors.append(f"Failed to delete local key '{key_id}': {exc}")
 
         if access_id:
             bootstrap_secret_id = self._bootstrap_secret_id(access_id)
             aidk_secret_id = self._aidk_secret_id(access_id)
-            self._tpm.delete_secret(bootstrap_secret_id)
-            self._tpm.delete_secret(aidk_secret_id)
+            try:
+                self._tpm.delete_secret(bootstrap_secret_id)
+            except Exception as exc:
+                errors.append(f"Failed to delete local secret '{bootstrap_secret_id}': {exc}")
+            try:
+                self._tpm.delete_secret(aidk_secret_id)
+            except Exception as exc:
+                errors.append(f"Failed to delete local secret '{aidk_secret_id}': {exc}")
             deleted["bootstrap_secret_id"] = bootstrap_secret_id
             deleted["aidk_secret_id"] = aidk_secret_id
             self._pending_server_keys.pop(access_id, None)
@@ -73,18 +88,21 @@ class AgentAuthClient:
             self._data_keyrings.pop(access_id, None)
 
         self._agent_pin = None
+        self._reduced_assurance_acknowledged = False
         self._session_store.clear()
         self._registration_store.reset()
 
         return {
-            "ok": True,
-            "disconnected": True,
+            "ok": len(errors) == 0,
+            "disconnected": len(errors) == 0,
+            "partial": len(errors) > 0,
             "local_only": True,
             "message": (
                 "The local UnoLock agent registration was removed from this host. "
                 "A Safe admin must still delete or rotate the server-side access record if revocation is needed."
             ),
             "deleted": deleted,
+            "errors": errors,
         }
 
     def runtime_status(self) -> dict[str, Any]:
@@ -93,18 +111,21 @@ class AgentAuthClient:
         provider_mismatch = self._get_provider_mismatch(registration)
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
         security_warning = self._insecure_provider_warning()
+        tpm_provider = self._normalize_provider_name(self._tpm.provider_name())
+        registered_tpm_provider = self._normalize_provider_name(registration.tpm_provider)
         return {
             "has_agent_pin": self._agent_pin is not None,
             "pin_mode": "ephemeral_memory" if self._agent_pin is not None else "unset",
-            "tpm_provider": self._tpm.provider_name(),
+            "tpm_provider": tpm_provider,
             "tpm_production_ready": diagnostics.production_ready,
             "tpm_available": diagnostics.available,
             "assurance_level": "preferred" if diagnostics.production_ready else "reduced",
-            "registered_tpm_provider": registration.tpm_provider,
+            "registered_tpm_provider": registered_tpm_provider,
             "bootstrap_secret_available": bool(registration.bootstrap_secret or self._load_protected_bootstrap_secret(access_id)),
             "tpm_provider_mismatch": provider_mismatch is not None,
             "tpm_provider_mismatch_detail": provider_mismatch,
             "security_warning": security_warning,
+            "reduced_assurance_acknowledged": self._reduced_assurance_acknowledged,
         }
 
     def tpm_diagnostics(self) -> dict[str, Any]:
@@ -121,6 +142,7 @@ class AgentAuthClient:
         if parsed.passphrase and parsed.access_id:
             self._store_protected_bootstrap_secret(parsed.access_id, parsed.passphrase)
         state = self._registration_store.set_connection_url(connection_url)
+        self._reduced_assurance_acknowledged = False
         summary = state.summary()
         warning = self._insecure_provider_warning()
         if warning is not None:
@@ -148,6 +170,9 @@ class AgentAuthClient:
     def start_registration_from_stored_url(self) -> dict[str, Any]:
         registration = self._load_registration()
         flow_client = self.require_flow_client()
+        acknowledgement_required = self._reduced_assurance_acknowledgement_required()
+        if acknowledgement_required is not None:
+            return acknowledgement_required
         self._protect_bootstrap_secret_if_needed(registration)
         registration = self._load_registration()
         if registration.connection_url is None:
@@ -170,6 +195,9 @@ class AgentAuthClient:
     def authenticate_registered_agent(self) -> dict[str, Any]:
         registration = self._load_registration()
         flow_client = self.require_flow_client()
+        acknowledgement_required = self._reduced_assurance_acknowledgement_required()
+        if acknowledgement_required is not None:
+            return acknowledgement_required
         provider_mismatch = self._get_provider_mismatch(registration)
         if provider_mismatch is not None:
             return provider_mismatch
@@ -713,14 +741,29 @@ class AgentAuthClient:
         self._tpm.delete_secret(self._bootstrap_secret_id(access_id))
 
     def _load_agent_aidk(self, access_id: str) -> bytes | None:
-        return self._tpm.load_secret(self._aidk_secret_id(access_id))
+        aidk = self._tpm.load_secret(self._aidk_secret_id(access_id))
+        if aidk is None:
+            return None
+        if self._normalize_provider_name(self._tpm.provider_name()) != "software":
+            return aidk
+        if aidk.startswith(b"uaidk1:"):
+            if not self._agent_pin:
+                return None
+            return self._decrypt_software_aidk(aidk, self._agent_pin)
+        return aidk
 
     def _load_or_create_agent_aidk(self, access_id: str) -> bytes:
         existing = self._load_agent_aidk(access_id)
         if existing is not None:
             return existing
         aidk = secrets.token_bytes(32)
-        self._tpm.store_secret(self._aidk_secret_id(access_id), aidk)
+        if self._normalize_provider_name(self._tpm.provider_name()) == "software":
+            if not self._agent_pin:
+                raise ValueError("Software assurance mode requires the agent PIN before storing the local AIDK.")
+            stored = self._encrypt_software_aidk(aidk, self._agent_pin)
+        else:
+            stored = aidk
+        self._tpm.store_secret(self._aidk_secret_id(access_id), stored)
         return aidk
 
     def _protect_bootstrap_secret_if_needed(self, registration: RegistrationState) -> None:
@@ -749,6 +792,21 @@ class AgentAuthClient:
             "tpm_diagnostics": diagnostics.to_dict(),
         }
 
+    def _reduced_assurance_acknowledgement_required(self) -> dict[str, Any] | None:
+        warning = self._insecure_provider_warning()
+        if warning is None or self._reduced_assurance_acknowledged:
+            return None
+        return {
+            "ok": False,
+            "blocked": True,
+            "reason": "reduced_assurance_acknowledgement_required",
+            "message": (
+                "This host is using the lower-assurance software provider. Ask the user whether they want to "
+                "continue in reduced-assurance mode, then acknowledge that decision before proceeding."
+            ),
+            "security_warning": warning,
+        }
+
     def _build_device_assurance_summary(self, key_id: str) -> dict[str, Any]:
         binding_info = self._tpm.get_binding_info(key_id)
         diagnostics = self._tpm.diagnose()
@@ -775,6 +833,26 @@ class AgentAuthClient:
         if provider_name == "test":
             return "software"
         return provider_name or ""
+
+    @staticmethod
+    def _derive_software_aidk_key(pin: str, salt: bytes) -> bytes:
+        kdf = Scrypt(salt=salt, length=32, n=2**14, r=8, p=1)
+        return kdf.derive(pin.encode("utf8"))
+
+    def _encrypt_software_aidk(self, aidk: bytes, pin: str) -> bytes:
+        salt = secrets.token_bytes(16)
+        nonce = secrets.token_bytes(12)
+        key = self._derive_software_aidk_key(pin, salt)
+        ciphertext = AESGCM(key).encrypt(nonce, aidk, None)
+        return b"uaidk1:" + salt + nonce + ciphertext
+
+    def _decrypt_software_aidk(self, encoded: bytes, pin: str) -> bytes:
+        payload = encoded[len(b"uaidk1:"):]
+        salt = payload[:16]
+        nonce = payload[16:28]
+        ciphertext = payload[28:]
+        key = self._derive_software_aidk_key(pin, salt)
+        return AESGCM(key).decrypt(nonce, ciphertext, None)
 
     @staticmethod
     def _bootstrap_secret_id(access_id: str) -> str:

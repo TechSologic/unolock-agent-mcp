@@ -17,7 +17,7 @@ For normal customer use, UnoLock Agent MCP works best with a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the current host does not provide one, the MCP can still fall back to the software provider. When that happens, it reports reduced assurance clearly so the user can decide whether to proceed.
+If the current host does not provide one, the MCP can still fall back to the software provider. When that happens, it reports reduced assurance clearly, requires an explicit acknowledgment before use, and protects the persisted AIDK with the agent PIN in software mode.
 
 That is the point of the product: keep AI agent access as device-bound as the host allows, without hiding when the host could not meet UnoLock's strongest storage requirements.
 
@@ -81,6 +81,11 @@ WSL2 note:
 * on WSL2, `auto` now prefers the Windows TPM helper provider and falls back to the Windows CNG provider
 * if neither Windows provider works, `auto` falls back to the software provider and reports reduced assurance
 * for production use, WSL2 should use the Windows provider path, not the Linux TPM path
+
+Software fallback note:
+
+* the MCP now requires an explicit reduced-assurance acknowledgment before it will register or authenticate with the software provider
+* in software mode, the MCP protects the persisted AIDK with the agent PIN
 
 macOS note:
 

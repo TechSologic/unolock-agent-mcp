@@ -41,6 +41,12 @@ def _registration_status_payload(
     if provider_mismatch:
         next_action = "resolve_tpm_provider_mismatch"
         guidance = str(provider_mismatch.get("message"))
+    elif security_warning and not runtime.get("reduced_assurance_acknowledged"):
+        next_action = "acknowledge_reduced_assurance"
+        guidance = (
+            "This host is using the lower-assurance software provider. Ask the user whether they want to continue "
+            "in reduced-assurance mode, then call unolock_acknowledge_reduced_assurance before registering or authenticating."
+        )
     elif pending_session is not None:
         callback_type = pending_session.get("current_callback_type")
         if callback_type == "GetPin" and not runtime.get("has_agent_pin"):
@@ -207,6 +213,16 @@ def create_mcp_server() -> FastMCP:
     )
     def clear_agent_pin() -> dict[str, Any]:
         return agent_auth.clear_agent_pin()
+
+    @server.tool(
+        name="unolock_acknowledge_reduced_assurance",
+        description=(
+            "Record that the user understands this host is using the lower-assurance software provider and still "
+            "wants to continue."
+        ),
+    )
+    def acknowledge_reduced_assurance() -> dict[str, Any]:
+        return agent_auth.acknowledge_reduced_assurance()
 
     @server.tool(
         name="unolock_get_tpm_diagnostics",
