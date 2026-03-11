@@ -106,8 +106,8 @@ def main(argv: list[str] | None = None) -> int:
     if command == "config-check":
         registration = RegistrationStore().load()
         resolved = resolve_unolock_config(
-            base_url=args.base_url or registration.api_base_url,
-            transparency_origin=args.transparency_origin or registration.transparency_origin,
+            base_url=args.base_url or registration.api_base_url or (registration.connection_url.api_base_url if registration.connection_url else None),
+            transparency_origin=args.transparency_origin or registration.transparency_origin or (registration.connection_url.site_origin if registration.connection_url else None),
             app_version=args.app_version,
             signing_public_key_b64=args.signing_public_key,
         )
@@ -144,8 +144,8 @@ def main(argv: list[str] | None = None) -> int:
         registration = registration_store.load().summary()
         diagnostics = agent_auth.tpm_diagnostics()
         resolved = resolve_unolock_config(
-            base_url=args.base_url or registration.get("api_base_url"),
-            transparency_origin=args.transparency_origin or registration.get("transparency_origin"),
+            base_url=args.base_url or registration.get("api_base_url") or (registration.get("connection_url") or {}).get("api_base_url"),
+            transparency_origin=args.transparency_origin or registration.get("transparency_origin") or (registration.get("connection_url") or {}).get("site_origin"),
             app_version=args.app_version,
             signing_public_key_b64=args.signing_public_key,
         )
@@ -164,8 +164,8 @@ def main(argv: list[str] | None = None) -> int:
     def resolve_runtime_config(registration_store: RegistrationStore) -> UnoLockConfig:
         registration = registration_store.load()
         return load_unolock_config(
-            base_url=args.base_url or registration.api_base_url,
-            transparency_origin=args.transparency_origin or registration.transparency_origin,
+            base_url=args.base_url or registration.api_base_url or (registration.connection_url.api_base_url if registration.connection_url else None),
+            transparency_origin=args.transparency_origin or registration.transparency_origin or (registration.connection_url.site_origin if registration.connection_url else None),
             app_version=args.app_version,
             signing_public_key_b64=args.signing_public_key,
         )

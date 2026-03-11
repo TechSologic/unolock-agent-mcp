@@ -5,6 +5,7 @@ from unittest.mock import patch
 from types import SimpleNamespace
 
 from unolock_mcp import cli
+from unolock_mcp.domain.models import ConnectionUrlInfo, RegistrationState
 
 
 class CliEntryPointTest(unittest.TestCase):
@@ -77,6 +78,51 @@ class CliEntryPointTest(unittest.TestCase):
         payload = print_mock.call_args.args[0]
         self.assertIn('"recommended_next_action": "ask_for_connection_url"', payload)
         self.assertIn('"ok": true', payload)
+
+    def test_bootstrap_uses_pending_connection_url_runtime_fields(self) -> None:
+        registration = RegistrationState(
+            registered=False,
+            registration_mode="pending_connection_url",
+            connection_url=ConnectionUrlInfo(
+                raw_url="http://localhost:4200/#/agent-register/a/b/c",
+                flow="agentRegister",
+                args="{}",
+                action="agent-register",
+                access_id="aid",
+                site_origin="http://localhost:4200",
+                api_base_url="http://127.0.0.1:3000",
+                registration_code="code",
+                source="hash",
+            ),
+            api_base_url=None,
+            transparency_origin=None,
+        )
+
+        with patch.object(cli, "RegistrationStore") as registration_store_cls:
+            with patch.object(cli, "load_unolock_config") as load_config:
+                with patch.object(cli, "UnoLockFlowClient") as flow_client_cls:
+                    with patch.object(cli, "AgentAuthClient") as agent_auth_cls:
+                        with patch("builtins.print"):
+                            registration_store_cls.return_value.load.return_value = registration
+                            load_config.return_value = SimpleNamespace(
+                                base_url="http://127.0.0.1:3000",
+                                app_version="0.1.0",
+                                signing_public_key_b64="abc",
+                            )
+                            agent_auth = agent_auth_cls.return_value
+                            agent_auth.start_registration_from_stored_url.return_value = {"ok": False, "authorized": False}
+
+                            result = cli.main(["bootstrap"])
+
+        self.assertEqual(result, 1)
+        load_config.assert_called_once_with(
+            base_url="http://127.0.0.1:3000",
+            transparency_origin="http://localhost:4200",
+            app_version=None,
+            signing_public_key_b64=None,
+        )
+        flow_client_cls.assert_called_once()
+        agent_auth_cls.return_value.set_flow_client.assert_called_once_with(flow_client_cls.return_value)
 
 
 if __name__ == "__main__":

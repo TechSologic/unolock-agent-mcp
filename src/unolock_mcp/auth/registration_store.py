@@ -41,6 +41,7 @@ class RegistrationStore:
         if state.connection_url is not None:
             state.connection_url = _sanitize_connection_info(state.connection_url)
         payload = asdict(state)
+        payload["bootstrap_secret"] = None
         self._path.write_text(json.dumps(payload, indent=2), encoding="utf8")
         return state
 

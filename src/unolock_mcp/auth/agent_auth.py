@@ -321,8 +321,10 @@ class AgentAuthClient:
                     registered_at=registration.registered_at,
                     access_id=access_id,
                     key_id=created.key_id,
-                    bootstrap_secret=registration.bootstrap_secret,
+                    bootstrap_secret=None,
                     tpm_provider=self._tpm.provider_name(),
+                    api_base_url=registration.api_base_url or (registration.connection_url.api_base_url if registration.connection_url else None),
+                    transparency_origin=registration.transparency_origin or (registration.connection_url.site_origin if registration.connection_url else None),
                 )
             )
             return {

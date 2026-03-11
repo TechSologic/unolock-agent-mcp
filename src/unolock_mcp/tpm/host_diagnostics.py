@@ -82,6 +82,9 @@ def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmD
 
     if normalized_provider == "software":
         advice.insert(0, "The active MCP provider is using software-backed local key protection, not a device-bound or platform-backed key store.")
+        if system == "darwin":
+            summary = "macOS could not use Secure Enclave or a non-exportable Keychain-backed key, so the MCP is using the software provider."
+            advice.insert(1, "On macOS, the MCP prefers Secure Enclave first and then a non-exportable Keychain-backed key before using the software fallback.")
         if not available:
             advice.append("You can keep using the software provider if needed, but the MCP should treat it as reduced assurance until stronger host protection is available.")
 

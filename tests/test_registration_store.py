@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import base64
+import json
 import tempfile
 import unittest
 from pathlib import Path
 
 from unolock_mcp.auth.registration_store import RegistrationStore, parse_connection_url
+from unolock_mcp.domain.models import RegistrationState
 
 
 def _b64url(value: str) -> str:
@@ -48,6 +50,8 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertFalse(state.summary()["connection_url"]["has_raw_url"])
             self.assertNotIn("passphrase", state.summary()["connection_url"])
             self.assertNotIn("raw_url", state.summary()["connection_url"])
+            persisted = json.loads((Path(temp_dir) / "registration.json").read_text(encoding="utf8"))
+            self.assertIsNone(persisted["bootstrap_secret"])
 
     def test_mark_registered_clears_spent_connection_url(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -110,6 +114,22 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertFalse(path.exists())
             self.assertFalse(state.registered)
             self.assertIsNone(state.connection_url)
+
+    def test_save_never_writes_bootstrap_secret_to_disk(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "registration.json"
+            store = RegistrationStore(path)
+            state = RegistrationState(
+                registered=False,
+                registration_mode="pending_connection_url",
+                bootstrap_secret="pp:secret",
+            )
+
+            store.save(state)
+
+            persisted = json.loads(path.read_text(encoding="utf8"))
+            self.assertIsNone(persisted["bootstrap_secret"])
+            self.assertEqual(state.bootstrap_secret, "pp:secret")
 
 
 if __name__ == "__main__":

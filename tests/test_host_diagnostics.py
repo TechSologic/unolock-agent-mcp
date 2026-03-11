@@ -28,6 +28,15 @@ class HostDiagnosticsTest(unittest.TestCase):
         self.assertTrue(diagnostics.details["environment"]["is_container"])
         self.assertTrue(any("safe.unolock.com/docs" in item for item in diagnostics.advice))
 
+    def test_detect_host_tpm_state_reports_macos_software_fallback_context(self) -> None:
+        with patch("platform.system", return_value="Darwin"):
+            with patch("platform.release", return_value="24.0.0"):
+                diagnostics = detect_host_tpm_state("software", production_ready=False)
+
+        self.assertFalse(diagnostics.production_ready)
+        self.assertIn("secure enclave", diagnostics.summary.lower())
+        self.assertTrue(any("keychain" in item.lower() for item in diagnostics.advice))
+
 
 if __name__ == "__main__":
     unittest.main()
