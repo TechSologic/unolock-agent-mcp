@@ -11,14 +11,14 @@ UnoLock Agent MCP is best suited to **user-adjacent desktop or VM hosts** where 
   * Secure Enclave works cleanly in the current launch context
   * or the Keychain-backed non-exportable fallback works
 
-## Weaker fit
+## Harder To Use Securely In
 
 * plain Docker containers
 * Kubernetes pods without a host or VM trust path
 * fully remote or unattended agent sandboxes
 * environments where the user cannot provide a connection URL and, if needed, a PIN
 
-These are weaker fits because UnoLock Agent MCP is designed around non-exportable host-bound keys, not reusable secrets.
+These environments are harder to support because UnoLock Agent MCP is designed around non-exportable host-bound keys, not reusable secrets.
 
 ## Quick rule
 

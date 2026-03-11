@@ -31,13 +31,13 @@ That includes:
 * macOS hosts that can use either Secure Enclave or a non-exportable Keychain-backed key
 * Windows or WSL hosts that can use either TPM-backed keys or the non-exportable Windows CNG fallback
 
-It is a weaker fit for:
+It is more difficult to use securely in:
 
 * fully headless background agents
 * remote sandboxes
 * plain containers without hardware-backed key access
 
-This is a product tradeoff, not an accident. Strong device-bound secret protection is much easier to preserve in user-controlled environments than in arbitrary unattended ones.
+This is a product tradeoff, not an accident. These environments are harder to support because they often cannot satisfy UnoLock's requirement for device-bound, non-exportable key storage in a normal user-controlled session.
 
 Official GitHub repository:
 
