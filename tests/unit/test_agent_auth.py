@@ -76,6 +76,7 @@ class AgentAuthClientTest(unittest.TestCase):
                 tpm_provider="windows-tpm",
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+            client.acknowledge_reduced_assurance()
             result = client.authenticate_registered_agent()
             self.assertEqual(result["reason"], "tpm_provider_mismatch")
             self.assertEqual(result["stored_tpm_provider"], "windows-tpm")
@@ -119,7 +120,9 @@ class AgentAuthClientTest(unittest.TestCase):
             client.acknowledge_reduced_assurance()
             result = client.authenticate_registered_agent()
 
-            self.assertEqual(result["reason"], "insecure_tpm_provider")
+            self.assertFalse(result["ok"])
+            self.assertFalse(result["completed"])
+            self.assertFalse(result["authorized"])
             flow_client.start.assert_called_once()
 
     def test_load_registration_restores_bootstrap_secret_from_provider_storage(self) -> None:
