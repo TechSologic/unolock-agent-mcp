@@ -23,6 +23,7 @@ def _registration_status_payload(
     registration = registration_store.load().summary()
     runtime = agent_auth.runtime_status()
     tpm = agent_auth.tpm_diagnostics()
+    security_warning = runtime.get("security_warning")
     provider_mismatch = runtime.get("tpm_provider_mismatch_detail")
     next_action = "authenticate_agent"
     guidance = "Agent registration is configured. Authenticate and start using read-only tools."
@@ -54,12 +55,6 @@ def _registration_status_payload(
                 "A UnoLock flow is already in progress. Continue it with unolock_bootstrap_agent or "
                 "unolock_continue_agent_session instead of starting over."
             )
-    elif not tpm.get("production_ready"):
-        next_action = "review_tpm_diagnostics"
-        guidance = (
-            "The current TPM/vTPM provider is not production-ready. Call unolock_get_tpm_diagnostics "
-            "and follow the environment-specific advice before relying on this MCP for production access."
-        )
     elif registration.get("registered"):
         if not runtime.get("has_agent_pin"):
             next_action = "authenticate_or_set_pin"
@@ -85,10 +80,14 @@ def _registration_status_payload(
             "unolock_start_registration_from_connection_url to register this MCP."
         )
 
+    if security_warning:
+        guidance = f"{guidance} Warning: {security_warning.get('message')}"
+
     return {
         **registration,
         **runtime,
         "tpm_diagnostics": tpm,
+        "security_warning": security_warning,
         "pending_session": pending_session,
         "recommended_next_action": next_action,
         "guidance": guidance,

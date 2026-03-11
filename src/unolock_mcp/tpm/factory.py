@@ -14,13 +14,7 @@ from .windows_tpm import WindowsTpmDao
 
 def create_tpm_dao(provider: str | None = None) -> TpmDao:
     selected = (provider or os.environ.get("UNOLOCK_TPM_PROVIDER") or "auto").strip().lower()
-    allow_insecure = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER", "").strip().lower() in {"1", "true", "yes"}
     if selected == "test":
-        if not allow_insecure:
-            raise ValueError(
-                "UNOLOCK_TPM_PROVIDER=test requires UNOLOCK_ALLOW_INSECURE_PROVIDER=1. "
-                "The test provider is for development only."
-            )
         return TestTpmDao()
     if selected == "linux":
         return LinuxTpmDao()
@@ -59,12 +53,7 @@ def create_tpm_dao(provider: str | None = None) -> TpmDao:
         mac = _try_create_best_macos_dao()
         if mac is not None:
             return mac
-    if allow_insecure:
-        return TestTpmDao()
-    raise ValueError(
-        "No production-ready UnoLock TPM/vTPM/platform provider is available on this host. "
-        "For development only, set UNOLOCK_ALLOW_INSECURE_PROVIDER=1 to enable the test provider."
-    )
+    return TestTpmDao()
 
 
 def _is_wsl() -> bool:
@@ -76,10 +65,7 @@ def _create_best_macos_dao() -> TpmDao:
     dao = _try_create_best_macos_dao()
     if dao is not None:
         return dao
-    raise ValueError(
-        "No production-ready UnoLock TPM/vTPM/platform provider is available on this host. "
-        "For development only, set UNOLOCK_ALLOW_INSECURE_PROVIDER=1 to enable the test provider."
-    )
+    return TestTpmDao()
 
 
 def _try_create_best_macos_dao() -> TpmDao | None:
@@ -96,10 +82,7 @@ def _create_best_windows_dao() -> TpmDao:
     dao = _try_create_best_windows_dao()
     if dao is not None:
         return dao
-    raise ValueError(
-        "No production-ready UnoLock TPM/vTPM/platform provider is available on this host. "
-        "For development only, set UNOLOCK_ALLOW_INSECURE_PROVIDER=1 to enable the test provider."
-    )
+    return TestTpmDao()
 
 
 def _try_create_best_windows_dao() -> TpmDao | None:

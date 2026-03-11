@@ -287,10 +287,11 @@ def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved)
 
     ok = bool(diagnostics.get("production_ready"))
     if not ok:
-        next_action = "review_tpm_diagnostics"
+        next_action = "review_tpm_diagnostics_and_decide"
         guidance = (
-            "This host is not ready for production UnoLock agent use yet. Review the TPM/environment diagnostics "
-            "and the linked setup docs before continuing."
+            "This host could not satisfy UnoLock's preferred device-bound key-storage requirements. Review the "
+            "TPM/environment diagnostics and decide whether reduced-assurance operation on this host is acceptable "
+            "for your Safe data before continuing."
         )
 
     summary = str(diagnostics.get("summary") or "UnoLock Agent MCP self-test completed.")

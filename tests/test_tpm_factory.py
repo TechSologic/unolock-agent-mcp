@@ -15,13 +15,8 @@ from unolock_mcp.tpm.windows_tpm import WindowsTpmDao
 
 
 class TpmFactoryTest(unittest.TestCase):
-    def test_forced_test_provider_requires_explicit_insecure_override(self) -> None:
+    def test_forced_test_provider_returns_test_dao(self) -> None:
         with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test"}, clear=True):
-            with self.assertRaises(ValueError):
-                create_tpm_dao()
-
-    def test_forced_test_provider_returns_test_dao_with_insecure_override(self) -> None:
-        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test", "UNOLOCK_ALLOW_INSECURE_PROVIDER": "1"}, clear=True):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, TestTpmDao)
 
@@ -55,29 +50,8 @@ class TpmFactoryTest(unittest.TestCase):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, MacKeychainDao)
 
-    def test_auto_provider_fails_closed_when_linux_tpm_unavailable(self) -> None:
+    def test_auto_provider_falls_back_to_test_when_linux_tpm_unavailable(self) -> None:
         with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "auto"}, clear=True):
-            with patch("platform.system", return_value="Linux"):
-                with patch("platform.release", return_value="6.8.0-generic"):
-                    with patch.object(LinuxTpmDao, "diagnose") as diagnose:
-                        diagnose.return_value = TpmDiagnostics(
-                            provider_name="linux-tpm",
-                            provider_type="hardware",
-                            production_ready=False,
-                            available=False,
-                            summary="missing linux tpm",
-                            details={},
-                            advice=["no device"],
-                        )
-                        with self.assertRaises(ValueError):
-                            create_tpm_dao()
-
-    def test_auto_provider_can_fall_back_to_test_with_explicit_insecure_override(self) -> None:
-        with patch.dict(
-            os.environ,
-            {"UNOLOCK_TPM_PROVIDER": "auto", "UNOLOCK_ALLOW_INSECURE_PROVIDER": "1"},
-            clear=True,
-        ):
             with patch("platform.system", return_value="Linux"):
                 with patch("platform.release", return_value="6.8.0-generic"):
                     with patch.object(LinuxTpmDao, "diagnose") as diagnose:

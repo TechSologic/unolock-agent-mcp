@@ -8,16 +8,16 @@ UnoLock Agent MCP is currently in alpha. The install flow is available for evalu
 
 UnoLock Agent MCP is intended for high-security AI access to Safe data.
 
-For normal customer use, the host must provide a production-ready:
+For normal customer use, the preferred deployment uses a production-ready:
 
 * TPM
 * vTPM
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the MCP cannot find one, it fails closed by default.
+If the MCP cannot find one, it can still fall back to the software test provider. When that happens, the MCP reports that the host is operating at reduced assurance instead of pretending it met UnoLock’s preferred key-storage requirements.
 
-This is deliberate. The point of the Agent MCP is to keep AI access device-bound and resistant to secret export, not to turn UnoLock into a password-style or API-key-style integration.
+This is deliberate. The point of the Agent MCP is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
 
 On Windows and WSL, the MCP now prefers a TPM-backed key first and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable.
 
@@ -182,7 +182,6 @@ See:
 Common environment variables:
 
 * `UNOLOCK_TPM_PROVIDER`
-* `UNOLOCK_ALLOW_INSECURE_PROVIDER` development-only override
 * `UNOLOCK_BASE_URL` override
 * `UNOLOCK_TRANSPARENCY_ORIGIN` override
 * `UNOLOCK_APP_VERSION`
@@ -211,8 +210,8 @@ For most customers:
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
 * for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, app version, and PQ validation key from the UnoLock agent key connection URL
 * for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
-* if no production-ready TPM, vTPM, or platform-backed provider is available, the MCP now fails closed by default
-* `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is for development only
+* if no production-ready TPM, vTPM, or platform-backed provider is available, `auto` falls back to the test provider and reports reduced assurance loudly
+* force `UNOLOCK_TPM_PROVIDER=test` only when you intentionally want the software test provider
 
 ## Upgrade
 

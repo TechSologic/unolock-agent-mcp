@@ -35,7 +35,7 @@ That is an intentional tradeoff. Strong device-bound security is easier to prese
 Selection policy:
 
 * default to `UNOLOCK_TPM_PROVIDER=auto`
-* choose the strongest production-ready provider detected at startup
+* choose the strongest available provider detected at startup
 * store the provider used during registration
 * if the host later resolves to a different provider, report a provider mismatch and require either:
   * forcing the original provider

@@ -47,7 +47,7 @@ Expected provider when the macOS host path works:
 * `mac-secure-enclave`
 * or `mac-keychain`
 
-If the MCP does not find a production-ready provider, it now fails closed by default. On macOS, the MCP now tries Secure Enclave first and then falls back to a non-exportable Keychain-backed provider. If neither works, do not continue registration on that host.
+If the MCP does not find a production-ready provider, it falls back to the software test provider and reports reduced assurance clearly. On macOS, the MCP now tries Secure Enclave first and then falls back to a non-exportable Keychain-backed provider before taking that lower-assurance fallback.
 
 ## Configure Your MCP Host
 

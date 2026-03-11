@@ -10,16 +10,16 @@ If you need the underlying UnoLock product concepts first, see:
 
 ## Security Requirement
 
-For normal customer use, UnoLock Agent MCP expects a production-ready:
+For normal customer use, UnoLock Agent MCP works best with a production-ready:
 
 * TPM
 * vTPM
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the current host does not provide one, the MCP fails closed by default.
+If the current host does not provide one, the MCP can still fall back to the software test provider. When that happens, it reports reduced assurance clearly so the user can decide whether to proceed.
 
-That is the point of the product: keep AI agent access device-bound and aligned with UnoLock's strongest security model for secrets.
+That is the point of the product: keep AI agent access as device-bound as the host allows, without hiding when the host could not meet UnoLock's strongest storage requirements.
 
 Checked against the official host docs on 2026-03-08:
 
@@ -64,8 +64,8 @@ For the standard hosted UnoLock deployment, no UnoLock runtime env vars are requ
 
 TPM provider modes:
 
-* `auto`: require a production-ready TPM, vTPM, or platform-backed provider for the current host
-* `test`: force the test TPM provider for development only
+* `auto`: choose the strongest available provider for the current host, then fall back to the test provider with reduced-assurance warnings if needed
+* `test`: force the software test TPM provider
 * `linux`: force the Linux TPM/vTPM provider
 * `mac`: force the best available macOS provider
 * `mac-se` / `mac-secure-enclave`: force the macOS Secure Enclave provider
@@ -74,16 +74,11 @@ TPM provider modes:
 * `windows-tpm` / `win-tpm`: force the Windows TPM helper provider
 * `windows-cng` / `windows-platform` / `win-cng`: force the Windows CNG fallback provider
 
-Development-only override:
-
-* `UNOLOCK_ALLOW_INSECURE_PROVIDER=1`
-  allows the `test` provider and insecure fallback behavior for local development only
-
 WSL2 note:
 
 * WSL2 usually does not expose `/dev/tpmrm0` or `/dev/tpm0`
 * on WSL2, `auto` now prefers the Windows TPM helper provider and falls back to the Windows CNG provider
-* if neither Windows provider works, `auto` now fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set
+* if neither Windows provider works, `auto` falls back to the test provider and reports reduced assurance
 * for production use, WSL2 should use the Windows provider path, not the Linux TPM path
 
 macOS note:

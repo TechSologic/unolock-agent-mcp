@@ -8,22 +8,22 @@ UnoLock Agent MCP is currently in alpha. It is available for evaluation and earl
 
 UnoLock Agent MCP is built for customers who want the strongest practical protection for AI-accessed secrets.
 
-For normal customer use, the MCP requires a production-ready:
+For normal customer use, the strongest deployment uses a production-ready:
 
 * TPM
 * vTPM
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the host does not provide one of those, the MCP now fails closed by default.
+If the host cannot provide one of those, the MCP can still fall back to a lower-assurance software test provider. When that happens, the MCP reports the reduced assurance clearly so the user can decide whether to proceed.
 
-That requirement is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model, rather than falling back to a reusable password or API-key style secret.
+That tradeoff is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model without pretending every host can satisfy the same storage guarantees.
 
 ## Intended Environment
 
-UnoLock Agent MCP is best suited to **user-adjacent desktop agents** running in a normal logged-in user session.
+UnoLock Agent MCP is designed to work across a wide range of agent environments.
 
-That includes:
+The strongest deployments are environments that can provide device-bound, non-exportable key storage in a normal user-controlled session. That includes:
 
 * desktop AI assistants
 * local MCP hosts such as Claude Desktop or Cursor
@@ -31,13 +31,13 @@ That includes:
 * macOS hosts that can use either Secure Enclave or a non-exportable Keychain-backed key
 * Windows or WSL hosts that can use either TPM-backed keys or the non-exportable Windows CNG fallback
 
-It is more difficult to use securely in:
+Other environments may still work, but they may only be able to provide lower assurance. That commonly includes:
 
 * fully headless background agents
 * remote sandboxes
 * plain containers without hardware-backed key access
 
-This is a product tradeoff, not an accident. These environments are harder to support because they often cannot satisfy UnoLock's requirement for device-bound, non-exportable key storage in a normal user-controlled session.
+These environments are harder to support because they often cannot satisfy UnoLock's preferred requirement for device-bound, non-exportable key storage in a normal user-controlled session.
 
 Official GitHub repository:
 
@@ -176,7 +176,7 @@ TPM provider selection:
 * force best macOS provider: `UNOLOCK_TPM_PROVIDER=mac`
 * force best Windows provider: `UNOLOCK_TPM_PROVIDER=windows`
 
-On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host, and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable. This has been validated locally with live registration and authentication. If neither Windows path works, the MCP fails closed unless `UNOLOCK_ALLOW_INSECURE_PROVIDER=1` is set for development.
+On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host, and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable. This has been validated locally with live registration and authentication. If neither Windows path works, `auto` falls back to the test provider with loud reduced-assurance warnings.
 
 On macOS, `auto` now tries the Secure Enclave provider first and then falls back to a non-exportable Keychain-backed provider. Secure Enclave remains the higher-assurance path, but the Keychain path is there to reduce launch-context friction on real Macs.
 
@@ -250,7 +250,7 @@ Registration discovery support:
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
 * the Windows CNG non-exportable fallback provider is now also usable from Windows/WSL when TPM-backed creation is unavailable
-* the test TPM provider still exists for development, but it now requires `UNOLOCK_ALLOW_INSECURE_PROVIDER=1`
+* the test TPM provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating

@@ -1,6 +1,6 @@
 # Supported Environments
 
-UnoLock Agent MCP is best suited to **user-adjacent desktop or VM hosts** where a strong device-bound or platform-bound key can be created without unusual setup.
+UnoLock Agent MCP is designed to work across a wide range of agent hosts, but some environments can satisfy UnoLock’s preferred key-storage requirements more easily than others.
 
 ## Best fit today
 
@@ -11,14 +11,14 @@ UnoLock Agent MCP is best suited to **user-adjacent desktop or VM hosts** where 
   * Secure Enclave works cleanly in the current launch context
   * or the Keychain-backed non-exportable fallback works
 
-## Harder To Use Securely In
+## Lower-Assurance Environments
 
 * plain Docker containers
 * Kubernetes pods without a host or VM trust path
 * fully remote or unattended agent sandboxes
 * environments where the user cannot provide a connection URL and, if needed, a PIN
 
-These environments are harder to support because UnoLock Agent MCP is designed around non-exportable host-bound keys, not reusable secrets.
+These environments are harder to support because UnoLock Agent MCP is designed around non-exportable host-bound keys, not reusable secrets. They may still work, but the MCP should report the reduced assurance clearly.
 
 ## Quick rule
 
@@ -34,4 +34,4 @@ or:
 python3 -m unolock_mcp self-test --json
 ```
 
-If the MCP says the host is not production-ready, follow the environment-specific advice before trying to register an agent key.
+If the MCP reports reduced assurance, review the environment-specific advice and decide whether that host is acceptable for your Safe data.

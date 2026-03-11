@@ -3,7 +3,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
-import os
 import secrets
 from datetime import datetime, timezone
 from typing import Any
@@ -93,28 +92,28 @@ class AgentAuthClient:
         diagnostics = self._tpm.diagnose()
         provider_mismatch = self._get_provider_mismatch(registration)
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
+        security_warning = self._insecure_provider_warning()
         return {
             "has_agent_pin": self._agent_pin is not None,
             "pin_mode": "ephemeral_memory" if self._agent_pin is not None else "unset",
             "tpm_provider": self._tpm.provider_name(),
             "tpm_production_ready": diagnostics.production_ready,
             "tpm_available": diagnostics.available,
+            "assurance_level": "preferred" if diagnostics.production_ready else "reduced",
             "registered_tpm_provider": registration.tpm_provider,
             "bootstrap_secret_available": bool(registration.bootstrap_secret or self._load_protected_bootstrap_secret(access_id)),
             "tpm_provider_mismatch": provider_mismatch is not None,
             "tpm_provider_mismatch_detail": provider_mismatch,
+            "security_warning": security_warning,
         }
 
     def tpm_diagnostics(self) -> dict[str, Any]:
         return self._tpm.diagnose().to_dict()
 
     def ensure_secure_provider(self) -> dict[str, Any] | None:
-        return self._ensure_secure_provider()
+        return self._insecure_provider_warning()
 
     def submit_connection_url(self, connection_url: str) -> dict[str, Any]:
-        provider_ready = self._ensure_secure_provider()
-        if provider_ready is not None:
-            return provider_ready
         parsed = parse_connection_url(connection_url)
         validation_error = self._validate_agent_connection_url(parsed)
         if validation_error is not None:
@@ -122,15 +121,20 @@ class AgentAuthClient:
         if parsed.passphrase and parsed.access_id:
             self._store_protected_bootstrap_secret(parsed.access_id, parsed.passphrase)
         state = self._registration_store.set_connection_url(connection_url)
-        return state.summary()
+        summary = state.summary()
+        warning = self._insecure_provider_warning()
+        if warning is not None:
+            summary["security_warning"] = warning
+        return summary
 
     def secure_registration_material(self) -> dict[str, Any]:
-        provider_ready = self._ensure_secure_provider()
-        if provider_ready is not None:
-            return provider_ready
         registration = self._load_registration()
         self._protect_bootstrap_secret_if_needed(registration)
-        return self._registration_store.load().summary()
+        summary = self._registration_store.load().summary()
+        warning = self._insecure_provider_warning()
+        if warning is not None:
+            summary["security_warning"] = warning
+        return summary
 
     def get_keyring_for_session(self, session_id: str) -> SafeKeyringManager:
         session = self._session_store.get(session_id)
@@ -144,9 +148,6 @@ class AgentAuthClient:
     def start_registration_from_stored_url(self) -> dict[str, Any]:
         registration = self._load_registration()
         flow_client = self.require_flow_client()
-        provider_ready = self._ensure_secure_provider()
-        if provider_ready is not None:
-            return provider_ready
         self._protect_bootstrap_secret_if_needed(registration)
         registration = self._load_registration()
         if registration.connection_url is None:
@@ -160,7 +161,11 @@ class AgentAuthClient:
         args = registration.connection_url.args or self._build_registration_args(registration)
         session = flow_client.start(flow=flow, args=args)
         self._session_store.put(session)
-        return self._advance_session(session.session_id)
+        result = self._advance_session(session.session_id)
+        warning = self._insecure_provider_warning()
+        if warning is not None:
+            result["security_warning"] = warning
+        return result
 
     def authenticate_registered_agent(self) -> dict[str, Any]:
         registration = self._load_registration()
@@ -168,9 +173,6 @@ class AgentAuthClient:
         provider_mismatch = self._get_provider_mismatch(registration)
         if provider_mismatch is not None:
             return provider_mismatch
-        provider_ready = self._ensure_secure_provider()
-        if provider_ready is not None:
-            return provider_ready
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
         if not access_id:
             return {
@@ -181,7 +183,11 @@ class AgentAuthClient:
 
         session = flow_client.start(flow="agentAccess", args=json.dumps({"accessID": access_id}))
         self._session_store.put(session)
-        return self._advance_session(session.session_id)
+        result = self._advance_session(session.session_id)
+        warning = self._insecure_provider_warning()
+        if warning is not None:
+            result["security_warning"] = warning
+        return result
 
     def advance_session(self, session_id: str) -> dict[str, Any]:
         return self._advance_session(session_id)
@@ -721,20 +727,18 @@ class AgentAuthClient:
         registration.bootstrap_secret = ""
         self._registration_store.save(registration)
 
-    def _ensure_secure_provider(self) -> dict[str, Any] | None:
+    def _insecure_provider_warning(self) -> dict[str, Any] | None:
         diagnostics = self._tpm.diagnose()
         if diagnostics.production_ready:
             return None
-        if os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER", "").strip().lower() in {"1", "true", "yes"}:
-            return None
         return {
-            "ok": False,
-            "blocked": True,
+            "ok": True,
+            "blocked": False,
             "reason": "insecure_tpm_provider",
             "message": (
                 f"The active TPM provider '{self._tpm.provider_name()}' is not production-ready. "
-                "Refusing to register or authenticate an UnoLock agent until a hardware-backed or "
-                "platform-backed provider is available. For development only, set UNOLOCK_ALLOW_INSECURE_PROVIDER=1."
+                "UnoLock Agent MCP will still work, but this host could not satisfy the preferred "
+                "device-bound, non-exportable key-storage requirements and is operating at reduced assurance."
             ),
             "tpm_provider": self._tpm.provider_name(),
             "tpm_diagnostics": diagnostics.to_dict(),

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import base64
 import hashlib
-import os
 import unittest
 import tempfile
 from pathlib import Path
@@ -68,7 +67,7 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertEqual(result["stored_tpm_provider"], "windows-tpm")
             self.assertEqual(result["current_tpm_provider"], "test")
 
-    def test_authenticate_registered_agent_blocks_insecure_provider_by_default(self) -> None:
+    def test_authenticate_registered_agent_reports_insecure_provider_warning(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))
             store = Mock(spec=RegistrationStore)
@@ -80,7 +79,8 @@ class AgentAuthClientTest(unittest.TestCase):
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
             result = client.authenticate_registered_agent()
-            self.assertEqual(result["reason"], "insecure_tpm_provider")
+            self.assertIn("security_warning", result)
+            self.assertEqual(result["security_warning"]["reason"], "insecure_tpm_provider")
 
     def test_load_registration_restores_bootstrap_secret_from_provider_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -95,16 +95,7 @@ class AgentAuthClientTest(unittest.TestCase):
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
 
-            old_value = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER")
-            os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = "1"
-            try:
-                registration = client._load_registration()
-            finally:
-                if old_value is None:
-                    os.environ.pop("UNOLOCK_ALLOW_INSECURE_PROVIDER", None)
-                else:
-                    os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = old_value
-
+            registration = client._load_registration()
             self.assertEqual(registration.bootstrap_secret, "pp:bootstrap")
 
     def test_submit_connection_url_stores_bootstrap_secret_only_in_provider(self) -> None:
@@ -113,22 +104,15 @@ class AgentAuthClientTest(unittest.TestCase):
             store = RegistrationStore(Path(tmpdir) / "registration.json")
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
 
-            old_value = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER")
-            os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = "1"
-            try:
-                summary = client.submit_connection_url(
-                    "http://localhost:4200/#/agent-register/"
-                    "YWNjZXNzLTEyMw/Y29kZS0xMjM/cHA6Ym9vdHN0cmFw"
-                )
-            finally:
-                if old_value is None:
-                    os.environ.pop("UNOLOCK_ALLOW_INSECURE_PROVIDER", None)
-                else:
-                    os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = old_value
+            summary = client.submit_connection_url(
+                "http://localhost:4200/#/agent-register/"
+                "YWNjZXNzLTEyMw/Y29kZS0xMjM/cHA6Ym9vdHN0cmFw"
+            )
 
             self.assertEqual(summary["access_id"], "access-123")
             self.assertFalse(summary["has_bootstrap_secret"])
             self.assertEqual(dao.load_secret("bootstrap-access-123"), b"pp:bootstrap")
+            self.assertEqual(summary["security_warning"]["reason"], "insecure_tpm_provider")
 
     def test_submit_connection_url_rejects_regular_register_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -136,18 +120,10 @@ class AgentAuthClientTest(unittest.TestCase):
             store = RegistrationStore(Path(tmpdir) / "registration.json")
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
 
-            old_value = os.environ.get("UNOLOCK_ALLOW_INSECURE_PROVIDER")
-            os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = "1"
-            try:
-                result = client.submit_connection_url(
-                    "http://localhost:4200/#/register/"
-                    "YWNjZXNzLTEyMw/Y29kZS0xMjM"
-                )
-            finally:
-                if old_value is None:
-                    os.environ.pop("UNOLOCK_ALLOW_INSECURE_PROVIDER", None)
-                else:
-                    os.environ["UNOLOCK_ALLOW_INSECURE_PROVIDER"] = old_value
+            result = client.submit_connection_url(
+                "http://localhost:4200/#/register/"
+                "YWNjZXNzLTEyMw/Y29kZS0xMjM"
+            )
 
             self.assertFalse(result["ok"])
             self.assertEqual(result["reason"], "wrong_connection_url_type")
