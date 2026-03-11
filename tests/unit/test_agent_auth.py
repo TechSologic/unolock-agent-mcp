@@ -211,7 +211,7 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertEqual(session_store.list(), [])
             self.assertFalse(client.runtime_status()["has_agent_pin"])
 
-    def test_software_mode_encrypts_aidk_with_pin(self) -> None:
+    def test_software_mode_stores_aidk_via_provider_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))
             client = AgentAuthClient(None, None, None, tpm_dao=dao)  # type: ignore[arg-type]
@@ -221,8 +221,7 @@ class AgentAuthClientTest(unittest.TestCase):
             stored = dao.load_secret("aidk-access-123")
 
             self.assertIsNotNone(stored)
-            self.assertTrue(stored.startswith(b"uaidk1:"))
-            self.assertNotEqual(stored, aidk)
+            self.assertEqual(stored, aidk)
 
 
 if __name__ == "__main__":

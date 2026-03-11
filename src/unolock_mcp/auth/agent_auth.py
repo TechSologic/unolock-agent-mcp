@@ -7,9 +7,6 @@ import secrets
 from datetime import datetime, timezone
 from typing import Any
 
-from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-from cryptography.hazmat.primitives.kdf.scrypt import Scrypt
-
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
 from unolock_mcp.auth.registration_store import RegistrationStore, parse_connection_url
 from unolock_mcp.auth.session_store import SessionStore
@@ -741,29 +738,14 @@ class AgentAuthClient:
         self._tpm.delete_secret(self._bootstrap_secret_id(access_id))
 
     def _load_agent_aidk(self, access_id: str) -> bytes | None:
-        aidk = self._tpm.load_secret(self._aidk_secret_id(access_id))
-        if aidk is None:
-            return None
-        if self._normalize_provider_name(self._tpm.provider_name()) != "software":
-            return aidk
-        if aidk.startswith(b"uaidk1:"):
-            if not self._agent_pin:
-                return None
-            return self._decrypt_software_aidk(aidk, self._agent_pin)
-        return aidk
+        return self._tpm.load_secret(self._aidk_secret_id(access_id))
 
     def _load_or_create_agent_aidk(self, access_id: str) -> bytes:
         existing = self._load_agent_aidk(access_id)
         if existing is not None:
             return existing
         aidk = secrets.token_bytes(32)
-        if self._normalize_provider_name(self._tpm.provider_name()) == "software":
-            if not self._agent_pin:
-                raise ValueError("Software assurance mode requires the agent PIN before storing the local AIDK.")
-            stored = self._encrypt_software_aidk(aidk, self._agent_pin)
-        else:
-            stored = aidk
-        self._tpm.store_secret(self._aidk_secret_id(access_id), stored)
+        self._tpm.store_secret(self._aidk_secret_id(access_id), aidk)
         return aidk
 
     def _protect_bootstrap_secret_if_needed(self, registration: RegistrationState) -> None:
@@ -833,26 +815,6 @@ class AgentAuthClient:
         if provider_name == "test":
             return "software"
         return provider_name or ""
-
-    @staticmethod
-    def _derive_software_aidk_key(pin: str, salt: bytes) -> bytes:
-        kdf = Scrypt(salt=salt, length=32, n=2**14, r=8, p=1)
-        return kdf.derive(pin.encode("utf8"))
-
-    def _encrypt_software_aidk(self, aidk: bytes, pin: str) -> bytes:
-        salt = secrets.token_bytes(16)
-        nonce = secrets.token_bytes(12)
-        key = self._derive_software_aidk_key(pin, salt)
-        ciphertext = AESGCM(key).encrypt(nonce, aidk, None)
-        return b"uaidk1:" + salt + nonce + ciphertext
-
-    def _decrypt_software_aidk(self, encoded: bytes, pin: str) -> bytes:
-        payload = encoded[len(b"uaidk1:"):]
-        salt = payload[:16]
-        nonce = payload[16:28]
-        ciphertext = payload[28:]
-        key = self._derive_software_aidk_key(pin, salt)
-        return AESGCM(key).decrypt(nonce, ciphertext, None)
 
     @staticmethod
     def _bootstrap_secret_id(access_id: str) -> str:
