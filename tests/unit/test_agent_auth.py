@@ -42,6 +42,20 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertIn("tpm_production_ready", status)
             self.assertIn("tpm_available", status)
 
+    def test_flow_session_summary_does_not_require_tpm_provider(self) -> None:
+        session = FlowSession(
+            session_id="session-1",
+            flow="agentAccess",
+            state="state",
+            shared_secret=b"secret",
+            current_callback=CallbackAction(type="GetPin"),
+        )
+
+        summary = session.summary()
+
+        self.assertEqual(summary["session_id"], "session-1")
+        self.assertEqual(summary["current_callback_type"], "GetPin")
+
     def test_tpm_diagnostics_has_advice_and_summary(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))

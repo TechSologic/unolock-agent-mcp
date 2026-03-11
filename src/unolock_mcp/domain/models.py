@@ -98,7 +98,6 @@ class FlowSession:
     last_nonce: str | None = None
 
     def summary(self) -> dict[str, Any]:
-        tpm_provider = "software" if self.tpm_provider == "test" else self.tpm_provider
         return {
             "session_id": self.session_id,
             "flow": self.flow,
