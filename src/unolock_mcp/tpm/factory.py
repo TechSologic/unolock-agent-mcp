@@ -14,7 +14,7 @@ from .windows_tpm import WindowsTpmDao
 
 def create_tpm_dao(provider: str | None = None) -> TpmDao:
     selected = (provider or os.environ.get("UNOLOCK_TPM_PROVIDER") or "auto").strip().lower()
-    if selected == "test":
+    if selected in {"software", "test"}:
         return TestTpmDao()
     if selected == "linux":
         return LinuxTpmDao()
@@ -32,7 +32,7 @@ def create_tpm_dao(provider: str | None = None) -> TpmDao:
         return WindowsCngDao()
     if selected != "auto":
         raise ValueError(
-            "UNOLOCK_TPM_PROVIDER must be one of: auto, test, linux, mac, mac-se, mac-secure-enclave, "
+            "UNOLOCK_TPM_PROVIDER must be one of: auto, software, test, linux, mac, mac-se, mac-secure-enclave, "
             "mac-keychain, mac-platform, windows, windows-tpm, win-tpm, windows-cng, windows-platform, win-cng"
         )
 

@@ -13,6 +13,7 @@ CONNECTING_AGENT_DOC = "https://safe.unolock.com/docs/howto/connecting-an-ai-age
 
 
 def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmDiagnostics:
+    normalized_provider = _normalize_provider_name(provider_name)
     system = platform.system().lower()
     machine = platform.machine().lower()
     release = platform.release().lower()
@@ -74,15 +75,15 @@ def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmD
     elif system == "darwin":
         summary = "macOS does not expose TPM/vTPM in the same way as Linux/Windows."
         advice.append("Use Secure Enclave support once UnoLock adds a macOS production TPM DAO.")
-        advice.append("For now, use the MCP test TPM provider only for development.")
+        advice.append("If needed, the MCP can fall back to the software provider with reduced assurance.")
     else:
         summary = f"Unsupported host OS for TPM diagnostics: {system}."
         advice.append("Use Linux or Windows with a physical TPM or vTPM for production agent keys.")
 
-    if provider_name == "test":
-        advice.insert(0, "The active MCP provider is the test TPM DAO. It is not production-grade.")
+    if normalized_provider == "software":
+        advice.insert(0, "The active MCP provider is using software-backed local key protection, not a device-bound or platform-backed key store.")
         if not available:
-            advice.append("You can keep using the test TPM provider for development while enabling TPM/vTPM for production later.")
+            advice.append("You can keep using the software provider if needed, but the MCP should treat it as reduced assurance until stronger host protection is available.")
 
     if not available:
         advice.append(
@@ -90,14 +91,20 @@ def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmD
         )
 
     return TpmDiagnostics(
-        provider_name=provider_name,
-        provider_type="test" if provider_name == "test" else "hardware",
+        provider_name=normalized_provider,
+        provider_type="software" if normalized_provider == "software" else "hardware",
         production_ready=production_ready and available,
         available=available,
         summary=summary,
         details=details,
         advice=advice,
     )
+
+
+def _normalize_provider_name(provider_name: str) -> str:
+    if provider_name == "test":
+        return "software"
+    return provider_name
 
 
 def detect_host_environment(*, system: str | None = None, release: str | None = None) -> dict[str, object]:

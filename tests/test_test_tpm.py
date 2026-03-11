@@ -35,7 +35,7 @@ class TestTpmDaoTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             dao = TestTpmDao(Path(temp_dir))
             diagnostics = dao.diagnose()
-            self.assertEqual(diagnostics.provider_name, "test")
+            self.assertEqual(diagnostics.provider_name, "software")
             self.assertIn("persisted_key_count", diagnostics.details)
             self.assertIsInstance(diagnostics.advice, list)
 

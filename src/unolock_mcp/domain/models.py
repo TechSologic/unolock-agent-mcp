@@ -98,6 +98,7 @@ class FlowSession:
     last_nonce: str | None = None
 
     def summary(self) -> dict[str, Any]:
+        tpm_provider = "software" if self.tpm_provider == "test" else self.tpm_provider
         return {
             "session_id": self.session_id,
             "flow": self.flow,
@@ -154,6 +155,7 @@ class RegistrationState:
     transparency_origin: str | None = None
 
     def summary(self) -> dict[str, Any]:
+        tpm_provider = "software" if self.tpm_provider == "test" else self.tpm_provider
         return {
             "registered": self.registered,
             "registration_mode": self.registration_mode,
@@ -164,7 +166,7 @@ class RegistrationState:
             "has_bootstrap_secret": bool(self.bootstrap_secret),
             "session_id": self.session_id,
             "registered_at": self.registered_at,
-            "tpm_provider": self.tpm_provider,
+            "tpm_provider": tpm_provider,
             "api_base_url": self.api_base_url,
             "transparency_origin": self.transparency_origin,
             "connection_url": self.connection_url.summary() if self.connection_url else None,

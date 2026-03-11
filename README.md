@@ -15,7 +15,7 @@ For normal customer use, the strongest deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the host cannot provide one of those, the MCP can still fall back to a lower-assurance software test provider. When that happens, the MCP reports the reduced assurance clearly so the user can decide whether to proceed.
+If the host cannot provide one of those, the MCP can still fall back to a lower-assurance software provider. When that happens, the MCP reports the reduced assurance clearly so the user can decide whether to proceed.
 
 That tradeoff is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model without pretending every host can satisfy the same storage guarantees.
 
@@ -171,12 +171,12 @@ For the standard hosted UnoLock deployment, the MCP resolves the UnoLock app ver
 TPM provider selection:
 
 * default: `UNOLOCK_TPM_PROVIDER=auto`
-* force test provider: `UNOLOCK_TPM_PROVIDER=test`
+* force software provider: `UNOLOCK_TPM_PROVIDER=software`
 * force Linux TPM/vTPM provider: `UNOLOCK_TPM_PROVIDER=linux`
 * force best macOS provider: `UNOLOCK_TPM_PROVIDER=mac`
 * force best Windows provider: `UNOLOCK_TPM_PROVIDER=windows`
 
-On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host, and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable. This has been validated locally with live registration and authentication. If neither Windows path works, `auto` falls back to the test provider with loud reduced-assurance warnings.
+On WSL2, `auto` now prefers the Windows TPM helper provider when `powershell.exe` can create TPM-backed keys on the Windows host, and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable. This has been validated locally with live registration and authentication. If neither Windows path works, `auto` falls back to the software provider with loud reduced-assurance warnings.
 
 On macOS, `auto` now tries the Secure Enclave provider first and then falls back to a non-exportable Keychain-backed provider. Secure Enclave remains the higher-assurance path, but the Keychain path is there to reduce launch-context friction on real Macs.
 
@@ -250,7 +250,7 @@ Registration discovery support:
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
 * the Windows CNG non-exportable fallback provider is now also usable from Windows/WSL when TPM-backed creation is unavailable
-* the test TPM provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
+* the software provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating
@@ -364,4 +364,4 @@ unolock-agent-mcp/
 ## Notes
 
 * Server-side interop probes can still live under `server/safe-server/scripts/` when they are validating server behavior directly.
-* Production agent auth is intended to use TPM/vTPM or equivalent device-backed storage. `TestTpmDao` is for development and interop only.
+* Production agent auth is intended to use TPM/vTPM or equivalent device-backed storage. The software provider is the lower-assurance fallback when stronger host key protection is not available.

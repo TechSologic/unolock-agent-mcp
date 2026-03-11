@@ -47,7 +47,7 @@ class AgentAuthClientTest(unittest.TestCase):
             dao = TestTpmDao(Path(tmpdir))
             client = AgentAuthClient(None, None, None, tpm_dao=dao)  # type: ignore[arg-type]
             diagnostics = client.tpm_diagnostics()
-            self.assertEqual(diagnostics["provider_name"], "test")
+            self.assertEqual(diagnostics["provider_name"], "software")
             self.assertIn("summary", diagnostics)
             self.assertIn("advice", diagnostics)
 
@@ -65,7 +65,7 @@ class AgentAuthClientTest(unittest.TestCase):
             result = client.authenticate_registered_agent()
             self.assertEqual(result["reason"], "tpm_provider_mismatch")
             self.assertEqual(result["stored_tpm_provider"], "windows-tpm")
-            self.assertEqual(result["current_tpm_provider"], "test")
+            self.assertEqual(result["current_tpm_provider"], "software")
 
     def test_authenticate_registered_agent_reports_insecure_provider_warning(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -75,7 +75,7 @@ class AgentAuthClientTest(unittest.TestCase):
                 registered=True,
                 access_id="access-123",
                 key_id="agent-access-123",
-                tpm_provider="test",
+                tpm_provider="software",
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
             result = client.authenticate_registered_agent()
@@ -91,7 +91,7 @@ class AgentAuthClientTest(unittest.TestCase):
                 registered=True,
                 access_id="access-123",
                 key_id="agent-access-123",
-                tpm_provider="test",
+                tpm_provider="software",
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
 
@@ -142,7 +142,7 @@ class AgentAuthClientTest(unittest.TestCase):
                     registration_mode="registered",
                     access_id="access-123",
                     key_id="agent-access-123",
-                    tpm_provider="test",
+                    tpm_provider="software",
                 )
             )
             session_store = SessionStore()

@@ -268,7 +268,7 @@ class WindowsTpmDao(TpmDao):
         except Exception as exc:
             advice.append("Make sure the Windows host has a working TPM or vTPM.")
             advice.append("If you are in WSL2, this provider is preferred over Linux TPM because WSL usually lacks /dev/tpmrm0.")
-            advice.append("If the Windows helper still cannot create a key, use the test TPM provider only for development.")
+            advice.append("If the Windows helper still cannot create a key, the MCP can fall back to the software provider with reduced assurance.")
             details["error"] = str(exc)
             return TpmDiagnostics(
                 provider_name=self.provider_name(),

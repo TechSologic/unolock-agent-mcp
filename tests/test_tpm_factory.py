@@ -15,7 +15,12 @@ from unolock_mcp.tpm.windows_tpm import WindowsTpmDao
 
 
 class TpmFactoryTest(unittest.TestCase):
-    def test_forced_test_provider_returns_test_dao(self) -> None:
+    def test_forced_software_provider_returns_test_dao(self) -> None:
+        with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "software"}, clear=True):
+            dao = create_tpm_dao()
+            self.assertIsInstance(dao, TestTpmDao)
+
+    def test_legacy_test_alias_returns_test_dao(self) -> None:
         with patch.dict(os.environ, {"UNOLOCK_TPM_PROVIDER": "test"}, clear=True):
             dao = create_tpm_dao()
             self.assertIsInstance(dao, TestTpmDao)

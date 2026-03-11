@@ -17,7 +17,7 @@ For normal customer use, UnoLock Agent MCP works best with a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the current host does not provide one, the MCP can still fall back to the software test provider. When that happens, it reports reduced assurance clearly so the user can decide whether to proceed.
+If the current host does not provide one, the MCP can still fall back to the software provider. When that happens, it reports reduced assurance clearly so the user can decide whether to proceed.
 
 That is the point of the product: keep AI agent access as device-bound as the host allows, without hiding when the host could not meet UnoLock's strongest storage requirements.
 
@@ -64,8 +64,9 @@ For the standard hosted UnoLock deployment, no UnoLock runtime env vars are requ
 
 TPM provider modes:
 
-* `auto`: choose the strongest available provider for the current host, then fall back to the test provider with reduced-assurance warnings if needed
-* `test`: force the software test TPM provider
+* `auto`: choose the strongest available provider for the current host, then fall back to the software provider with reduced-assurance warnings if needed
+* `software`: force the software provider
+* `test`: legacy alias for the software provider
 * `linux`: force the Linux TPM/vTPM provider
 * `mac`: force the best available macOS provider
 * `mac-se` / `mac-secure-enclave`: force the macOS Secure Enclave provider
@@ -78,7 +79,7 @@ WSL2 note:
 
 * WSL2 usually does not expose `/dev/tpmrm0` or `/dev/tpm0`
 * on WSL2, `auto` now prefers the Windows TPM helper provider and falls back to the Windows CNG provider
-* if neither Windows provider works, `auto` falls back to the test provider and reports reduced assurance
+* if neither Windows provider works, `auto` falls back to the software provider and reports reduced assurance
 * for production use, WSL2 should use the Windows provider path, not the Linux TPM path
 
 macOS note:

@@ -15,7 +15,7 @@ For normal customer use, the preferred deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the MCP cannot find one, it can still fall back to the software test provider. When that happens, the MCP reports that the host is operating at reduced assurance instead of pretending it met UnoLock’s preferred key-storage requirements.
+If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance instead of pretending it met UnoLock’s preferred key-storage requirements.
 
 This is deliberate. The point of the Agent MCP is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
 
@@ -210,8 +210,8 @@ For most customers:
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
 * for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, app version, and PQ validation key from the UnoLock agent key connection URL
 * for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
-* if no production-ready TPM, vTPM, or platform-backed provider is available, `auto` falls back to the test provider and reports reduced assurance loudly
-* force `UNOLOCK_TPM_PROVIDER=test` only when you intentionally want the software test provider
+* if no production-ready TPM, vTPM, or platform-backed provider is available, `auto` falls back to the software provider and reports reduced assurance loudly
+* force `UNOLOCK_TPM_PROVIDER=software` when you intentionally want the software provider; `test` remains a legacy alias
 
 ## Upgrade
 

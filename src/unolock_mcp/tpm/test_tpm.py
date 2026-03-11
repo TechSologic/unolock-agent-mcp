@@ -21,10 +21,10 @@ class _StoredKey:
 
 class TestTpmDao(TpmDao):
     """
-    Test-only TPM DAO.
+    Software fallback TPM DAO.
 
-    This is a placeholder provider boundary for early integration work.
-    It is intentionally not a production authenticator implementation.
+    This provides a lower-assurance local software key path when the host
+    cannot provide device-bound or platform-backed key protection.
     """
 
     def __init__(self, path: Path | None = None) -> None:
@@ -33,7 +33,7 @@ class TestTpmDao(TpmDao):
         self._path.mkdir(parents=True, exist_ok=True)
 
     def provider_name(self) -> str:
-        return "test"
+        return "software"
 
     def create_key(self, key_id: str) -> CreatedKey:
         existing = self._load_key(key_id)
@@ -47,10 +47,10 @@ class TestTpmDao(TpmDao):
             format=PublicFormat.SubjectPublicKeyInfo,
         )
         binding = KeyBindingInfo(
-            protection="test",
+            protection="software",
             exportable=False,
             attestation_supported=False,
-            device_binding="test",
+            device_binding="software",
         )
         self._keys[key_id] = _StoredKey(
             public_key=public_key,
@@ -127,10 +127,10 @@ class TestTpmDao(TpmDao):
             format=PublicFormat.SubjectPublicKeyInfo,
         )
         binding = KeyBindingInfo(
-            protection="test",
+            protection="software",
             exportable=False,
             attestation_supported=False,
-            device_binding="test",
+            device_binding="software",
         )
         return _StoredKey(public_key=public_key, private_key=private_key, binding_info=binding)
 

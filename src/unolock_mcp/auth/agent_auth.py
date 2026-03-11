@@ -512,19 +512,21 @@ class AgentAuthClient:
     def _get_provider_mismatch(self, registration: RegistrationState) -> dict[str, Any] | None:
         stored_provider = registration.tpm_provider
         current_provider = self._tpm.provider_name()
-        if not stored_provider or stored_provider == current_provider:
+        normalized_stored_provider = self._normalize_provider_name(stored_provider)
+        normalized_current_provider = self._normalize_provider_name(current_provider)
+        if not stored_provider or normalized_stored_provider == normalized_current_provider:
             return None
         return {
             "ok": False,
             "blocked": True,
             "reason": "tpm_provider_mismatch",
             "message": (
-                f"This agent key was registered with TPM provider '{stored_provider}', but the MCP is "
-                f"currently using '{current_provider}'. Re-run the MCP with UNOLOCK_TPM_PROVIDER={stored_provider} "
+                f"This agent key was registered with TPM provider '{normalized_stored_provider}', but the MCP is "
+                f"currently using '{normalized_current_provider}'. Re-run the MCP with UNOLOCK_TPM_PROVIDER={normalized_stored_provider} "
                 "or register a new agent connection with the current provider."
             ),
-            "stored_tpm_provider": stored_provider,
-            "current_tpm_provider": current_provider,
+            "stored_tpm_provider": normalized_stored_provider,
+            "current_tpm_provider": normalized_current_provider,
         }
 
     def _build_registration_args(self, registration: RegistrationState) -> str | None:
@@ -731,16 +733,17 @@ class AgentAuthClient:
         diagnostics = self._tpm.diagnose()
         if diagnostics.production_ready:
             return None
+        provider_name = self._normalize_provider_name(self._tpm.provider_name())
         return {
             "ok": True,
             "blocked": False,
             "reason": "insecure_tpm_provider",
             "message": (
-                f"The active TPM provider '{self._tpm.provider_name()}' is not production-ready. "
+                f"The active TPM provider '{provider_name}' is not production-ready. "
                 "UnoLock Agent MCP will still work, but this host could not satisfy the preferred "
                 "device-bound, non-exportable key-storage requirements and is operating at reduced assurance."
             ),
-            "tpm_provider": self._tpm.provider_name(),
+            "tpm_provider": provider_name,
             "tpm_diagnostics": diagnostics.to_dict(),
         }
 
@@ -749,7 +752,7 @@ class AgentAuthClient:
         diagnostics = self._tpm.diagnose()
         return {
             "scheme": "agent-mcp",
-            "provider": self._tpm.provider_name(),
+            "provider": self._normalize_provider_name(self._tpm.provider_name()),
             "recordedAt": datetime.now(timezone.utc).isoformat(),
             "binding": {
                 "protection": binding_info.protection,
@@ -764,6 +767,12 @@ class AgentAuthClient:
                 "summary": diagnostics.summary,
             },
         }
+
+    @staticmethod
+    def _normalize_provider_name(provider_name: str | None) -> str:
+        if provider_name == "test":
+            return "software"
+        return provider_name or ""
 
     @staticmethod
     def _bootstrap_secret_id(access_id: str) -> str:

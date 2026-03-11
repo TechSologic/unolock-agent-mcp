@@ -267,7 +267,7 @@ class WindowsCngDao(TpmDao):
             )
         except Exception as exc:
             advice.append("If TPM-backed Windows key creation fails, this platform-backed fallback should still work on a normal Windows user session.")
-            advice.append("If the helper still cannot create a non-exportable CNG key, use the test provider only for development.")
+            advice.append("If the helper still cannot create a non-exportable CNG key, the MCP can fall back to the software provider with reduced assurance.")
             details["error"] = str(exc)
             return TpmDiagnostics(
                 provider_name=self.provider_name(),

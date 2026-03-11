@@ -71,8 +71,8 @@ These should work for development where possible, but are not preferred producti
 
 | Environment | Why it matters | Preferred DAO | Current status | Assurance |
 | --- | --- | --- | --- | --- |
-| Plain Docker container with no TPM/vTPM | Common local packaging shape | none, fall back to `TestTpmDao` | Supported for development only | Test-only |
-| Hosted CI runner with no secure device binding | Easy to adopt but weak binding | none, fall back to `TestTpmDao` | Development only | Test-only |
+| Plain Docker container with no TPM/vTPM | Common local packaging shape | none, fall back to software provider | Supported with reduced assurance | Software |
+| Hosted CI runner with no secure device binding | Easy to adopt but weak binding | none, fall back to software provider | Supported with reduced assurance | Software |
 | Ephemeral remote sandboxes without TPM/vTPM | Likely for some agent products | none yet | Not a production target | Unsupported for production |
 
 ## Runtime mapping
@@ -150,7 +150,7 @@ Target behavior:
 
 ### Development-only path
 
-* `TestTpmDao`
+* software provider (`TestTpmDao` implementation)
 
 Use it for:
 
@@ -179,7 +179,7 @@ These environments are likely to be difficult or unreliable for strong device-bo
 3. Validate `LinuxTpmDao` on native Linux and Linux VMs with vTPM.
 4. Validate `MacSecureEnclaveDao` on real Secure Enclave-capable Macs.
 5. Add clearer runtime detection for containers, CI, and Kubernetes.
-6. Keep `TestTpmDao` only as an explicit development fallback.
+6. Keep the software provider clearly labeled as reduced assurance.
 
 ## Factory expectations
 
