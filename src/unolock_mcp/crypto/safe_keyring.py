@@ -148,6 +148,12 @@ class SafeKeyringManager:
         self.xor_encrypted_data_keys_in_header(encrypted_data, kek)
         return base64.b64encode(encrypted_data).decode("ascii")
 
+    def apply_kek_to_encrypted_data_keys_string(self, encrypted: str, kek: str | None) -> tuple[str, str]:
+        encrypted_data = bytearray(base64.b64decode(encrypted.encode("ascii")))
+        next_kek = self.xor_encrypted_data_keys_in_header(encrypted_data, kek)
+        # The web client persists the KEK metadata but uploads the original ciphertext.
+        return encrypted, next_kek
+
     def xor_encrypted_data_keys_in_header(self, encrypted_data: bytearray, kek: str | None) -> str:
         raw_kek = base64.b64decode(kek.encode("ascii")) if kek else None
         version_length = 1
