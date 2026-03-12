@@ -34,6 +34,8 @@ class RegistrationStore:
             tpm_provider=raw.get("tpm_provider"),
             api_base_url=raw.get("api_base_url"),
             transparency_origin=raw.get("transparency_origin"),
+            app_version=raw.get("app_version"),
+            signing_public_key_b64=raw.get("signing_public_key_b64"),
         )
 
     def save(self, state: RegistrationState) -> RegistrationState:
@@ -47,6 +49,7 @@ class RegistrationStore:
         return state
 
     def set_connection_url(self, connection_url: str) -> RegistrationState:
+        current = self.load()
         parsed = parse_connection_url(connection_url)
         sanitized = _sanitize_connection_info(parsed)
         state = RegistrationState(
@@ -59,8 +62,10 @@ class RegistrationStore:
             key_id=None,
             bootstrap_secret=None,
             tpm_provider=None,
-            api_base_url=sanitized.api_base_url,
-            transparency_origin=sanitized.site_origin,
+            api_base_url=sanitized.api_base_url or current.api_base_url,
+            transparency_origin=sanitized.site_origin or current.transparency_origin,
+            app_version=current.app_version,
+            signing_public_key_b64=current.signing_public_key_b64,
         )
         return self.save(state)
 
@@ -78,6 +83,8 @@ class RegistrationStore:
             tpm_provider=current.tpm_provider,
             api_base_url=current.api_base_url,
             transparency_origin=current.transparency_origin,
+            app_version=current.app_version,
+            signing_public_key_b64=current.signing_public_key_b64,
         )
         return self.save(state)
 
@@ -108,6 +115,34 @@ class RegistrationStore:
             tpm_provider=tpm_provider or current.tpm_provider,
             api_base_url=current.api_base_url or (current.connection_url.api_base_url if current.connection_url else None),
             transparency_origin=current.transparency_origin or (current.connection_url.site_origin if current.connection_url else None),
+            app_version=current.app_version,
+            signing_public_key_b64=current.signing_public_key_b64,
+        )
+        return self.save(state)
+
+    def update_runtime_config(
+        self,
+        *,
+        base_url: str | None = None,
+        transparency_origin: str | None = None,
+        app_version: str | None = None,
+        signing_public_key_b64: str | None = None,
+    ) -> RegistrationState:
+        current = self.load()
+        state = RegistrationState(
+            registered=current.registered,
+            registration_mode=current.registration_mode,
+            connection_url=current.connection_url,
+            session_id=current.session_id,
+            registered_at=current.registered_at,
+            access_id=current.access_id,
+            key_id=current.key_id,
+            bootstrap_secret=current.bootstrap_secret,
+            tpm_provider=current.tpm_provider,
+            api_base_url=base_url or current.api_base_url,
+            transparency_origin=transparency_origin or current.transparency_origin,
+            app_version=app_version or current.app_version,
+            signing_public_key_b64=signing_public_key_b64 or current.signing_public_key_b64,
         )
         return self.save(state)
 

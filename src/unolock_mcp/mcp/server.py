@@ -182,6 +182,14 @@ def create_mcp_server() -> FastMCP:
         resolved = resolve_unolock_config(
             base_url=registration.api_base_url,
             transparency_origin=registration.transparency_origin,
+            app_version=registration.app_version,
+            signing_public_key_b64=registration.signing_public_key_b64,
+        )
+        registration_store.update_runtime_config(
+            base_url=resolved.base_url,
+            transparency_origin=resolved.transparency_origin,
+            app_version=resolved.app_version,
+            signing_public_key_b64=resolved.signing_public_key_b64,
         )
         if not resolved.is_complete():
             raise ValueError(

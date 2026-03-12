@@ -167,8 +167,8 @@ def main(argv: list[str] | None = None) -> int:
         return load_unolock_config(
             base_url=args.base_url or registration.api_base_url or (registration.connection_url.api_base_url if registration.connection_url else None),
             transparency_origin=args.transparency_origin or registration.transparency_origin or (registration.connection_url.site_origin if registration.connection_url else None),
-            app_version=args.app_version,
-            signing_public_key_b64=args.signing_public_key,
+            app_version=args.app_version or registration.app_version,
+            signing_public_key_b64=args.signing_public_key or registration.signing_public_key_b64,
         )
 
     if command == "bootstrap":
@@ -184,6 +184,24 @@ def main(argv: list[str] | None = None) -> int:
             agent_auth.set_agent_pin(args.pin)
         if args.allow_reduced_assurance:
             agent_auth.acknowledge_reduced_assurance()
+
+        registration = registration_store.load()
+        resolved = resolve_unolock_config(
+            base_url=args.base_url or registration.api_base_url or (registration.connection_url.api_base_url if registration.connection_url else None),
+            transparency_origin=(
+                args.transparency_origin
+                or registration.transparency_origin
+                or (registration.connection_url.site_origin if registration.connection_url else None)
+            ),
+            app_version=args.app_version or registration.app_version,
+            signing_public_key_b64=args.signing_public_key or registration.signing_public_key_b64,
+        )
+        registration_store.update_runtime_config(
+            base_url=resolved.base_url,
+            transparency_origin=resolved.transparency_origin,
+            app_version=resolved.app_version,
+            signing_public_key_b64=resolved.signing_public_key_b64,
+        )
 
         flow_client = UnoLockFlowClient(resolve_runtime_config(registration_store))
         agent_auth.set_flow_client(flow_client)

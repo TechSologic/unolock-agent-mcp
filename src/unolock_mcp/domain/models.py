@@ -149,6 +149,8 @@ class RegistrationState:
     tpm_provider: str | None = None
     api_base_url: str | None = None
     transparency_origin: str | None = None
+    app_version: str | None = None
+    signing_public_key_b64: str | None = None
 
     def summary(self) -> dict[str, Any]:
         tpm_provider = "software" if self.tpm_provider == "test" else self.tpm_provider

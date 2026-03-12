@@ -96,30 +96,51 @@ class CliEntryPointTest(unittest.TestCase):
             ),
             api_base_url=None,
             transparency_origin=None,
+            app_version="0.20.21",
+            signing_public_key_b64="pq-key",
         )
 
         with patch.object(cli, "RegistrationStore") as registration_store_cls:
             with patch.object(cli, "load_unolock_config") as load_config:
-                with patch.object(cli, "UnoLockFlowClient") as flow_client_cls:
-                    with patch.object(cli, "AgentAuthClient") as agent_auth_cls:
-                        with patch("builtins.print"):
-                            registration_store_cls.return_value.load.return_value = registration
-                            load_config.return_value = SimpleNamespace(
-                                base_url="http://127.0.0.1:3000",
-                                app_version="0.1.0",
-                                signing_public_key_b64="abc",
-                            )
-                            agent_auth = agent_auth_cls.return_value
-                            agent_auth.start_registration_from_stored_url.return_value = {"ok": False, "authorized": False}
+                with patch.object(cli, "resolve_unolock_config") as resolve_config:
+                    with patch.object(cli, "UnoLockFlowClient") as flow_client_cls:
+                        with patch.object(cli, "AgentAuthClient") as agent_auth_cls:
+                            with patch("builtins.print"):
+                                registration_store_cls.return_value.load.return_value = registration
+                                load_config.return_value = SimpleNamespace(
+                                    base_url="http://127.0.0.1:3000",
+                                    app_version="0.1.0",
+                                    signing_public_key_b64="abc",
+                                )
+                                resolve_config.return_value = SimpleNamespace(
+                                    base_url="http://127.0.0.1:3000",
+                                    transparency_origin="http://localhost:4200",
+                                    app_version="0.20.21",
+                                    signing_public_key_b64="pq-key",
+                                )
+                                agent_auth = agent_auth_cls.return_value
+                                agent_auth.start_registration_from_stored_url.return_value = {"ok": False, "authorized": False}
 
-                            result = cli.main(["bootstrap"])
+                                result = cli.main(["bootstrap"])
 
         self.assertEqual(result, 1)
+        resolve_config.assert_called_once_with(
+            base_url="http://127.0.0.1:3000",
+            transparency_origin="http://localhost:4200",
+            app_version="0.20.21",
+            signing_public_key_b64="pq-key",
+        )
         load_config.assert_called_once_with(
             base_url="http://127.0.0.1:3000",
             transparency_origin="http://localhost:4200",
-            app_version=None,
-            signing_public_key_b64=None,
+            app_version="0.20.21",
+            signing_public_key_b64="pq-key",
+        )
+        registration_store_cls.return_value.update_runtime_config.assert_called_once_with(
+            base_url="http://127.0.0.1:3000",
+            transparency_origin="http://localhost:4200",
+            app_version="0.20.21",
+            signing_public_key_b64="pq-key",
         )
         flow_client_cls.assert_called_once()
         agent_auth_cls.return_value.set_flow_client.assert_called_once_with(flow_client_cls.return_value)

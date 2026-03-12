@@ -75,6 +75,25 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertEqual(state.api_base_url, "http://127.0.0.1:3000")
             self.assertEqual(state.transparency_origin, "http://localhost:4200")
 
+    def test_runtime_config_is_preserved_across_new_connection_url(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RegistrationStore(Path(temp_dir) / "registration.json")
+            store.update_runtime_config(
+                base_url="http://127.0.0.1:3000",
+                transparency_origin="http://localhost:4200",
+                app_version="0.20.21",
+                signing_public_key_b64="pq-key",
+            )
+
+            state = store.set_connection_url(
+                f"http://localhost:4200/#/agent-register/{_b64url('new-aid')}/{_b64url('new-code')}/{_b64url('new-bootstrap')}"
+            )
+
+            self.assertEqual(state.api_base_url, "http://127.0.0.1:3000")
+            self.assertEqual(state.transparency_origin, "http://localhost:4200")
+            self.assertEqual(state.app_version, "0.20.21")
+            self.assertEqual(state.signing_public_key_b64, "pq-key")
+
     def test_new_connection_url_resets_stale_registration_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RegistrationStore(Path(temp_dir) / "registration.json")
