@@ -163,7 +163,7 @@ class AgentAuthClient:
 
     def get_keyring_for_session(self, session_id: str) -> SafeKeyringManager:
         session = self._session_store.get(session_id)
-        registration = self._registration_store.load()
+        registration = self._load_registration()
         access_id = self._resolve_access_id(registration, session.current_callback, session)
         keyring = self._get_data_keyring(access_id)
         if keyring is None:
@@ -302,7 +302,7 @@ class AgentAuthClient:
                 result=handled["result"],
             )
             self._session_store.put(session)
-            registration = self._registration_store.load()
+            registration = self._load_registration()
 
     def require_flow_client(self) -> UnoLockFlowClient:
         if self._flow_client is None:
