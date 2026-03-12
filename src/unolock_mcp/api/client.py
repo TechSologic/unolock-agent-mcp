@@ -56,6 +56,24 @@ class UnoLockApiClient:
             request={"archiveID": archive_id},
         )
 
+    def update_archive(self, session_id: str, archive: dict[str, Any]) -> dict[str, Any]:
+        return self.call_action(session_id, action="UpdateArchive", request=archive)
+
+    def get_upload_put_url(
+        self,
+        session_id: str,
+        archive_id: str,
+        md5_b64: str,
+        current_etag: str | None = None,
+        new_etag: str | None = None,
+    ) -> dict[str, Any]:
+        request: dict[str, Any] = {"archiveID": archive_id, "md5": md5_b64}
+        if current_etag:
+            request["currentEtag"] = current_etag
+        if new_etag:
+            request["newEtag"] = new_etag
+        return self.call_action(session_id, action="GetUploadPutUrl", request=request)
+
     @property
     def http_client(self):
         return self._flow_client.http_client

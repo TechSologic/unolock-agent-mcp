@@ -52,6 +52,10 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertNotIn("raw_url", state.summary()["connection_url"])
             persisted = json.loads((Path(temp_dir) / "registration.json").read_text(encoding="utf8"))
             self.assertIsNone(persisted["bootstrap_secret"])
+            self.assertIsNone(persisted["access_id"])
+            self.assertIsNone(persisted["connection_url"]["access_id"])
+            self.assertIsNone(persisted["connection_url"]["registration_code"])
+            self.assertIsNone(persisted["connection_url"]["args"])
 
     def test_mark_registered_clears_spent_connection_url(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -65,7 +69,7 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertTrue(state.registered)
             self.assertEqual(state.registration_mode, "registered")
             self.assertIsNone(state.connection_url)
-            self.assertEqual(state.access_id, "aid")
+            self.assertIsNone(state.access_id)
             self.assertIsNone(state.bootstrap_secret)
             self.assertFalse(state.summary()["has_connection_url"])
             self.assertEqual(state.api_base_url, "http://127.0.0.1:3000")
@@ -94,7 +98,7 @@ class RegistrationStoreTest(unittest.TestCase):
 
             self.assertFalse(state.registered)
             self.assertEqual(state.registration_mode, "pending_connection_url")
-            self.assertEqual(state.access_id, "new-aid")
+            self.assertIsNone(state.access_id)
             self.assertIsNone(state.session_id)
             self.assertIsNone(state.registered_at)
             self.assertIsNone(state.key_id)

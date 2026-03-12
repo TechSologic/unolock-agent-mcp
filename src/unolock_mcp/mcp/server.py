@@ -5,7 +5,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from unolock_mcp.api.client import UnoLockApiClient
-from unolock_mcp.api.records import UnoLockReadonlyRecordsClient
+from unolock_mcp.api.records import UnoLockReadonlyRecordsClient, UnoLockWritableRecordsClient
 from unolock_mcp.auth.agent_auth import AgentAuthClient
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
 from unolock_mcp.auth.local_probe import LocalServerProbe
@@ -452,7 +452,11 @@ def create_mcp_server() -> FastMCP:
         description="List UnoLock spaces with record counts for an authenticated session.",
     )
     def list_spaces(session_id: str) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
         return readonly_records.list_spaces(session_id)
 
     @server.tool(
@@ -469,7 +473,11 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
         return readonly_records.list_records(
             session_id,
             kind=kind,
@@ -488,7 +496,11 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
         return readonly_records.list_records(
             session_id,
             kind="note",
@@ -507,7 +519,11 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
         return readonly_records.list_records(
             session_id,
             kind="checklist",
@@ -524,7 +540,175 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def get_record(session_id: str, record_ref: str) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(UnoLockApiClient(ensure_flow_client(), session_store), agent_auth)
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
         return readonly_records.get_record(session_id, record_ref)
+
+    @server.tool(
+        name="unolock_create_note",
+        description=(
+            "Create a new UnoLock note from raw text in an existing writable Records archive. "
+            "The returned record metadata includes the new record version and lock state."
+        ),
+    )
+    def create_note(session_id: str, space_id: int, title: str, text: str) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.create_note(
+            session_id,
+            space_id=space_id,
+            title=title,
+            text=text,
+        )
+
+    @server.tool(
+        name="unolock_create_checklist",
+        description=(
+            "Create a new UnoLock checklist in an existing writable Records archive. "
+            "Each item must be an object like {text: string, checked?: boolean}. "
+            "Use checked, done, or state='checked' to create initially checked items."
+        ),
+    )
+    def create_checklist(session_id: str, space_id: int, title: str, items: list[dict[str, Any]]) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.create_checklist(
+            session_id,
+            space_id=space_id,
+            title=title,
+            items=items,
+        )
+
+    @server.tool(
+        name="unolock_update_note",
+        description=(
+            "Update an existing UnoLock note from raw text. "
+            "Use the record_ref and current version returned by list/get tools. "
+            "If the record version changed since the last read, the MCP will fail with a conflict."
+        ),
+    )
+    def update_note(session_id: str, record_ref: str, expected_version: int, title: str, text: str) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.update_note(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            title=title,
+            text=text,
+        )
+
+    @server.tool(
+        name="unolock_rename_record",
+        description=(
+            "Rename an existing UnoLock note or checklist by changing its title only. "
+            "Use the record_ref and current version returned by list/get tools. "
+            "If the record version changed since the last read, the MCP will fail with a conflict."
+        ),
+    )
+    def rename_record(session_id: str, record_ref: str, expected_version: int, title: str) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.rename_record(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            title=title,
+        )
+
+    @server.tool(
+        name="unolock_set_checklist_item_done",
+        description=(
+            "Set one checklist item's checked state. "
+            "Use the record_ref and current version returned by list/get tools. "
+            "If the checklist version changed since the last read, the MCP will fail with a conflict."
+        ),
+    )
+    def set_checklist_item_done(
+        session_id: str,
+        record_ref: str,
+        expected_version: int,
+        item_id: int,
+        done: bool,
+    ) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.set_checklist_item_done(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            item_id=item_id,
+            done=done,
+        )
+
+    @server.tool(
+        name="unolock_add_checklist_item",
+        description=(
+            "Add a new unchecked item to an existing checklist. "
+            "Use the record_ref and current version returned by list/get tools. "
+            "If the checklist version changed since the last read, the MCP will fail with a conflict."
+        ),
+    )
+    def add_checklist_item(
+        session_id: str,
+        record_ref: str,
+        expected_version: int,
+        text: str,
+    ) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.add_checklist_item(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            text=text,
+        )
+
+    @server.tool(
+        name="unolock_remove_checklist_item",
+        description=(
+            "Remove one checklist item by item_id. "
+            "Use the record_ref and current version returned by list/get tools. "
+            "If the checklist version changed since the last read, the MCP will fail with a conflict."
+        ),
+    )
+    def remove_checklist_item(
+        session_id: str,
+        record_ref: str,
+        expected_version: int,
+        item_id: int,
+    ) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return writable_records.remove_checklist_item(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            item_id=item_id,
+        )
 
     return server

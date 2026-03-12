@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from typing import Any
 
 from unolock_mcp import __version__ as MCP_VERSION
 
@@ -43,3 +44,23 @@ class HttpClient:
         request = urllib.request.Request(url, method="GET")
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read().decode("utf8")
+
+    def get_text_with_headers_absolute(self, url: str) -> tuple[str, dict[str, str]]:
+        request = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.read().decode("utf8"), dict(response.headers.items())
+
+    def put_bytes_absolute(self, url: str, body: bytes, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        request_headers = dict(headers or {})
+        request = urllib.request.Request(
+            url,
+            data=body,
+            headers=request_headers,
+            method="PUT",
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return {
+                "status": response.status,
+                "headers": dict(response.headers.items()),
+                "body": response.read(),
+            }

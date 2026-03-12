@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+import json
 import hashlib
 import unittest
 import tempfile
@@ -124,6 +125,7 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertFalse(result["completed"])
             self.assertFalse(result["authorized"])
             flow_client.start.assert_called_once()
+            self.assertEqual(flow_client.start.call_args.kwargs, {"flow": "agentAccess"})
 
     def test_load_registration_restores_bootstrap_secret_from_provider_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -152,9 +154,13 @@ class AgentAuthClientTest(unittest.TestCase):
                 "YWNjZXNzLTEyMw/Y29kZS0xMjM/cHA6Ym9vdHN0cmFw"
             )
 
-            self.assertEqual(summary["access_id"], "access-123")
             self.assertFalse(summary["has_bootstrap_secret"])
+            self.assertNotIn("access_id", summary)
             self.assertEqual(dao.load_secret("bootstrap-access-123"), b"pp:bootstrap")
+            self.assertEqual(
+                json.loads(dao.load_secret("registration-material").decode("utf8")),
+                {"access_id": "access-123", "registration_code": "code-123"},
+            )
             self.assertEqual(summary["security_warning"]["reason"], "insecure_tpm_provider")
 
     def test_submit_connection_url_rejects_regular_register_url(self) -> None:
