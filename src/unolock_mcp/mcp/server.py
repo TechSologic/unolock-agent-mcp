@@ -89,6 +89,35 @@ def _registration_status_payload(
     if security_warning:
         guidance = f"{guidance} Warning: {security_warning.get('message')}"
 
+    primary_tools = [
+        "unolock_get_registration_status",
+        "unolock_submit_agent_bootstrap",
+        "unolock_bootstrap_agent",
+        "unolock_list_spaces",
+        "unolock_list_records",
+        "unolock_get_record",
+    ]
+    write_tools = [
+        "unolock_create_note",
+        "unolock_update_note",
+        "unolock_rename_record",
+        "unolock_create_checklist",
+        "unolock_set_checklist_item_done",
+        "unolock_add_checklist_item",
+        "unolock_remove_checklist_item",
+    ]
+    advanced_tools = [
+        "unolock_probe_local_server",
+        "unolock_start_flow",
+        "unolock_continue_flow",
+        "unolock_get_session",
+        "unolock_list_sessions",
+        "unolock_delete_session",
+        "unolock_call_api",
+        "unolock_get_spaces",
+        "unolock_get_archives",
+    ]
+
     return {
         **registration,
         **runtime,
@@ -97,6 +126,16 @@ def _registration_status_payload(
         "pending_session": pending_session,
         "recommended_next_action": next_action,
         "guidance": guidance,
+        "primary_tools": primary_tools,
+        "write_tools": write_tools,
+        "advanced_tools": advanced_tools,
+        "workflow_summary": [
+            "Check registration status first.",
+            "If needed, ask the user for the one-time-use agent key connection URL and optional PIN together.",
+            "Authenticate or finish registration before using data tools.",
+            "Read a space or record before writing so you have current version and allowed_operations metadata.",
+            "If a write reports conflict, reread the target record and retry with the latest version.",
+        ],
     }
 
 
@@ -130,11 +169,13 @@ def create_mcp_server() -> FastMCP:
     server = FastMCP(
         name="UnoLock Agent MCP",
         instructions=(
-            "Use this server to probe UnoLock callback compatibility, start UnoLock auth flows, "
-            "continue flow callbacks, and call a small set of authenticated UnoLock API actions. "
-            "If registration is not configured, ask the user for the one-time-use UnoLock agent key connection URL "
-            "and the optional agent PIN together when possible, then submit them with "
-            "unolock_submit_agent_bootstrap. The connection URL is for enrollment only."
+            "Start with unolock_get_registration_status and follow its recommended_next_action. "
+            "Prefer the primary workflow tools first: unolock_submit_agent_bootstrap, unolock_bootstrap_agent, "
+            "unolock_list_spaces, unolock_list_records, and unolock_get_record. Read records before writing so you "
+            "have current version and allowed_operations metadata. Low-level flow and API tools are advanced/debug "
+            "tools and should not be the normal first choice. If registration is not configured, ask the user for "
+            "the one-time-use UnoLock agent key connection URL and the optional agent PIN together when possible, "
+            "then submit them with unolock_submit_agent_bootstrap. The connection URL is for enrollment only."
         ),
     )
 
@@ -146,6 +187,26 @@ def create_mcp_server() -> FastMCP:
     )
     def registration_status_resource() -> dict[str, Any]:
         return _registration_status_payload(registration_store, session_store, agent_auth)
+
+    @server.resource(
+        "unolock://usage/quickstart",
+        name="UnoLock Quickstart",
+        description="Short, agent-oriented guidance for the preferred UnoLock MCP workflow.",
+        mime_type="application/json",
+    )
+    def quickstart_resource() -> dict[str, Any]:
+        return {
+            "primary_tools": [
+                "unolock_get_registration_status",
+                "unolock_submit_agent_bootstrap",
+                "unolock_bootstrap_agent",
+                "unolock_list_spaces",
+                "unolock_list_records",
+                "unolock_get_record",
+            ],
+            "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
+            "advanced_tools_note": "Ignore low-level flow/api tools unless the primary workflow cannot complete the task.",
+        }
 
     @server.prompt(
         name="unolock_request_connection_url",
@@ -166,9 +227,29 @@ def create_mcp_server() -> FastMCP:
             }
         ]
 
+    @server.prompt(
+        name="unolock_agent_happy_path",
+        title="UnoLock Happy Path",
+        description="Prompt content telling an agent how to use the primary UnoLock MCP workflow.",
+    )
+    def agent_happy_path_prompt() -> list[dict[str, Any]]:
+        return [
+            {
+                "role": "user",
+                "content": (
+                    "Use UnoLock in this order: first call unolock_get_registration_status. "
+                    "If registration is needed, ask the user for the one-time-use UnoLock agent key connection URL "
+                    "and optional PIN together, then call unolock_submit_agent_bootstrap and unolock_bootstrap_agent. "
+                    "After authentication, prefer unolock_list_spaces, unolock_list_records, and unolock_get_record. "
+                    "Before writing, read the target record and use its writable, allowed_operations, record_ref, and "
+                    "version fields. Avoid low-level flow/api tools unless the primary workflow cannot complete the task."
+                ),
+            }
+        ]
+
     @server.tool(
         name="unolock_probe_local_server",
-        description="Run the UnoLock local /start probe and return the next callback after PQ negotiation.",
+        description="Advanced/debug: run the UnoLock local /start probe and return the next callback after PQ negotiation.",
     )
     def probe_local_server(
         base_url: str = "http://127.0.0.1:3000",
@@ -347,8 +428,8 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_start_flow",
         description=(
-            "Start a UnoLock auth flow, automatically complete PQ negotiation, and return a session_id "
-            "plus the next callback that requires client handling."
+            "Advanced/debug: start a UnoLock auth flow, automatically complete PQ negotiation, and return a "
+            "session_id plus the next callback that requires client handling."
         ),
     )
     def start_flow(flow: str = "access", args: str | None = None) -> dict[str, Any]:
@@ -360,7 +441,7 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_continue_flow",
         description=(
-            "Reply to the current UnoLock auth-flow callback for a session. "
+            "Advanced/debug: reply to the current UnoLock auth-flow callback for a session. "
             "If callback_type is omitted, the current callback type is reused."
         ),
     )
@@ -389,21 +470,21 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_get_session",
-        description="Inspect the current in-memory UnoLock auth-flow session state.",
+        description="Advanced/debug: inspect the current in-memory UnoLock auth-flow session state.",
     )
     def get_session(session_id: str) -> dict[str, Any]:
         return session_store.get(session_id).summary()
 
     @server.tool(
         name="unolock_list_sessions",
-        description="List the current in-memory UnoLock auth-flow sessions.",
+        description="Advanced/debug: list the current in-memory UnoLock auth-flow sessions.",
     )
     def list_sessions() -> list[dict[str, Any]]:
         return session_store.list()
 
     @server.tool(
         name="unolock_delete_session",
-        description="Delete an in-memory UnoLock auth-flow session.",
+        description="Advanced/debug: delete an in-memory UnoLock auth-flow session.",
     )
     def delete_session(session_id: str) -> dict[str, Any]:
         session_store.delete(session_id)
@@ -411,7 +492,7 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_call_api",
-        description="Call a generic authenticated UnoLock /api action for an existing session.",
+        description="Advanced/debug: call a generic authenticated UnoLock /api action for an existing session.",
     )
     def call_api(
         session_id: str,
@@ -433,7 +514,7 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_get_spaces",
-        description="Call UnoLock GetSpaces for an authenticated session.",
+        description="Advanced/debug: call UnoLock GetSpaces for an authenticated session.",
     )
     def get_spaces(session_id: str) -> dict[str, Any]:
         api_client = UnoLockApiClient(ensure_flow_client(), session_store)
@@ -441,7 +522,7 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_get_archives",
-        description="Call UnoLock GetArchives for an authenticated session.",
+        description="Advanced/debug: call UnoLock GetArchives for an authenticated session.",
     )
     def get_archives(session_id: str) -> dict[str, Any]:
         api_client = UnoLockApiClient(ensure_flow_client(), session_store)

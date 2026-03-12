@@ -10,6 +10,17 @@ The recommended lifecycle is:
 4. Use read-only space and record tools.
 5. Read a target record before updating it so the MCP has cached archive state and the current record version.
 
+Primary tools for first-time agent use:
+
+* `unolock_get_registration_status`
+* `unolock_submit_agent_bootstrap`
+* `unolock_bootstrap_agent`
+* `unolock_list_spaces`
+* `unolock_list_records`
+* `unolock_get_record`
+
+Advanced/debug tools exist too, but agents should ignore them unless the primary workflow cannot complete the task.
+
 ## Registration And Runtime
 
 ### `unolock_get_registration_status`

@@ -63,6 +63,9 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertEqual(payload["recommended_next_action"], "authenticate_or_set_pin")
             self.assertIn("agent PIN", payload["guidance"])
             self.assertFalse(payload["needs_connection_url"])
+            self.assertIn("unolock_get_registration_status", payload["primary_tools"])
+            self.assertIn("unolock_list_records", payload["primary_tools"])
+            self.assertIn("unolock_call_api", payload["advanced_tools"])
 
     def test_unregistered_agent_without_connection_url_requests_agent_key_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -76,6 +79,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("agent key connection URL", payload["guidance"])
             self.assertIn("one-time-use", payload["guidance"])
             self.assertIn("agent PIN", payload["guidance"])
+            self.assertIn("Check registration status first.", payload["workflow_summary"])
 
     def test_unacknowledged_reduced_assurance_changes_next_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -110,6 +114,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             )
 
             self.assertEqual(payload["recommended_next_action"], "acknowledge_reduced_assurance")
+            self.assertIn("unolock_bootstrap_agent", payload["primary_tools"])
 
 
 if __name__ == "__main__":
