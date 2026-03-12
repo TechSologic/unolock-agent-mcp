@@ -63,7 +63,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git clone --depth=1 https://github.com/open-quantum-safe/liboqs.git build/liboqs-src
+          git clone --depth=1 --branch 0.14.0 https://github.com/open-quantum-safe/liboqs.git build/liboqs-src
           cmake -S build/liboqs-src -B build/liboqs-build \
             -DBUILD_SHARED_LIBS=ON \
             -DOQS_BUILD_ONLY_LIB=ON \
@@ -79,7 +79,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git clone --depth=1 https://github.com/open-quantum-safe/liboqs.git build/liboqs-src
+          git clone --depth=1 --branch 0.14.0 https://github.com/open-quantum-safe/liboqs.git build/liboqs-src
           cmake -S build/liboqs-src -B build/liboqs-build \
             -DBUILD_SHARED_LIBS=ON \
             -DOQS_BUILD_ONLY_LIB=ON \
