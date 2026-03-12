@@ -497,7 +497,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
         archives = {archive["id"]: archive for archive in self._load_archives(session_id, keyring)}
         archive = archives.get(archive_id)
         if archive is None:
-            raise ValueError(f"Unknown archive id in record_ref: {archive_id}")
+            raise ValueError(f"record_not_found: Unknown archive id in record_ref: {archive_id}")
         try:
             body = self._get_cached_records_archive_snapshot(
                 session_id,
@@ -513,7 +513,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
         for record in archive_records:
             if isinstance(record, dict) and int(record.get("id", -1)) == record_id:
                 return self._project_record(record, archive, spaces, session_id=session_id)
-        raise ValueError(f"Record not found for record_ref: {record_ref}")
+        raise ValueError(f"record_not_found: Record not found for record_ref: {record_ref}")
 
 
 class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
@@ -578,13 +578,13 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         archive_id, record_id = self._parse_record_ref(record_ref)
         expected_version = self._coerce_positive_int(expected_version) or 0
         if expected_version <= 0:
-            raise ValueError("expected_version must be a positive integer")
+            raise ValueError("invalid_input: expected_version must be a positive integer")
 
         try:
             write_context = self._get_cached_write_context_for_archive(session_id, archive_id)
         except KeyError as exc:
             raise ValueError(
-                "No cached archive state is available for this record. Read the note first, then retry the update."
+                "read_first_before_write: No cached archive state is available for this record. Read the note first, then retry the update."
             ) from exc
 
         for _ in range(2):
@@ -593,7 +593,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             target_record = self._require_record(body, record_id)
 
             if bool(target_record.get("isCbox")):
-                raise ValueError("record_ref does not point to a note")
+                raise ValueError("operation_not_allowed: record_ref does not point to a note")
             if bool(target_record.get("ro")):
                 raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
@@ -632,13 +632,13 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         archive_id, record_id = self._parse_record_ref(record_ref)
         expected_version = self._coerce_positive_int(expected_version) or 0
         if expected_version <= 0:
-            raise ValueError("expected_version must be a positive integer")
+            raise ValueError("invalid_input: expected_version must be a positive integer")
 
         try:
             write_context = self._get_cached_write_context_for_archive(session_id, archive_id)
         except KeyError as exc:
             raise ValueError(
-                "No cached archive state is available for this record. Read the record first, then retry the rename."
+                "read_first_before_write: No cached archive state is available for this record. Read the record first, then retry the rename."
             ) from exc
 
         for _ in range(2):
@@ -684,13 +684,13 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         archive_id, record_id = self._parse_record_ref(record_ref)
         expected_version = self._coerce_positive_int(expected_version) or 0
         if expected_version <= 0:
-            raise ValueError("expected_version must be a positive integer")
+            raise ValueError("invalid_input: expected_version must be a positive integer")
 
         try:
             write_context = self._get_cached_write_context_for_archive(session_id, archive_id)
         except KeyError as exc:
             raise ValueError(
-                "No cached archive state is available for this record. Read the checklist first, then retry the update."
+                "read_first_before_write: No cached archive state is available for this record. Read the checklist first, then retry the update."
             ) from exc
 
         for _ in range(2):
@@ -699,7 +699,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             target_record = self._require_record(body, record_id)
 
             if not bool(target_record.get("isCbox")):
-                raise ValueError("record_ref does not point to a checklist")
+                raise ValueError("operation_not_allowed: record_ref does not point to a checklist")
             if bool(target_record.get("ro")):
                 raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
@@ -709,7 +709,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
 
             checkboxes = target_record.get("checkBoxes")
             if not isinstance(checkboxes, list):
-                raise ValueError("Checklist payload is invalid")
+                raise ValueError("invalid_input: Checklist payload is invalid")
 
             target_item = None
             for checkbox in checkboxes:
@@ -723,7 +723,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                     target_item = checkbox
                     break
             if target_item is None:
-                raise ValueError("Checklist item not found")
+                raise ValueError("item_not_found: Checklist item not found")
 
             target_item["done"] = bool(done)
             target_record["version"] = current_version + 1
@@ -755,16 +755,16 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         archive_id, record_id = self._parse_record_ref(record_ref)
         expected_version = self._coerce_positive_int(expected_version) or 0
         if expected_version <= 0:
-            raise ValueError("expected_version must be a positive integer")
+            raise ValueError("invalid_input: expected_version must be a positive integer")
         normalized_text = text.strip()
         if not normalized_text:
-            raise ValueError("Checklist item text must not be empty")
+            raise ValueError("invalid_input: Checklist item text must not be empty")
 
         try:
             write_context = self._get_cached_write_context_for_archive(session_id, archive_id)
         except KeyError as exc:
             raise ValueError(
-                "No cached archive state is available for this record. Read the checklist first, then retry the update."
+                "read_first_before_write: No cached archive state is available for this record. Read the checklist first, then retry the update."
             ) from exc
 
         for _ in range(2):
@@ -807,13 +807,13 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         archive_id, record_id = self._parse_record_ref(record_ref)
         expected_version = self._coerce_positive_int(expected_version) or 0
         if expected_version <= 0:
-            raise ValueError("expected_version must be a positive integer")
+            raise ValueError("invalid_input: expected_version must be a positive integer")
 
         try:
             write_context = self._get_cached_write_context_for_archive(session_id, archive_id)
         except KeyError as exc:
             raise ValueError(
-                "No cached archive state is available for this record. Read the checklist first, then retry the update."
+                "read_first_before_write: No cached archive state is available for this record. Read the checklist first, then retry the update."
             ) from exc
 
         for _ in range(2):
@@ -827,7 +827,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
 
             target_index = self._find_checklist_item_index(checkboxes, item_id)
             if target_index is None:
-                raise ValueError("Checklist item not found")
+                raise ValueError("item_not_found: Checklist item not found")
             checkboxes.pop(target_index)
             target_record["version"] = current_version + 1
 
@@ -851,14 +851,14 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         normalized: list[dict[str, Any]] = []
         for item in items:
             if not isinstance(item, dict):
-                raise ValueError("Each checklist item must be an object")
+                raise ValueError("invalid_input: Each checklist item must be an object")
             text = ""
             done = False
             raw_text = item.get("text")
             if isinstance(raw_text, str):
                 text = raw_text.strip()
             else:
-                raise ValueError("Each checklist item must include a text string")
+                raise ValueError("invalid_input: Each checklist item must include a text string")
             if "done" in item:
                 done = bool(item.get("done"))
             elif "checked" in item:
@@ -868,7 +868,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             if text:
                 normalized.append({"text": text, "done": done})
             else:
-                raise ValueError("Checklist item text must not be empty")
+                raise ValueError("invalid_input: Checklist item text must not be empty")
         return normalized
 
     def _create_record(
@@ -886,7 +886,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             records_data = body.setdefault("data", {})
             current_records = records_data.setdefault("records", [])
             if not isinstance(current_records, list):
-                raise ValueError("Records archive payload is invalid")
+                raise ValueError("invalid_input: Records archive payload is invalid")
             next_record_id = int(records_data.get("nextRecordID", 0) or 0) + 1
             records_data["nextRecordID"] = next_record_id
             records_data.setdefault("nextLabelID", 0)
@@ -905,7 +905,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                 "ok": True,
                 "record": self._project_record(new_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("Write conflict requires reread")
+        raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.")
 
     def _load_write_context(self, session_id: str, space_id: int) -> dict[str, Any]:
         keyring = self._agent_auth.get_keyring_for_session(session_id)
@@ -920,7 +920,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             None,
         )
         if archive is None:
-            raise ValueError("No writable Records archive exists for the requested space")
+            raise ValueError("operation_not_allowed: No writable Records archive exists for the requested space")
         self._ensure_session_writable(session_id)
         blob = self._load_records_archive_blob(session_id, archive, keyring)
         return {
@@ -944,7 +944,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             None,
         )
         if archive is None:
-            raise ValueError(f"Unknown archive id in record_ref: {archive_id}")
+            raise ValueError(f"record_not_found: Unknown archive id in record_ref: {archive_id}")
         blob = self._load_records_archive_blob(session_id, archive, keyring)
         return {
             "archive": archive,
@@ -972,17 +972,17 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         data = body.setdefault("data", {})
         current_records = data.setdefault("records", [])
         if not isinstance(current_records, list):
-            raise ValueError("Records archive payload is invalid")
+            raise ValueError("invalid_input: Records archive payload is invalid")
         for record in current_records:
             if isinstance(record, dict) and int(record.get("id", -1)) == record_id:
                 return record
-        raise ValueError("Record not found for record_ref")
+        raise ValueError("record_not_found: Record not found for record_ref")
 
     def _ensure_session_writable(self, session_id: str) -> None:
         auth_context = self._session_auth_context(session_id)
         if not auth_context:
             raise ValueError(
-                "Write access is not confirmed for this session. Authenticate successfully before attempting writes."
+                "operation_not_allowed: Write access is not confirmed for this session. Authenticate successfully before attempting writes."
             )
         if bool(auth_context.get("ro")):
             raise ValueError(
@@ -998,7 +998,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         target_record = self._require_record(body, record_id)
 
         if not bool(target_record.get("isCbox")):
-            raise ValueError("record_ref does not point to a checklist")
+            raise ValueError("operation_not_allowed: record_ref does not point to a checklist")
         if bool(target_record.get("ro")):
             raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
@@ -1008,7 +1008,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
 
         checkboxes = target_record.get("checkBoxes")
         if not isinstance(checkboxes, list):
-            raise ValueError("Checklist payload is invalid")
+            raise ValueError("invalid_input: Checklist payload is invalid")
         return target_record, checkboxes, current_version
 
     def _find_checklist_item_index(self, checkboxes: list[dict[str, Any]], item_id: int) -> int | None:
@@ -1044,9 +1044,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         keyring = context["keyring"]
         space_id = context["space_id"]
         if space_id is None:
-            raise ValueError("Archive is not associated with a valid space")
+            raise ValueError("invalid_input: Archive is not associated with a valid space")
         if transfer_mode != "lput":
-            raise ValueError(f"Unsupported archive transfer mode for writes: {transfer_mode}")
+            raise ValueError(f"operation_not_allowed: Unsupported archive transfer mode for writes: {transfer_mode}")
 
         serialized = json.dumps(body, separators=(",", ":"))
         encrypted = keyring.encrypt_string(serialized, sid=space_id)
@@ -1081,7 +1081,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             expected_type="GetUploadPutUrl",
         )
         if not isinstance(upload_url, str) or not upload_url:
-            raise ValueError("Missing upload URL for records archive write")
+            raise ValueError("invalid_input: Missing upload URL for records archive write")
         headers = {"Content-MD5": md5_b64}
         if current_etag:
             headers["If-Match"] = current_etag
@@ -1090,11 +1090,11 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         except Exception as exc:
             message = str(exc)
             if "412" in message or "409" in message:
-                raise ValueError("Write conflict requires reread") from exc
+                raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.") from exc
             raise
         returned_etag = result["headers"].get("ETag") or result["headers"].get("etag")
         if returned_etag and returned_etag != new_etag:
-            raise ValueError("Write conflict requires reread")
+            raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.")
         context["etag"] = returned_etag or new_etag
         self._cache_records_archive_snapshot(
             session_id,

@@ -7,7 +7,7 @@ from pathlib import Path
 from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.domain.models import RegistrationState
-from unolock_mcp.mcp.server import _registration_status_payload
+from unolock_mcp.mcp.server import _registration_status_payload, _write_error_response
 
 
 class _FakeAgentAuth:
@@ -115,6 +115,27 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
 
             self.assertEqual(payload["recommended_next_action"], "acknowledge_reduced_assurance")
             self.assertIn("unolock_bootstrap_agent", payload["primary_tools"])
+
+
+class WriteErrorResponseTest(unittest.TestCase):
+    def test_structured_space_read_only_error(self) -> None:
+        payload = _write_error_response(ValueError("space_read_only: This agent has read-only access."))
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["reason"], "space_read_only")
+        self.assertIn("read-only access", payload["message"])
+        self.assertIn("allowed_operations", payload["suggested_action"])
+
+    def test_structured_conflict_error(self) -> None:
+        payload = _write_error_response(
+            ValueError("write_conflict_requires_reread: Read the target record again and retry.")
+        )
+        self.assertEqual(payload["reason"], "write_conflict_requires_reread")
+        self.assertIn("Reread", payload["suggested_action"])
+
+    def test_generic_write_error_falls_back_to_write_failed(self) -> None:
+        payload = _write_error_response(ValueError("unexpected failure"))
+        self.assertEqual(payload["reason"], "write_failed")
+        self.assertEqual(payload["message"], "unexpected failure")
 
 
 if __name__ == "__main__":

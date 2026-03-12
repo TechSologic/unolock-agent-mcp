@@ -349,6 +349,24 @@ General rules:
 * Locked/read-only records fail with `record_locked`.
 * If the record changed since the last read, the MCP fails with `write_conflict_requires_reread` and the agent should reread before retrying.
 
+Stable write failure reasons:
+
+* `space_read_only`
+* `record_locked`
+* `write_conflict_requires_reread`
+* `read_first_before_write`
+* `operation_not_allowed`
+* `record_not_found`
+* `item_not_found`
+* `invalid_input`
+
+Each write failure response includes:
+
+* `ok: false`
+* `reason`
+* `message`
+* `suggested_action`
+
 ### `unolock_create_note`
 
 Purpose:

@@ -15,6 +15,34 @@ from unolock_mcp.config import resolve_unolock_config
 from unolock_mcp.domain.models import UnoLockConfig
 
 
+def _write_error_response(exc: Exception) -> dict[str, Any]:
+    raw_message = str(exc).strip() or "Unknown write failure"
+    reason = "write_failed"
+    message = raw_message
+    if ": " in raw_message:
+        prefix, remainder = raw_message.split(": ", 1)
+        if prefix and prefix.replace("_", "").isalnum() and prefix == prefix.lower():
+            reason = prefix
+            message = remainder
+
+    suggested_action_map = {
+        "space_read_only": "Read spaces or records again and respect writable=false and allowed_operations before writing.",
+        "record_locked": "Do not modify this record. Read it again and inspect locked/read_only metadata.",
+        "write_conflict_requires_reread": "Reread the target record or space, then retry with the latest version.",
+        "read_first_before_write": "Read the target record first so the MCP has current cache and version metadata.",
+        "operation_not_allowed": "Inspect allowed_operations on the space or record and choose a supported action.",
+        "record_not_found": "Reread the target space or record and verify the current record_ref or item id.",
+        "item_not_found": "Reread the checklist and use the current checklist item ids before retrying.",
+        "invalid_input": "Correct the input payload and retry the write operation.",
+    }
+    return {
+        "ok": False,
+        "reason": reason,
+        "message": message,
+        "suggested_action": suggested_action_map.get(reason, "Review the error and retry with corrected input or fresher data."),
+    }
+
+
 def _registration_status_payload(
     registration_store: RegistrationStore,
     session_store: SessionStore,
@@ -646,12 +674,15 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.create_note(
-            session_id,
-            space_id=space_id,
-            title=title,
-            text=text,
-        )
+        try:
+            return writable_records.create_note(
+                session_id,
+                space_id=space_id,
+                title=title,
+                text=text,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     @server.tool(
         name="unolock_create_checklist",
@@ -668,12 +699,15 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.create_checklist(
-            session_id,
-            space_id=space_id,
-            title=title,
-            items=items,
-        )
+        try:
+            return writable_records.create_checklist(
+                session_id,
+                space_id=space_id,
+                title=title,
+                items=items,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     @server.tool(
         name="unolock_update_note",
@@ -689,13 +723,16 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.update_note(
-            session_id,
-            record_ref=record_ref,
-            expected_version=expected_version,
-            title=title,
-            text=text,
-        )
+        try:
+            return writable_records.update_note(
+                session_id,
+                record_ref=record_ref,
+                expected_version=expected_version,
+                title=title,
+                text=text,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     @server.tool(
         name="unolock_rename_record",
@@ -711,12 +748,15 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.rename_record(
-            session_id,
-            record_ref=record_ref,
-            expected_version=expected_version,
-            title=title,
-        )
+        try:
+            return writable_records.rename_record(
+                session_id,
+                record_ref=record_ref,
+                expected_version=expected_version,
+                title=title,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     @server.tool(
         name="unolock_set_checklist_item_done",
@@ -738,13 +778,16 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.set_checklist_item_done(
-            session_id,
-            record_ref=record_ref,
-            expected_version=expected_version,
-            item_id=item_id,
-            done=done,
-        )
+        try:
+            return writable_records.set_checklist_item_done(
+                session_id,
+                record_ref=record_ref,
+                expected_version=expected_version,
+                item_id=item_id,
+                done=done,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     @server.tool(
         name="unolock_add_checklist_item",
@@ -765,12 +808,15 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.add_checklist_item(
-            session_id,
-            record_ref=record_ref,
-            expected_version=expected_version,
-            text=text,
-        )
+        try:
+            return writable_records.add_checklist_item(
+                session_id,
+                record_ref=record_ref,
+                expected_version=expected_version,
+                text=text,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     @server.tool(
         name="unolock_remove_checklist_item",
@@ -791,11 +837,14 @@ def create_mcp_server() -> FastMCP:
             agent_auth,
             session_store,
         )
-        return writable_records.remove_checklist_item(
-            session_id,
-            record_ref=record_ref,
-            expected_version=expected_version,
-            item_id=item_id,
-        )
+        try:
+            return writable_records.remove_checklist_item(
+                session_id,
+                record_ref=record_ref,
+                expected_version=expected_version,
+                item_id=item_id,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
 
     return server
