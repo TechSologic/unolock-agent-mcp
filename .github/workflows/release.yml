@@ -74,6 +74,23 @@ jobs:
           echo "$PWD/.liboqs-install/bin" >> "$GITHUB_PATH"
           echo "$PWD/.liboqs-install/lib" >> "$GITHUB_PATH"
 
+      - name: Prepare POSIX liboqs runtime
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --depth=1 https://github.com/open-quantum-safe/liboqs.git build/liboqs-src
+          cmake -S build/liboqs-src -B build/liboqs-build \
+            -DBUILD_SHARED_LIBS=ON \
+            -DOQS_BUILD_ONLY_LIB=ON \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX="$PWD/.liboqs-install"
+          cmake --build build/liboqs-build --parallel 4
+          cmake --install build/liboqs-build
+          echo "OQS_INSTALL_PATH=$PWD/.liboqs-install" >> "$GITHUB_ENV"
+          echo "$PWD/.liboqs-install/lib" >> "$GITHUB_PATH"
+          echo "$PWD/.liboqs-install/lib64" >> "$GITHUB_PATH"
+
       - name: Install binary build tooling
         run: |
           python -m pip install --upgrade pip
@@ -90,6 +107,19 @@ jobs:
               cp "$PWD/.liboqs-install/lib/$dll" "$PWD/.liboqs-install/bin/$dll"
             fi
           done
+          OQS_INSTALL_PATH="$PWD/.liboqs-install" python - <<'PY'
+          import oqs
+          import oqs.oqs as mod
+          print("liboqs-python loaded")
+          print("oqs version:", oqs.oqs_version())
+          print("expected liboqs branch/version:", mod.OQS_VERSION)
+          PY
+
+      - name: Verify POSIX liboqs runtime
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
           OQS_INSTALL_PATH="$PWD/.liboqs-install" python - <<'PY'
           import oqs
           import oqs.oqs as mod
