@@ -157,6 +157,11 @@ def _registration_status_payload(
         "primary_tools": primary_tools,
         "write_tools": write_tools,
         "advanced_tools": advanced_tools,
+        "explanation_resources": [
+            "unolock://usage/quickstart",
+            "unolock://usage/about",
+            "unolock://usage/security-model",
+        ],
         "workflow_summary": [
             "Check registration status first.",
             "If needed, ask the user for the one-time-use agent key connection URL and optional PIN together.",
@@ -203,7 +208,9 @@ def create_mcp_server() -> FastMCP:
             "have current version and allowed_operations metadata. Low-level flow and API tools are advanced/debug "
             "tools and should not be the normal first choice. If registration is not configured, ask the user for "
             "the one-time-use UnoLock agent key connection URL and the optional agent PIN together when possible, "
-            "then submit them with unolock_submit_agent_bootstrap. The connection URL is for enrollment only."
+            "then submit them with unolock_submit_agent_bootstrap. The connection URL is for enrollment only. "
+            "If the user needs an explanation of what UnoLock is, why the MCP asks for a connection URL or PIN, "
+            "or why host assurance matters, use the explanatory UnoLock resources instead of improvising."
         ),
     )
 
@@ -234,6 +241,71 @@ def create_mcp_server() -> FastMCP:
             ],
             "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
             "advanced_tools_note": "Ignore low-level flow/api tools unless the primary workflow cannot complete the task.",
+        }
+
+    @server.resource(
+        "unolock://usage/about",
+        name="About UnoLock Agent MCP",
+        description="Agent-safe explanation of what UnoLock is and what an Agent Key does.",
+        mime_type="application/json",
+    )
+    def about_resource() -> dict[str, Any]:
+        return {
+            "summary": (
+                "UnoLock is a zero-knowledge Safe for sensitive data. An Agent Key lets an AI agent connect to an "
+                "existing Safe with tightly scoped Space permissions instead of using a reusable API key."
+            ),
+            "what_to_tell_the_user": [
+                "UnoLock keeps sensitive data inside a Safe controlled by the user.",
+                "An Agent Key is a dedicated access key for an AI agent, not a full admin credential.",
+                "The agent only gets the Spaces and permissions granted to that Agent Key.",
+                "The one-time connection URL is for enrollment only and cannot be reused after registration succeeds.",
+            ],
+            "why_it_matters": [
+                "This lets an AI agent work with Safe data without exposing a reusable plaintext API secret.",
+                "The same Safe can grant different keys different Spaces and permissions.",
+                "Agent Keys are limited to ro or rw and are not allowed to have admin access.",
+            ],
+            "docs": [
+                "https://safe.unolock.com/docs/",
+                "https://safe.unolock.com/docs/features/agentic-safe-access/",
+                "https://safe.unolock.com/docs/howto/connecting-an-ai-agent/",
+            ],
+        }
+
+    @server.resource(
+        "unolock://usage/security-model",
+        name="UnoLock Agent Security Model",
+        description="Agent-safe explanation of why UnoLock asks for connection URLs, PINs, and hardware/platform-backed keys.",
+        mime_type="application/json",
+    )
+    def security_model_resource() -> dict[str, Any]:
+        return {
+            "summary": (
+                "UnoLock tries to keep agent access as close as possible to a device-bound, least-privilege, "
+                "zero-knowledge model."
+            ),
+            "why_the_agent_asks_for_a_connection_url": [
+                "The connection URL is a one-time enrollment URL created by the Safe admin.",
+                "It tells the MCP how to register the host for that Agent Key.",
+                "It is not a reusable long-term credential and should be treated as enrollment-only."
+            ],
+            "why_the_agent_may_ask_for_a_pin": [
+                "Some Agent Keys require a PIN on authentication.",
+                "The MCP keeps the PIN only in process memory and sends a challenge-bound hash instead of the raw PIN.",
+                "After restart, the agent may need the PIN again to re-authenticate."
+            ],
+            "why_host_assurance_matters": [
+                "UnoLock prefers TPM, vTPM, Secure Enclave, or another platform-backed non-exportable key store.",
+                "Those hosts make it harder to export the agent credential or copy it to another machine.",
+                "If the MCP must fall back to software mode, it reports the reduced assurance clearly so the user can decide whether to continue."
+            ],
+            "least_privilege_rules": [
+                "Agent Keys can be restricted to selected Spaces.",
+                "Read-only keys cannot write.",
+                "Locked records cannot be modified.",
+                "Agent Keys are limited to ro or rw and never admin."
+            ],
         }
 
     @server.prompt(
@@ -271,6 +343,26 @@ def create_mcp_server() -> FastMCP:
                     "After authentication, prefer unolock_list_spaces, unolock_list_records, and unolock_get_record. "
                     "Before writing, read the target record and use its writable, allowed_operations, record_ref, and "
                     "version fields. Avoid low-level flow/api tools unless the primary workflow cannot complete the task."
+                ),
+            }
+        ]
+
+    @server.prompt(
+        name="unolock_explain_to_user",
+        title="Explain UnoLock To The User",
+        description="Prompt content telling an agent how to explain UnoLock, Agent Keys, PINs, and assurance tradeoffs to a user.",
+    )
+    def explain_to_user_prompt() -> list[dict[str, Any]]:
+        return [
+            {
+                "role": "user",
+                "content": (
+                    "When a user asks why UnoLock Agent MCP needs a connection URL, PIN, or a stronger host key store, "
+                    "explain it plainly: UnoLock uses an Agent Key instead of a reusable API key. The one-time agent key "
+                    "connection URL is for enrollment only. The PIN may be required to re-authenticate the agent. TPM, "
+                    "Secure Enclave, or other platform-backed key storage is preferred because it helps keep the agent's "
+                    "credential device-bound and harder to export. If you need authoritative wording, read the "
+                    "unolock://usage/about and unolock://usage/security-model resources and summarize them for the user."
                 ),
             }
         ]

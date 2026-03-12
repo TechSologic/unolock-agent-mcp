@@ -7,8 +7,13 @@ The recommended lifecycle is:
 1. Check registration and TPM readiness.
 2. Ask the user for a one-time-use UnoLock agent key connection URL and, if configured, the agent PIN if needed.
 3. Register or authenticate the agent.
-4. Use read-only space and record tools.
+4. Use the primary space and record tools.
 5. Read a target record before updating it so the MCP has cached archive state and the current record version.
+
+If the user asks what UnoLock is, why the MCP needs a connection URL, why it may ask for a PIN, or why host assurance matters, use the explanatory resources:
+
+* `unolock://usage/about`
+* `unolock://usage/security-model`
 
 Primary tools for first-time agent use:
 
@@ -44,6 +49,7 @@ Important response fields:
 * `has_agent_pin`
 * `tpm_provider`
 * `tpm_diagnostics`
+* `explanation_resources`
 
 Typical `recommended_next_action` values:
 
@@ -55,6 +61,38 @@ Typical `recommended_next_action` values:
 * `continue_pending_session`
 * `review_tpm_diagnostics`
 * `resolve_tpm_provider_mismatch`
+
+The `explanation_resources` field points to MCP resources the agent can read when it needs authoritative user-facing language about UnoLock, Agent Keys, enrollment URLs, PINs, and assurance tradeoffs.
+
+## Explanatory Resources
+
+### `unolock://usage/about`
+
+Purpose:
+Return a concise explanation of what UnoLock is, what an Agent Key is, and why customers might use UnoLock with AI agents.
+
+Typical use:
+
+* user asks what UnoLock is
+* user asks why an Agent Key is needed
+* agent needs authoritative wording instead of improvising
+
+### `unolock://usage/security-model`
+
+Purpose:
+Return a concise explanation of why the MCP asks for a one-time-use connection URL, why a PIN may be needed, and why stronger host key storage is preferred.
+
+Typical use:
+
+* user asks why the connection URL is required
+* user asks why the URL is one-time-use
+* user asks why the agent may need a PIN
+* user asks why TPM, Secure Enclave, or platform-backed keys matter
+
+### `unolock://usage/quickstart`
+
+Purpose:
+Return the preferred short MCP happy path for first-time agent use.
 
 ### `unolock_get_tpm_diagnostics`
 
