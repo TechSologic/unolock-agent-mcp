@@ -44,6 +44,28 @@ def _prepare_windows_oqs_runtime(install_root: Path) -> None:
                 break
 
 
+def _collect_oqs_runtime_binaries(install_root: Path) -> list[Path]:
+    candidates: list[Path] = []
+    system = platform.system().lower()
+    if system == "windows":
+        names = ("oqs.dll", "liboqs.dll")
+        search_dirs = (install_root / "bin", install_root / "lib", install_root)
+    elif system == "darwin":
+        names = ("liboqs.dylib",)
+        search_dirs = (install_root / "lib", install_root / "lib64", install_root)
+    else:
+        names = ("liboqs.so",)
+        search_dirs = (install_root / "lib", install_root / "lib64", install_root)
+    seen: set[Path] = set()
+    for search_dir in search_dirs:
+        for name in names:
+            path = search_dir / name
+            if path.exists() and path not in seen:
+                seen.add(path)
+                candidates.append(path)
+    return candidates
+
+
 def build_binary(clean: bool = False) -> Path:
     pyinstaller = shutil.which("pyinstaller") or shutil.which("pyinstaller.exe")
     if not pyinstaller:
@@ -101,10 +123,13 @@ def build_binary(clean: bool = False) -> Path:
         str(ROOT / "src"),
         "--hidden-import",
         "oqs",
-        "--collect-binaries",
-        "oqs",
         str(ENTRYPOINT),
     ]
+    if oqs_install_path:
+        for binary in _collect_oqs_runtime_binaries(Path(oqs_install_path)):
+            cmd.extend(["--add-binary", f"{binary}{os.pathsep}."])
+    else:
+        cmd.extend(["--collect-binaries", "oqs"])
     subprocess.run(cmd, check=True, cwd=ROOT, env=env)
     suffix = ".exe" if platform.system().lower() == "windows" else ""
     return DIST / f"{binary_name()}{suffix}"
