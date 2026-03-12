@@ -42,11 +42,12 @@ These environments are harder to support because they often cannot satisfy UnoLo
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
+* Releases: `https://github.com/TechSologic/unolock-agent-mcp/releases`
 
 Recommended customer install source:
 
-* GitHub Releases binaries when available
-* `pipx install` as the fallback source install path
+* GitHub Releases binaries
+* `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
 
@@ -95,7 +96,7 @@ For real MCP hosts, see:
 * [Cursor example](examples/cursor-mcp.json)
 * [Config file example](examples/unolock-agent-config.json)
 
-If you prefer manual install:
+If you prefer manual install from source:
 
 ```bash
 git clone https://github.com/TechSologic/unolock-agent-mcp.git

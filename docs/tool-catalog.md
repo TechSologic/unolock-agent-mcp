@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-This document describes the current UnoLock Agent MCP tool surface for the working read-only slice.
+This document describes the current UnoLock Agent MCP tool surface for the current read and write MVP.
 
 The recommended lifecycle is:
 
@@ -8,6 +8,7 @@ The recommended lifecycle is:
 2. Ask the user for a one-time-use UnoLock agent key connection URL and, if configured, the agent PIN if needed.
 3. Register or authenticate the agent.
 4. Use read-only space and record tools.
+5. Read a target record before updating it so the MCP has cached archive state and the current record version.
 
 ## Registration And Runtime
 
@@ -258,6 +259,7 @@ Each `records[]` item includes:
 
 * `record_ref`
 * `id`
+* `version`
 * `archive_id`
 * `space_id`
 * `space_name`
@@ -270,6 +272,8 @@ Each `records[]` item includes:
 * `checklist_items`
 * `raw_delta`
 * `raw_checkboxes`
+* `read_only`
+* `locked`
 
 For checklist records, each `checklist_items[]` item includes:
 
@@ -297,13 +301,6 @@ Arguments:
 Purpose:
 Convenience wrapper for `unolock_list_records(kind="checklist")`.
 
-Arguments:
-
-* `session_id: str`
-* `space_id: int | null`
-* `pinned: bool | null`
-* `label: str | null`
-
 ### `unolock_get_record`
 
 Purpose:
@@ -317,6 +314,141 @@ Arguments:
 Typical use:
 
 * call `unolock_list_records` first to discover `record_ref`
+
+Notes:
+
+* This is the recommended way to refresh one record before a write.
+* Existing-record writes depend on cached archive state from a prior `get` or `list` call.
+
+## Write Tools
+
+These tools require an authenticated `session_id`.
+
+General rules:
+
+* Read the target record first with `unolock_get_record` or `unolock_list_records`.
+* Use the returned `record_ref` and `version` when updating existing records.
+* Locked/read-only records fail with `record_locked`.
+* If the record changed since the last read, the MCP fails with a conflict and the agent should reread before retrying.
+
+### `unolock_create_note`
+
+Purpose:
+Create a new note from raw text.
+
+Arguments:
+
+* `session_id: str`
+* `space_id: int`
+* `title: str`
+* `text: str`
+
+Notes:
+
+* New notes start at `version: 1`.
+* Raw text is converted to the minimal Quill JSON form UnoLock stores internally.
+
+### `unolock_update_note`
+
+Purpose:
+Update an existing note's title and body from raw text.
+
+Arguments:
+
+* `session_id: str`
+* `record_ref: str`
+* `expected_version: int`
+* `title: str`
+* `text: str`
+
+Notes:
+
+* Requires cached archive state from a prior read.
+* Uses a cache-first optimistic write path.
+* On archive conflict, the MCP rereads from UnoLock and retries only if the note version is unchanged.
+
+### `unolock_rename_record`
+
+Purpose:
+Change the title of an existing note or checklist.
+
+Arguments:
+
+* `session_id: str`
+* `record_ref: str`
+* `expected_version: int`
+* `title: str`
+
+Notes:
+
+* This changes the title only.
+* It does not change note text or checklist items.
+* Requires cached archive state from a prior read.
+
+### `unolock_create_checklist`
+
+Purpose:
+Create a new checklist in a writable Records archive.
+
+Arguments:
+
+* `session_id: str`
+* `space_id: int`
+* `title: str`
+* `items: list[object]`
+
+Each `items[]` object must include:
+
+* `text: str`
+
+Supported optional item state fields:
+
+* `checked`
+* `done`
+* `state`
+
+State rules:
+
+* `checked: true` creates a checked item
+* `done: true` creates a checked item
+* `state: "checked"` creates a checked item
+
+### `unolock_set_checklist_item_done`
+
+Purpose:
+Set one checklist item's checked state.
+
+Arguments:
+
+* `session_id: str`
+* `record_ref: str`
+* `expected_version: int`
+* `item_id: int`
+* `done: bool`
+
+### `unolock_add_checklist_item`
+
+Purpose:
+Append a new unchecked checklist item.
+
+Arguments:
+
+* `session_id: str`
+* `record_ref: str`
+* `expected_version: int`
+* `text: str`
+
+### `unolock_remove_checklist_item`
+
+Purpose:
+Remove one checklist item by `item_id`.
+
+Arguments:
+
+* `session_id: str`
+* `record_ref: str`
+* `expected_version: int`
+* `item_id: int`
 
 ## Low-Level Utility Tools
 

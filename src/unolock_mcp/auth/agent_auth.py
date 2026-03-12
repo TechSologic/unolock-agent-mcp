@@ -83,6 +83,11 @@ class AgentAuthClient:
             self._pending_server_keys.pop(access_id, None)
             self._pending_client_data_keys.pop(access_id, None)
             self._data_keyrings.pop(access_id, None)
+        for secret_id in (self._registration_material_secret_id(), self._registered_access_id_secret_id()):
+            try:
+                self._tpm.delete_secret(secret_id)
+            except Exception as exc:
+                errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
 
         self._agent_pin = None
         self._reduced_assurance_acknowledged = False
@@ -138,6 +143,7 @@ class AgentAuthClient:
             return validation_error
         if parsed.passphrase and parsed.access_id:
             self._store_protected_bootstrap_secret(parsed.access_id, parsed.passphrase)
+        self._store_registration_material(parsed)
         state = self._registration_store.set_connection_url(connection_url)
         self._reduced_assurance_acknowledged = False
         summary = state.summary()
@@ -157,7 +163,7 @@ class AgentAuthClient:
 
     def get_keyring_for_session(self, session_id: str) -> SafeKeyringManager:
         session = self._session_store.get(session_id)
-        registration = self._registration_store.load()
+        registration = self._load_registration()
         access_id = self._resolve_access_id(registration, session.current_callback, session)
         keyring = self._get_data_keyring(access_id)
         if keyring is None:
@@ -180,8 +186,7 @@ class AgentAuthClient:
             }
 
         flow = registration.connection_url.flow or "agentRegister"
-        args = registration.connection_url.args or self._build_registration_args(registration)
-        session = flow_client.start(flow=flow, args=args)
+        session = flow_client.start(flow=flow)
         self._session_store.put(session)
         result = self._advance_session(session.session_id)
         warning = self._insecure_provider_warning()
@@ -206,7 +211,7 @@ class AgentAuthClient:
                 "registration": registration.summary(),
             }
 
-        session = flow_client.start(flow="agentAccess", args=json.dumps({"accessID": access_id}))
+        session = flow_client.start(flow="agentAccess")
         self._session_store.put(session)
         result = self._advance_session(session.session_id)
         warning = self._insecure_provider_warning()
@@ -229,6 +234,7 @@ class AgentAuthClient:
                 resolved_access_id = self._resolve_access_id(registration, callback, session)
                 if session.flow == "agentRegister" and resolved_access_id:
                     self._delete_protected_bootstrap_secret(resolved_access_id)
+                    self._delete_registration_material()
                 updated = self._registration_store.mark_registered(
                     session_id=session.session_id,
                     access_id=resolved_access_id,
@@ -236,6 +242,8 @@ class AgentAuthClient:
                     bootstrap_secret="",
                     tpm_provider=self._tpm.provider_name(),
                 )
+                if resolved_access_id:
+                    self._store_registered_access_id(resolved_access_id)
                 if resolved_access_id:
                     self._pending_server_keys.pop(resolved_access_id, None)
                     self._pending_client_data_keys.pop(resolved_access_id, None)
@@ -294,7 +302,7 @@ class AgentAuthClient:
                 result=handled["result"],
             )
             self._session_store.put(session)
-            registration = self._registration_store.load()
+            registration = self._load_registration()
 
     def require_flow_client(self) -> UnoLockFlowClient:
         if self._flow_client is None:
@@ -311,6 +319,10 @@ class AgentAuthClient:
 
         if callback.type == "AgentRegistrationCode":
             registration_code = registration.connection_url.registration_code if registration.connection_url else None
+            material = self._load_registration_material()
+            if material:
+                access_id = access_id or material.get("access_id")
+                registration_code = registration_code or material.get("registration_code")
             if not access_id or not registration_code:
                 return {
                     "blocked": True,
@@ -527,6 +539,11 @@ class AgentAuthClient:
         if self._registration_store is None:
             return RegistrationState()
         registration = self._registration_store.load()
+        protected_access_id = self._load_registered_access_id()
+        if protected_access_id:
+            registration.access_id = protected_access_id
+        elif registration.key_id and registration.key_id.startswith("agent-"):
+            registration.access_id = registration.key_id[6:]
         if registration.bootstrap_secret:
             return registration
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
@@ -555,22 +572,6 @@ class AgentAuthClient:
             "stored_tpm_provider": normalized_stored_provider,
             "current_tpm_provider": normalized_current_provider,
         }
-
-    def _build_registration_args(self, registration: RegistrationState) -> str | None:
-        connection_url = registration.connection_url
-        if connection_url is None:
-            return None
-        access_id = connection_url.access_id or registration.access_id
-        registration_code = connection_url.registration_code
-        if not access_id or not registration_code:
-            return connection_url.args
-        return json.dumps(
-            {
-                "accessID": access_id,
-                "registrationCode": registration_code,
-                "connectionUrl": connection_url.raw_url,
-            }
-        )
 
     def _validate_agent_connection_url(self, parsed) -> dict[str, Any] | None:
         if parsed.action == "register":
@@ -619,6 +620,9 @@ class AgentAuthClient:
             return registration.access_id
         if registration.connection_url and registration.connection_url.access_id:
             return registration.connection_url.access_id
+        material = self._load_registration_material()
+        if material is not None:
+            return material.get("access_id")
         result = callback.result if isinstance(callback.result, dict) else {}
         if "accessID" in result and isinstance(result["accessID"], str):
             return result["accessID"]
@@ -737,6 +741,51 @@ class AgentAuthClient:
             return
         self._tpm.delete_secret(self._bootstrap_secret_id(access_id))
 
+    def _store_registration_material(self, parsed) -> None:
+        if not parsed.access_id or not parsed.registration_code:
+            return
+        payload = json.dumps(
+            {
+                "access_id": parsed.access_id,
+                "registration_code": parsed.registration_code,
+            }
+        ).encode("utf8")
+        self._tpm.store_secret(self._registration_material_secret_id(), payload)
+
+    def _load_registration_material(self) -> dict[str, str] | None:
+        raw = self._tpm.load_secret(self._registration_material_secret_id())
+        if not raw:
+            return None
+        try:
+            payload = json.loads(raw.decode("utf8"))
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        access_id = payload.get("access_id")
+        registration_code = payload.get("registration_code")
+        if not isinstance(access_id, str) or not isinstance(registration_code, str):
+            return None
+        return {
+            "access_id": access_id,
+            "registration_code": registration_code,
+        }
+
+    def _delete_registration_material(self) -> None:
+        self._tpm.delete_secret(self._registration_material_secret_id())
+
+    def _store_registered_access_id(self, access_id: str) -> None:
+        self._tpm.store_secret(self._registered_access_id_secret_id(), access_id.encode("utf8"))
+
+    def _load_registered_access_id(self) -> str | None:
+        raw = self._tpm.load_secret(self._registered_access_id_secret_id())
+        if not raw:
+            return None
+        try:
+            return raw.decode("utf8")
+        except Exception:
+            return None
+
     def _load_agent_aidk(self, access_id: str) -> bytes | None:
         return self._tpm.load_secret(self._aidk_secret_id(access_id))
 
@@ -823,3 +872,11 @@ class AgentAuthClient:
     @staticmethod
     def _aidk_secret_id(access_id: str) -> str:
         return f"aidk-{access_id}"
+
+    @staticmethod
+    def _registration_material_secret_id() -> str:
+        return "registration-material"
+
+    @staticmethod
+    def _registered_access_id_secret_id() -> str:
+        return "registered-access-id"
