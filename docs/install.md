@@ -24,6 +24,7 @@ On Windows and WSL, the MCP now prefers a TPM-backed key first and falls back to
 Official GitHub repository:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
+* Releases: `https://github.com/TechSologic/unolock-agent-mcp/releases`
 
 The quickest post-install readiness summary is:
 
@@ -38,6 +39,24 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 * Access Keys & Safe Access: `https://safe.unolock.com/docs/features/multi-device-access/`
 * Spaces: `https://safe.unolock.com/docs/features/spaces/`
 * Connect an AI Agent to a Safe: `https://safe.unolock.com/docs/howto/connecting-an-ai-agent/`
+
+## Recommended Customer Install
+
+For most customers, prefer a standalone GitHub Release binary for your platform.
+
+That avoids most local Python packaging and source-build overhead.
+
+Download from:
+
+* `https://github.com/TechSologic/unolock-agent-mcp/releases`
+
+Expected artifact names:
+
+* `unolock-agent-mcp-macos-arm64`
+* `unolock-agent-mcp-windows-amd64.exe`
+* `unolock-agent-mcp-linux-x86_64`
+
+Then configure your MCP host to run that binary directly.
 
 ## macOS Quick Start
 
@@ -58,7 +77,13 @@ python3 -m pip install --user pipx
 python3 -m pipx ensurepath
 ```
 
-3. Install the MCP:
+3. Preferred: download the latest macOS release binary from:
+
+```text
+https://github.com/TechSologic/unolock-agent-mcp/releases
+```
+
+If you need the source-install fallback instead, install the MCP with:
 
 ```bash
 pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
@@ -83,17 +108,11 @@ unolock-agent-mcp mcp
 
 The agent should then ask the user for the UnoLock Agent Key connection URL and optional PIN.
 
-## Recommended Install Method
-
-For most customers, prefer a standalone GitHub Release binary when one is available for your platform.
-
-That avoids most local Python packaging and source-build overhead.
-
-If you are installing from source, use `pipx` so the MCP is installed into an isolated environment but still exposes a normal command on `PATH`.
-
 ## Option 0: Install A Standalone Release Binary
 
-If the GitHub Releases page includes a binary for your platform, download that first.
+Download the latest platform binary from:
+
+* `https://github.com/TechSologic/unolock-agent-mcp/releases`
 
 Expected artifact names:
 
@@ -104,6 +123,8 @@ Expected artifact names:
 Then configure your MCP host to run that binary directly.
 
 ## Option 1: Install From GitHub With `pipx`
+
+Use this when you need a source install rather than a release binary.
 
 ```bash
 pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git

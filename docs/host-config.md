@@ -30,7 +30,11 @@ Checked against the official host docs on 2026-03-08:
 
 ## Recommended install mode
 
-For customer use, install the MCP as a standalone package:
+For customer use, prefer a standalone GitHub Release binary:
+
+* `https://github.com/TechSologic/unolock-agent-mcp/releases`
+
+If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash
 pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git

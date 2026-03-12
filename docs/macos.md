@@ -24,6 +24,12 @@ python3 -m pipx ensurepath
 
 ## Install
 
+Preferred:
+
+* download the latest macOS binary from `https://github.com/TechSologic/unolock-agent-mcp/releases`
+
+Source-install fallback:
+
 ```bash
 pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 ```
