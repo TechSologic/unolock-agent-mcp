@@ -236,6 +236,8 @@ Each `spaces[]` item includes:
 * `record_count`
 * `note_count`
 * `checklist_count`
+* `writable`
+* `allowed_operations`
 
 ### `unolock_list_records`
 
@@ -274,6 +276,8 @@ Each `records[]` item includes:
 * `raw_checkboxes`
 * `read_only`
 * `locked`
+* `writable`
+* `allowed_operations`
 
 For checklist records, each `checklist_items[]` item includes:
 
@@ -319,6 +323,7 @@ Notes:
 
 * This is the recommended way to refresh one record before a write.
 * Existing-record writes depend on cached archive state from a prior `get` or `list` call.
+* Use `writable` and `allowed_operations` to decide whether a write is allowed before calling a write tool.
 
 ## Write Tools
 
@@ -327,9 +332,11 @@ These tools require an authenticated `session_id`.
 General rules:
 
 * Read the target record first with `unolock_get_record` or `unolock_list_records`.
+* Check `writable` and `allowed_operations` before attempting a write.
 * Use the returned `record_ref` and `version` when updating existing records.
+* Read-only agents fail early with `space_read_only`.
 * Locked/read-only records fail with `record_locked`.
-* If the record changed since the last read, the MCP fails with a conflict and the agent should reread before retrying.
+* If the record changed since the last read, the MCP fails with `write_conflict_requires_reread` and the agent should reread before retrying.
 
 ### `unolock_create_note`
 
@@ -347,6 +354,7 @@ Notes:
 
 * New notes start at `version: 1`.
 * Raw text is converted to the minimal Quill JSON form UnoLock stores internally.
+* If the space is not writable for this agent, the MCP fails early with `space_read_only`.
 
 ### `unolock_update_note`
 
@@ -366,6 +374,7 @@ Notes:
 * Requires cached archive state from a prior read.
 * Uses a cache-first optimistic write path.
 * On archive conflict, the MCP rereads from UnoLock and retries only if the note version is unchanged.
+* If the note is locked or the agent only has read-only access, the MCP fails before upload.
 
 ### `unolock_rename_record`
 
@@ -384,6 +393,7 @@ Notes:
 * This changes the title only.
 * It does not change note text or checklist items.
 * Requires cached archive state from a prior read.
+* If the record is locked or the agent only has read-only access, the MCP fails before upload.
 
 ### `unolock_create_checklist`
 
@@ -412,6 +422,7 @@ State rules:
 * `checked: true` creates a checked item
 * `done: true` creates a checked item
 * `state: "checked"` creates a checked item
+* If the space is not writable for this agent, the MCP fails early with `space_read_only`.
 
 ### `unolock_set_checklist_item_done`
 
@@ -426,6 +437,11 @@ Arguments:
 * `item_id: int`
 * `done: bool`
 
+Notes:
+
+* Requires cached archive state from a prior read.
+* If the checklist is locked or the agent only has read-only access, the MCP fails before upload.
+
 ### `unolock_add_checklist_item`
 
 Purpose:
@@ -438,6 +454,11 @@ Arguments:
 * `expected_version: int`
 * `text: str`
 
+Notes:
+
+* Requires cached archive state from a prior read.
+* If the checklist is locked or the agent only has read-only access, the MCP fails before upload.
+
 ### `unolock_remove_checklist_item`
 
 Purpose:
@@ -449,6 +470,11 @@ Arguments:
 * `record_ref: str`
 * `expected_version: int`
 * `item_id: int`
+
+Notes:
+
+* Requires cached archive state from a prior read.
+* If the checklist is locked or the agent only has read-only access, the MCP fails before upload.
 
 ## Low-Level Utility Tools
 
@@ -467,9 +493,10 @@ These are useful for debugging or deeper integration work, but they are not the 
 ## Recommended Happy Path
 
 1. Call `unolock_get_registration_status`.
-2. If needed, ask the user for the one-time-use UnoLock agent key connection URL.
-3. Call `unolock_submit_connection_url`.
-4. If needed, call `unolock_start_registration_from_connection_url` or `unolock_bootstrap_agent`.
-5. If the MCP says it needs the agent PIN, ask the user for it and call `unolock_set_agent_pin`.
+2. If needed, ask the user for the one-time-use UnoLock agent key connection URL and optional PIN together.
+3. Call `unolock_submit_agent_bootstrap`.
+4. If needed, call `unolock_bootstrap_agent`.
+5. If the MCP still says it needs the agent PIN, ask the user for it and call `unolock_set_agent_pin`.
 6. Continue with `unolock_bootstrap_agent` or `unolock_continue_agent_session`.
 7. After authentication, call `unolock_list_spaces` or `unolock_list_records`.
+8. Before writing, read the target record and use its `writable`, `allowed_operations`, `record_ref`, and `version` fields.

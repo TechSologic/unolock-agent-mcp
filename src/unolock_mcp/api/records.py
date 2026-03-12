@@ -133,6 +133,7 @@ class _UnoLockRecordsBase:
         record: dict[str, Any],
         archive: dict[str, Any],
         spaces: dict[int, dict[str, Any]],
+        session_id: str | None = None,
     ) -> dict[str, Any]:
         sid = self._coerce_sid(archive.get("sid"))
         is_checklist = bool(record.get("isCbox"))
@@ -142,6 +143,9 @@ class _UnoLockRecordsBase:
         plain_text = self._record_plain_text(record, checklist_items)
         read_only = bool(record.get("ro"))
         version = self._coerce_positive_int(record.get("version")) or 1
+        session_can_write = self._session_can_write(session_id) if session_id else False
+        writable = session_can_write and not read_only
+        kind = "checklist" if is_checklist else "note"
         return {
             "record_ref": self._build_record_ref(str(archive.get("id", "")), int(record.get("id", -1))),
             "id": int(record.get("id", -1)),
@@ -149,7 +153,7 @@ class _UnoLockRecordsBase:
             "archive_id": str(archive.get("id", "")),
             "space_id": sid,
             "space_name": str(archive_meta.get("spaceName", spaces.get(sid, {}).get("spaceName", ""))),
-            "kind": "checklist" if is_checklist else "note",
+            "kind": kind,
             "title": str(record.get("recordTitle", "")),
             "plain_text": plain_text,
             "pinned": bool(record.get("pinned")),
@@ -160,6 +164,8 @@ class _UnoLockRecordsBase:
             "raw_checkboxes": record.get("checkBoxes") if is_checklist else [],
             "read_only": read_only,
             "locked": read_only,
+            "writable": writable,
+            "allowed_operations": self._record_allowed_operations(kind=kind, writable=writable),
         }
 
     def _project_checklist_items(self, checkboxes: Any) -> list[dict[str, Any]]:
@@ -294,6 +300,44 @@ class _UnoLockRecordsBase:
             max_age_seconds=max_age_seconds,
         )
 
+    def _session_auth_context(self, session_id: str | None) -> dict[str, Any]:
+        if self._session_store is None or not session_id:
+            return {}
+        try:
+            auth_context = self._session_store.get_auth_context(session_id)
+        except KeyError:
+            return {}
+        return auth_context if isinstance(auth_context, dict) else {}
+
+    def _session_can_write(self, session_id: str | None) -> bool:
+        auth_context = self._session_auth_context(session_id)
+        if not auth_context:
+            return False
+        return not bool(auth_context.get("ro"))
+
+    def _space_allowed_operations(self, *, writable: bool) -> list[str]:
+        operations = ["list_records", "list_notes", "list_checklists"]
+        if writable:
+            operations.extend(["create_note", "create_checklist"])
+        return operations
+
+    def _record_allowed_operations(self, *, kind: str, writable: bool) -> list[str]:
+        operations = ["get_record"]
+        if not writable:
+            return operations
+        operations.append("rename_record")
+        if kind == "note":
+            operations.append("update_note")
+        elif kind == "checklist":
+            operations.extend(
+                [
+                    "set_checklist_item_done",
+                    "add_checklist_item",
+                    "remove_checklist_item",
+                ]
+            )
+        return operations
+
     def _coerce_sid(self, value: Any) -> int | None:
         try:
             sid = int(value)
@@ -354,7 +398,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
             for record in archive_records:
                 if not isinstance(record, dict):
                     continue
-                projected = self._project_record(record, archive, spaces)
+                projected = self._project_record(record, archive, spaces, session_id=session_id)
                 if normalized_kind != "all" and projected["kind"] != normalized_kind:
                     continue
                 if space_id is not None and projected["space_id"] != space_id:
@@ -391,6 +435,8 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
                 "record_count": 0,
                 "note_count": 0,
                 "checklist_count": 0,
+                "writable": False,
+                "allowed_operations": self._space_allowed_operations(writable=False),
             }
 
         for archive in archives:
@@ -410,6 +456,8 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
                     "record_count": 0,
                     "note_count": 0,
                     "checklist_count": 0,
+                    "writable": False,
+                    "allowed_operations": self._space_allowed_operations(writable=False),
                 },
             )
             summary["record_archive_id"] = archive.get("id")
@@ -429,6 +477,12 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
                         ]
                     )
                     summary["note_count"] = summary["record_count"] - summary["checklist_count"]
+
+        session_can_write = self._session_can_write(session_id)
+        for summary in summaries.values():
+            writable = session_can_write and bool(summary.get("record_archive_id"))
+            summary["writable"] = writable
+            summary["allowed_operations"] = self._space_allowed_operations(writable=writable)
 
         ordered = sorted(summaries.values(), key=lambda item: item["space_id"])
         return {
@@ -458,7 +512,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
             raise ValueError("Archive did not contain a records array")
         for record in archive_records:
             if isinstance(record, dict) and int(record.get("id", -1)) == record_id:
-                return self._project_record(record, archive, spaces)
+                return self._project_record(record, archive, spaces, session_id=session_id)
         raise ValueError(f"Record not found for record_ref: {record_ref}")
 
 
@@ -541,11 +595,11 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             if bool(target_record.get("isCbox")):
                 raise ValueError("record_ref does not point to a note")
             if bool(target_record.get("ro")):
-                raise ValueError("record_locked")
+                raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
             if current_version != expected_version:
-                raise ValueError("Write conflict requires reread")
+                raise ValueError("write_conflict_requires_reread: Read the note again and retry with the latest version.")
 
             target_record["recordTitle"] = title
             target_record["recordBody"] = self._plain_text_to_delta(text)
@@ -563,9 +617,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
-                "record": self._project_record(target_record, archive, spaces),
+                "record": self._project_record(target_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("Write conflict requires reread")
+        raise ValueError("write_conflict_requires_reread: Read the note again and retry with the latest version.")
 
     def rename_record(
         self,
@@ -593,11 +647,11 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             target_record = self._require_record(body, record_id)
 
             if bool(target_record.get("ro")):
-                raise ValueError("record_locked")
+                raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
             if current_version != expected_version:
-                raise ValueError("Write conflict requires reread")
+                raise ValueError("write_conflict_requires_reread: Read the record again and retry with the latest version.")
 
             target_record["recordTitle"] = title
             target_record["version"] = current_version + 1
@@ -614,9 +668,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
-                "record": self._project_record(target_record, archive, spaces),
+                "record": self._project_record(target_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("Write conflict requires reread")
+        raise ValueError("write_conflict_requires_reread: Read the record again and retry with the latest version.")
 
     def set_checklist_item_done(
         self,
@@ -647,11 +701,11 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             if not bool(target_record.get("isCbox")):
                 raise ValueError("record_ref does not point to a checklist")
             if bool(target_record.get("ro")):
-                raise ValueError("record_locked")
+                raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
             if current_version != expected_version:
-                raise ValueError("Write conflict requires reread")
+                raise ValueError("write_conflict_requires_reread: Read the checklist again and retry with the latest version.")
 
             checkboxes = target_record.get("checkBoxes")
             if not isinstance(checkboxes, list):
@@ -686,9 +740,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
-                "record": self._project_record(target_record, archive, spaces),
+                "record": self._project_record(target_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("Write conflict requires reread")
+        raise ValueError("write_conflict_requires_reread: Read the checklist again and retry with the latest version.")
 
     def add_checklist_item(
         self,
@@ -738,9 +792,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
-                "record": self._project_record(target_record, archive, spaces),
+                "record": self._project_record(target_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("Write conflict requires reread")
+        raise ValueError("write_conflict_requires_reread: Read the checklist again and retry with the latest version.")
 
     def remove_checklist_item(
         self,
@@ -789,9 +843,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
-                "record": self._project_record(target_record, archive, spaces),
+                "record": self._project_record(target_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("Write conflict requires reread")
+        raise ValueError("write_conflict_requires_reread: Read the checklist again and retry with the latest version.")
 
     def _normalize_checklist_create_items(self, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
@@ -849,7 +903,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
-                "record": self._project_record(new_record, archive, spaces),
+                "record": self._project_record(new_record, archive, spaces, session_id=session_id),
             }
         raise ValueError("Write conflict requires reread")
 
@@ -867,6 +921,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         )
         if archive is None:
             raise ValueError("No writable Records archive exists for the requested space")
+        self._ensure_session_writable(session_id)
         blob = self._load_records_archive_blob(session_id, archive, keyring)
         return {
             "archive": archive,
@@ -901,6 +956,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         }
 
     def _get_cached_write_context_for_archive(self, session_id: str, archive_id: str) -> dict[str, Any]:
+        self._ensure_session_writable(session_id)
         snapshot = self._get_cached_records_archive_snapshot(session_id, archive_id)
         keyring = self._agent_auth.get_keyring_for_session(session_id)
         return {
@@ -922,6 +978,17 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                 return record
         raise ValueError("Record not found for record_ref")
 
+    def _ensure_session_writable(self, session_id: str) -> None:
+        auth_context = self._session_auth_context(session_id)
+        if not auth_context:
+            raise ValueError(
+                "Write access is not confirmed for this session. Authenticate successfully before attempting writes."
+            )
+        if bool(auth_context.get("ro")):
+            raise ValueError(
+                "space_read_only: This agent has read-only access and cannot modify records in this Safe."
+            )
+
     def _prepare_checklist_mutation(
         self,
         body: dict[str, Any],
@@ -933,11 +1000,11 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         if not bool(target_record.get("isCbox")):
             raise ValueError("record_ref does not point to a checklist")
         if bool(target_record.get("ro")):
-            raise ValueError("record_locked")
+            raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
         current_version = self._coerce_positive_int(target_record.get("version")) or 1
         if current_version != expected_version:
-            raise ValueError("Write conflict requires reread")
+            raise ValueError("write_conflict_requires_reread: Read the checklist again and retry with the latest version.")
 
         checkboxes = target_record.get("checkBoxes")
         if not isinstance(checkboxes, list):

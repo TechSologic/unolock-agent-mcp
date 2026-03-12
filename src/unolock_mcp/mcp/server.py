@@ -449,7 +449,10 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_list_spaces",
-        description="List UnoLock spaces with record counts for an authenticated session.",
+        description=(
+            "List UnoLock spaces with record counts and write capability metadata for an authenticated session. "
+            "Use writable and allowed_operations to decide whether note/checklist writes are allowed."
+        ),
     )
     def list_spaces(session_id: str) -> dict[str, Any]:
         readonly_records = UnoLockReadonlyRecordsClient(
@@ -463,7 +466,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_list_records",
         description=(
             "List read-only UnoLock notes and checklists for an authenticated session. "
-            "Records are projected into agent-friendly plain text and checklist items."
+            "Records are projected into agent-friendly plain text and checklist items, and include version, "
+            "writable, locked, and allowed_operations metadata."
         ),
     )
     def list_records(
@@ -488,7 +492,7 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_list_notes",
-        description="List read-only UnoLock notes for an authenticated session.",
+        description="List read-only UnoLock notes with version and writable metadata for an authenticated session.",
     )
     def list_notes(
         session_id: str,
@@ -511,7 +515,7 @@ def create_mcp_server() -> FastMCP:
 
     @server.tool(
         name="unolock_list_checklists",
-        description="List read-only UnoLock checklists for an authenticated session.",
+        description="List read-only UnoLock checklists with version and writable metadata for an authenticated session.",
     )
     def list_checklists(
         session_id: str,
@@ -536,7 +540,7 @@ def create_mcp_server() -> FastMCP:
         name="unolock_get_record",
         description=(
             "Get one read-only UnoLock note or checklist by record_ref. "
-            "Use unolock_list_records first to discover record_ref values."
+            "Use unolock_list_records first to discover record_ref values and current version metadata before writing."
         ),
     )
     def get_record(session_id: str, record_ref: str) -> dict[str, Any]:
@@ -551,6 +555,7 @@ def create_mcp_server() -> FastMCP:
         name="unolock_create_note",
         description=(
             "Create a new UnoLock note from raw text in an existing writable Records archive. "
+            "Read the target space first and check writable/allowed_operations before creating notes. "
             "The returned record metadata includes the new record version and lock state."
         ),
     )
@@ -572,7 +577,8 @@ def create_mcp_server() -> FastMCP:
         description=(
             "Create a new UnoLock checklist in an existing writable Records archive. "
             "Each item must be an object like {text: string, checked?: boolean}. "
-            "Use checked, done, or state='checked' to create initially checked items."
+            "Use checked, done, or state='checked' to create initially checked items. "
+            "Read the target space first and check writable/allowed_operations before creating checklists."
         ),
     )
     def create_checklist(session_id: str, space_id: int, title: str, items: list[dict[str, Any]]) -> dict[str, Any]:
@@ -592,8 +598,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_update_note",
         description=(
             "Update an existing UnoLock note from raw text. "
-            "Use the record_ref and current version returned by list/get tools. "
-            "If the record version changed since the last read, the MCP will fail with a conflict."
+            "Read the note first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "If the note is locked, read-only, or changed since the last read, the MCP will reject the update."
         ),
     )
     def update_note(session_id: str, record_ref: str, expected_version: int, title: str, text: str) -> dict[str, Any]:
@@ -614,8 +620,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_rename_record",
         description=(
             "Rename an existing UnoLock note or checklist by changing its title only. "
-            "Use the record_ref and current version returned by list/get tools. "
-            "If the record version changed since the last read, the MCP will fail with a conflict."
+            "Read the record first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "If the record is locked, read-only, or changed since the last read, the MCP will reject the rename."
         ),
     )
     def rename_record(session_id: str, record_ref: str, expected_version: int, title: str) -> dict[str, Any]:
@@ -635,8 +641,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_set_checklist_item_done",
         description=(
             "Set one checklist item's checked state. "
-            "Use the record_ref and current version returned by list/get tools. "
-            "If the checklist version changed since the last read, the MCP will fail with a conflict."
+            "Read the checklist first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "If the checklist is locked, read-only, or changed since the last read, the MCP will reject the update."
         ),
     )
     def set_checklist_item_done(
@@ -663,8 +669,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_add_checklist_item",
         description=(
             "Add a new unchecked item to an existing checklist. "
-            "Use the record_ref and current version returned by list/get tools. "
-            "If the checklist version changed since the last read, the MCP will fail with a conflict."
+            "Read the checklist first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "If the checklist is locked, read-only, or changed since the last read, the MCP will reject the update."
         ),
     )
     def add_checklist_item(
@@ -689,8 +695,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_remove_checklist_item",
         description=(
             "Remove one checklist item by item_id. "
-            "Use the record_ref and current version returned by list/get tools. "
-            "If the checklist version changed since the last read, the MCP will fail with a conflict."
+            "Read the checklist first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "If the checklist is locked, read-only, or changed since the last read, the MCP will reject the update."
         ),
     )
     def remove_checklist_item(

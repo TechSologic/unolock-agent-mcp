@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 from unolock_mcp.api.records import UnoLockReadonlyRecordsClient, UnoLockWritableRecordsClient
 from unolock_mcp.auth.session_store import SessionStore
+from unolock_mcp.domain.models import CallbackAction, FlowSession
 from unolock_mcp.crypto.safe_keyring import SafeKeyringManager
 
 
@@ -83,6 +84,8 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         self.assertEqual(projected["labels"], [{"id": 1, "name": "work"}])
         self.assertTrue(projected["read_only"])
         self.assertTrue(projected["locked"])
+        self.assertFalse(projected["writable"])
+        self.assertEqual(projected["allowed_operations"], ["get_record"])
 
     def test_label_name_filtering_uses_lowercase_names(self) -> None:
         names = self.client._label_names(
@@ -262,6 +265,46 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         api_client.get_download_url.assert_called_once()
         api_client.http_client.get_text_with_headers_absolute.assert_called_once()
 
+    def test_list_spaces_includes_writable_and_allowed_operations(self) -> None:
+        keyring = SafeKeyringManager()
+        keyring.init_with_safe_access_master_key(b"1" * 32)
+        session_store = SessionStore()
+        session_store.put(
+            FlowSession(
+                session_id="session-1",
+                flow="agentAccess",
+                state="state",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="SUCCESS", result={"ro": False, "isAdmin": False}),
+                authorized=True,
+            )
+        )
+        agent_auth = Mock()
+        agent_auth.get_keyring_for_session.return_value = keyring
+        api_client = Mock()
+        client = UnoLockReadonlyRecordsClient(api_client, agent_auth, session_store)
+        payload = {
+            "title": "Records",
+            "data": {"nextRecordID": 0, "nextLabelID": 0, "labels": [], "records": []},
+        }
+        encrypted_payload = keyring.encrypt_string(json.dumps(payload, separators=(",", ":")), sid=101)
+        api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 101, "type": "PRIVATE", "owner": True}]}
+        }
+        api_client.get_archives.return_value = {
+            "callback": {
+                "type": "GetArchives",
+                "result": [{"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": "lput", "spaceName": "Main"}}],
+            }
+        }
+        api_client.get_download_url.return_value = {"callback": {"type": "GetDownloadUrl", "result": "https://download"}}
+        api_client.http_client.get_text_with_headers_absolute.return_value = (encrypted_payload, {"ETag": '"etag"'})
+
+        result = client.list_spaces("session-1")
+
+        self.assertEqual(result["spaces"][0]["writable"], True)
+        self.assertIn("create_note", result["spaces"][0]["allowed_operations"])
+
 
 class UnoLockWritableRecordsClientTest(unittest.TestCase):
     def setUp(self) -> None:
@@ -272,6 +315,19 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.api_client = Mock()
         self.session_store = SessionStore()
         self.writer = UnoLockWritableRecordsClient(self.api_client, self.agent_auth, self.session_store)
+        self._authorize_session()
+
+    def _authorize_session(self, *, ro: bool = False) -> None:
+        self.session_store.put(
+            FlowSession(
+                session_id="session-1",
+                flow="agentAccess",
+                state="state",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="SUCCESS", result={"ro": ro, "isAdmin": False}),
+                authorized=True,
+            )
+        )
 
     def _prime_records_archive(self, payload: str, *, etag: str = '"old-etag"') -> None:
         encrypted_payload = self.keyring.encrypt_string(payload, sid=101)
@@ -322,8 +378,21 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(result["record"]["version"], 1)
         self.assertFalse(result["record"]["read_only"])
         self.assertFalse(result["record"]["locked"])
+        self.assertTrue(result["record"]["writable"])
+        self.assertIn("update_note", result["record"]["allowed_operations"])
         self.assertEqual(result["record"]["plain_text"], "hello world")
         self.assertEqual(result["record"]["title"], "New note")
+
+    def test_create_note_rejects_read_only_session_before_upload(self) -> None:
+        self._authorize_session(ro=True)
+        self._prime_records_archive(
+            '{"title":"Records","data":{"nextRecordID":0,"nextLabelID":0,"labels":[],"records":[]}}'
+        )
+
+        with self.assertRaisesRegex(ValueError, "space_read_only"):
+            self.writer.create_note("session-1", space_id=101, title="New note", text="hello world")
+
+        self.api_client.get_upload_put_url.assert_not_called()
 
     def test_create_note_uploads_original_ciphertext_and_only_updates_kek_metadata(self) -> None:
         self._prime_records_archive(
@@ -444,7 +513,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self._prime_records_archive(payload)
         self._cache_records_archive(payload)
 
-        with self.assertRaisesRegex(ValueError, "Write conflict requires reread"):
+        with self.assertRaisesRegex(ValueError, "conflict_requires_reread"):
             self.writer.update_note(
                 "session-1",
                 record_ref="archive-1:1",
@@ -558,7 +627,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self._prime_records_archive(payload)
         self._cache_records_archive(payload)
 
-        with self.assertRaisesRegex(ValueError, "Write conflict requires reread"):
+        with self.assertRaisesRegex(ValueError, "conflict_requires_reread"):
             self.writer.rename_record(
                 "session-1",
                 record_ref="archive-1:1",
@@ -672,7 +741,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self._prime_records_archive(payload)
         self._cache_records_archive(payload)
 
-        with self.assertRaisesRegex(ValueError, "Write conflict requires reread"):
+        with self.assertRaisesRegex(ValueError, "conflict_requires_reread"):
             self.writer.set_checklist_item_done(
                 "session-1",
                 record_ref="archive-1:1",

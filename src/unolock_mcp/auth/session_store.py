@@ -13,9 +13,12 @@ class SessionStore:
     def __init__(self) -> None:
         self._sessions: dict[str, FlowSession] = {}
         self._records_archive_snapshots: dict[str, dict[str, dict]] = {}
+        self._auth_contexts: dict[str, dict] = {}
 
     def put(self, session: FlowSession) -> FlowSession:
         self._sessions[session.session_id] = session
+        if session.authorized and session.current_callback.type == "SUCCESS" and isinstance(session.current_callback.result, dict):
+            self._auth_contexts[session.session_id] = copy.deepcopy(session.current_callback.result)
         return session
 
     def get(self, session_id: str) -> FlowSession:
@@ -27,6 +30,7 @@ class SessionStore:
     def delete(self, session_id: str) -> None:
         self._sessions.pop(session_id, None)
         self._records_archive_snapshots.pop(session_id, None)
+        self._auth_contexts.pop(session_id, None)
 
     def list(self) -> list[dict]:
         return [session.summary() for session in self._sessions.values()]
@@ -34,6 +38,13 @@ class SessionStore:
     def clear(self) -> None:
         self._sessions.clear()
         self._records_archive_snapshots.clear()
+        self._auth_contexts.clear()
+
+    def get_auth_context(self, session_id: str) -> dict:
+        try:
+            return copy.deepcopy(self._auth_contexts[session_id])
+        except KeyError as exc:
+            raise KeyError(f"Unknown auth context for session_id={session_id}") from exc
 
     def put_records_archive_snapshot(self, session_id: str, archive_id: str, snapshot: dict) -> None:
         archives = self._records_archive_snapshots.setdefault(session_id, {})
