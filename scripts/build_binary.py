@@ -28,6 +28,22 @@ def binary_name() -> str:
     return f"unolock-agent-mcp-{platform_suffix()}"
 
 
+def _prepare_windows_oqs_runtime(install_root: Path) -> None:
+    if platform.system().lower() != "windows":
+        return
+    bin_dir = install_root / "bin"
+    lib_dir = install_root / "lib"
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    for name in ("oqs.dll", "liboqs.dll"):
+        target = bin_dir / name
+        if target.exists():
+            continue
+        for source in (lib_dir / name, install_root / name):
+            if source.exists():
+                shutil.copy2(source, target)
+                break
+
+
 def build_binary(clean: bool = False) -> Path:
     pyinstaller = shutil.which("pyinstaller") or shutil.which("pyinstaller.exe")
     if not pyinstaller:
@@ -43,6 +59,7 @@ def build_binary(clean: bool = False) -> Path:
     oqs_install_path = env.get("OQS_INSTALL_PATH")
     if oqs_install_path:
         install_root = Path(oqs_install_path)
+        _prepare_windows_oqs_runtime(install_root)
         runtime_dirs = []
         if platform.system().lower() == "windows":
             runtime_dirs.extend(

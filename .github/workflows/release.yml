@@ -79,7 +79,28 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -e .[dev]
 
+      - name: Verify Windows liboqs runtime
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$PWD/.liboqs-install/bin"
+          for dll in oqs.dll liboqs.dll; do
+            if [ -f "$PWD/.liboqs-install/lib/$dll" ] && [ ! -f "$PWD/.liboqs-install/bin/$dll" ]; then
+              cp "$PWD/.liboqs-install/lib/$dll" "$PWD/.liboqs-install/bin/$dll"
+            fi
+          done
+          OQS_INSTALL_PATH="$PWD/.liboqs-install" python - <<'PY'
+          import oqs
+          import oqs.oqs as mod
+          print("liboqs-python loaded")
+          print("oqs version:", oqs.oqs_version())
+          print("expected liboqs branch/version:", mod.OQS_VERSION)
+          PY
+
       - name: Build standalone binary
+        env:
+          OQS_INSTALL_PATH: ${{ github.workspace }}/.liboqs-install
         run: |
           python scripts/build_binary.py --clean
 
