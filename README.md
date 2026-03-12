@@ -201,7 +201,8 @@ The package now also exposes a real stdio MCP server with:
 * generic flow continuation
 * generic authenticated `/api` action calls
 * convenience wrappers for `GetSpaces` and `GetArchives`
-* read-only note and checklist projection from UnoLock `Records` archives
+* note and checklist projection from UnoLock `Records` archives
+* write-support MVP for notes and checklists with version-aware conflict handling
 
 Installed commands:
 
@@ -238,6 +239,13 @@ Current MCP tools:
 * `unolock_list_notes`
 * `unolock_list_checklists`
 * `unolock_get_record`
+* `unolock_create_note`
+* `unolock_update_note`
+* `unolock_rename_record`
+* `unolock_create_checklist`
+* `unolock_set_checklist_item_done`
+* `unolock_add_checklist_item`
+* `unolock_remove_checklist_item`
 
 Registration discovery support:
 
@@ -253,16 +261,21 @@ Registration discovery support:
 * the Windows CNG non-exportable fallback provider is now also usable from Windows/WSL when TPM-backed creation is unavailable
 * the software provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
+* the MCP can now create notes and checklists and perform version-aware note/checklist updates within the agent's allowed Spaces
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating
 * registration state now remembers which TPM provider created the agent key and will tell the host to re-register or force the old provider if there is a provider mismatch
 * the MCP can diagnose the active TPM/vTPM provider and give host advice when no working TPM/vTPM is detected
 
-Read-only filtering support:
+Read and write support:
 
 * `unolock_list_records` accepts `kind`, `space_id`, `pinned`, and `label`
 * `unolock_list_notes` and `unolock_list_checklists` are convenience wrappers
 * `unolock_list_spaces` returns space metadata plus record counts
+* read/list/get responses include `writable`, `allowed_operations`, `version`, `read_only`, and `locked`
+* write tools use cache-first optimistic writes with 5-minute in-memory archive TTLs
+* archive rereads happen only on cache miss, cache expiry, or upload conflict
+* write conflicts return stable structured reasons such as `write_conflict_requires_reread`
 
 Current bootstrap limitation:
 
@@ -307,7 +320,7 @@ Current local fallback behavior:
 * if the tier blocks new device accesses, the harness issues an agent registration URL for the current authenticated access instead
 * the current-access fallback exists for local/dev testing and is not the preferred long-term product shape
 
-For a full local read-only regression run:
+For a full local regression run:
 
 ```bash
 ./scripts/run_local_e2e_readonly.sh
@@ -319,7 +332,7 @@ That script:
 * registers the MCP against that new agent key
 * authenticates and reads spaces/records
 * simulates an MCP restart
-* re-authenticates with the PIN and verifies read-only access again
+* re-authenticates with the PIN and verifies access again
 
 ## Package layout
 

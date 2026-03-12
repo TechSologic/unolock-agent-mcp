@@ -176,14 +176,14 @@ Once the host can launch the MCP:
 3. Submit them to the MCP with `unolock_submit_agent_bootstrap`.
 4. If the PIN was not collected up front and the Safe later asks for it, set it in MCP memory.
 5. Call the one-shot bootstrap/auth flow.
-6. Start using read-only tools.
+6. Start using read and write tools as permitted by the Agent Key.
 
 After the MCP process restarts:
 
 1. Ask the MCP for registration status again.
 2. If it reports `authenticate_or_set_pin`, ask the user for the agent PIN.
 3. Set the PIN in MCP memory.
-4. Authenticate and continue using read-only tools.
+4. Authenticate and continue using read or write tools as permitted by the Agent Key.
 
 Relevant tools:
 
@@ -197,6 +197,21 @@ Relevant tools:
 * `unolock_list_notes`
 * `unolock_list_checklists`
 * `unolock_get_record`
+* `unolock_create_note`
+* `unolock_update_note`
+* `unolock_rename_record`
+* `unolock_create_checklist`
+* `unolock_set_checklist_item_done`
+* `unolock_add_checklist_item`
+* `unolock_remove_checklist_item`
+
+Write guidance:
+
+* Read the target Space or record first.
+* Use `writable` and `allowed_operations` before attempting a write.
+* Use `record_ref` and `version` when updating existing records.
+* The MCP keeps archive snapshots in memory only and uses a 5-minute default freshness TTL.
+* On write conflict, the MCP rereads the archive, checks the record version, and tells the agent when a reread is required.
 
 ## Local development values
 

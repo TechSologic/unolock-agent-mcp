@@ -54,7 +54,7 @@ def _registration_status_payload(
     security_warning = runtime.get("security_warning")
     provider_mismatch = runtime.get("tpm_provider_mismatch_detail")
     next_action = "authenticate_agent"
-    guidance = "Agent registration is configured. Authenticate and start using read-only tools."
+    guidance = "Agent registration is configured. Authenticate and start using the UnoLock tools allowed by this Agent Key."
     pending_session = None
     session_id = registration.get("session_id")
     if session_id:
@@ -98,7 +98,7 @@ def _registration_status_payload(
             )
         else:
             next_action = "authenticate_agent"
-            guidance = "Agent registration is configured. Authenticate and start using read-only tools."
+            guidance = "Agent registration is configured. Authenticate and start using the UnoLock tools allowed by this Agent Key."
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
