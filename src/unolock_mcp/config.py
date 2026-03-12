@@ -126,6 +126,30 @@ def fetch_hosted_client_metadata(asset_origin: str, timeout: float = 10.0) -> di
     return metadata
 
 
+def fetch_local_bundle_metadata(site_origin: str, timeout: float = 10.0) -> dict[str, str]:
+    root_url = site_origin.rstrip("/") + "/"
+    with urlopen(root_url, timeout=timeout) as response:
+        html = response.read().decode("utf8", errors="ignore")
+
+    main_match = re.search(r'src="([^"]*main[^"]*\.js)"', html)
+    if not main_match:
+        raise ValueError(f"Could not locate main.js in local UnoLock app: {root_url}")
+
+    main_js_url = urljoin(root_url, main_match.group(1))
+    with urlopen(main_js_url, timeout=timeout) as response:
+        bundle = response.read().decode("utf8", errors="ignore")
+
+    version_match = re.search(r"const version = ['\"]([^'\"]+)['\"]", bundle)
+    signing_key_match = re.search(r'serverPQSigningValidationKey[:=]\s*"([^"]+)"', bundle)
+
+    metadata: dict[str, str] = {}
+    if version_match and version_match.group(1).strip():
+        metadata["app_version"] = version_match.group(1).strip()
+    if signing_key_match and signing_key_match.group(1).strip():
+        metadata["signing_public_key_b64"] = signing_key_match.group(1).strip()
+    return metadata
+
+
 def load_signing_key(default_root: Path | None = None) -> str | None:
     root = default_root or repo_root()
     env_path = root / "client" / "src" / "environments" / "environment.local.ts"
@@ -205,6 +229,27 @@ def resolve_unolock_config(
                 hosted_metadata = {}
                 hosted_metadata_source = None
 
+    local_bundle_metadata: dict[str, str] = {}
+    local_bundle_metadata_source: str | None = None
+    if (
+        resolved_transparency_origin
+        and is_local_base_url(resolved_transparency_origin)
+        and (
+            not bool(app_version or os.environ.get("UNOLOCK_APP_VERSION") or config_file.get("app_version"))
+            or not bool(
+                signing_public_key_b64
+                or os.environ.get("UNOLOCK_SIGNING_PUBLIC_KEY")
+                or config_file.get("signing_public_key_b64")
+            )
+        )
+    ):
+        try:
+            local_bundle_metadata = fetch_local_bundle_metadata(resolved_transparency_origin)
+            local_bundle_metadata_source = "local-dev-bundle"
+        except Exception:
+            local_bundle_metadata = {}
+            local_bundle_metadata_source = None
+
     resolved_app_version = app_version
     if resolved_app_version:
         sources["app_version"] = "argument"
@@ -217,6 +262,9 @@ def resolve_unolock_config(
     elif hosted_metadata.get("app_version"):
         resolved_app_version = hosted_metadata["app_version"]
         sources["app_version"] = f"{hosted_metadata_source}:{resolved_transparency_origin}"
+    elif local_bundle_metadata.get("app_version"):
+        resolved_app_version = local_bundle_metadata["app_version"]
+        sources["app_version"] = f"{local_bundle_metadata_source}:{resolved_transparency_origin}"
     elif repo_auto_discovery_enabled():
         loaded = load_app_version()
         if loaded:
@@ -235,6 +283,9 @@ def resolve_unolock_config(
     elif hosted_metadata.get("signing_public_key_b64"):
         resolved_signing_key = hosted_metadata["signing_public_key_b64"]
         sources["signing_public_key_b64"] = f"{hosted_metadata_source}:{resolved_transparency_origin}"
+    elif local_bundle_metadata.get("signing_public_key_b64"):
+        resolved_signing_key = local_bundle_metadata["signing_public_key_b64"]
+        sources["signing_public_key_b64"] = f"{local_bundle_metadata_source}:{resolved_transparency_origin}"
     elif repo_auto_discovery_enabled():
         loaded = load_signing_key()
         if loaded:

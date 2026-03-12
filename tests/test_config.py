@@ -211,6 +211,42 @@ class UnoLockConfigTest(unittest.TestCase):
             "hosted-transparency:https://safe.unolock.com",
         )
 
+    @patch("unolock_mcp.config.fetch_local_bundle_metadata")
+    def test_resolve_unolock_config_uses_local_bundle_metadata_for_local_dev(self, fetch_local_bundle_metadata) -> None:
+        fetch_local_bundle_metadata.return_value = {
+            "app_version": "0.20.21",
+            "signing_public_key_b64": "local-key",
+        }
+        old_values = {
+            "UNOLOCK_CONFIG_FILE": os.environ.get("UNOLOCK_CONFIG_FILE"),
+            "UNOLOCK_APP_VERSION": os.environ.get("UNOLOCK_APP_VERSION"),
+            "UNOLOCK_SIGNING_PUBLIC_KEY": os.environ.get("UNOLOCK_SIGNING_PUBLIC_KEY"),
+            "UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY": os.environ.get("UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY"),
+        }
+        os.environ["UNOLOCK_CONFIG_FILE"] = str(Path(tempfile.gettempdir()) / "definitely-missing-unolock-config.json")
+        os.environ["UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY"] = "1"
+        os.environ.pop("UNOLOCK_APP_VERSION", None)
+        os.environ.pop("UNOLOCK_SIGNING_PUBLIC_KEY", None)
+        try:
+            resolved = resolve_unolock_config(
+                base_url="http://127.0.0.1:3000",
+                transparency_origin="http://localhost:4200",
+            )
+        finally:
+            for key, value in old_values.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        self.assertEqual(resolved.app_version, "0.20.21")
+        self.assertEqual(resolved.signing_public_key_b64, "local-key")
+        self.assertEqual(resolved.sources["app_version"], "local-dev-bundle:http://localhost:4200")
+        self.assertEqual(
+            resolved.sources["signing_public_key_b64"],
+            "local-dev-bundle:http://localhost:4200",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
