@@ -34,11 +34,11 @@ unolock-agent-self-test
 
 If you are new to UnoLock, these docs explain the product concepts behind the MCP:
 
-* UnoLock Knowledge Base: `https://safe.unolock.com/docs/`
-* Agentic Safe Access: `https://safe.unolock.com/docs/features/agentic-safe-access/`
-* Access Keys & Safe Access: `https://safe.unolock.com/docs/features/multi-device-access/`
-* Spaces: `https://safe.unolock.com/docs/features/spaces/`
-* Connect an AI Agent to a Safe: `https://safe.unolock.com/docs/howto/connecting-an-ai-agent/`
+* UnoLock Knowledge Base: `https://docs.unolock.com/index.html`
+* Agentic Safe Access: `https://docs.unolock.com/features/agentic-safe-access.html`
+* Access Keys & Safe Access: `https://docs.unolock.com/features/multi-device-access.html`
+* Spaces: `https://docs.unolock.com/features/spaces.html`
+* Connect an AI Agent to a Safe: `https://docs.unolock.com/howto/connecting-an-ai-agent.html`
 
 ## Recommended Customer Install
 

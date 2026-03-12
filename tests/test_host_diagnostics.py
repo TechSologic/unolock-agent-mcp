@@ -26,7 +26,7 @@ class HostDiagnosticsTest(unittest.TestCase):
         self.assertIn("docker", diagnostics.summary.lower())
         self.assertIn("environment", diagnostics.details)
         self.assertTrue(diagnostics.details["environment"]["is_container"])
-        self.assertTrue(any("safe.unolock.com/docs" in item for item in diagnostics.advice))
+        self.assertTrue(any("docs.unolock.com" in item for item in diagnostics.advice))
 
     def test_detect_host_tpm_state_reports_macos_software_fallback_context(self) -> None:
         with patch("platform.system", return_value="Darwin"):

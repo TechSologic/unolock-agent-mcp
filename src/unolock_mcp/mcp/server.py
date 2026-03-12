@@ -267,9 +267,9 @@ def create_mcp_server() -> FastMCP:
                 "Agent Keys are limited to ro or rw and are not allowed to have admin access.",
             ],
             "docs": [
-                "https://safe.unolock.com/docs/",
-                "https://safe.unolock.com/docs/features/agentic-safe-access/",
-                "https://safe.unolock.com/docs/howto/connecting-an-ai-agent/",
+                "https://docs.unolock.com/index.html",
+                "https://docs.unolock.com/features/agentic-safe-access.html",
+                "https://docs.unolock.com/howto/connecting-an-ai-agent.html",
             ],
         }
 

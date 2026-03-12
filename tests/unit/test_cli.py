@@ -61,7 +61,7 @@ class CliEntryPointTest(unittest.TestCase):
                             "summary": "Windows Platform Crypto Provider created a TPM-backed P-256 key.",
                             "details": {
                                 "environment": {"is_container": False, "container_runtime": "", "is_wsl": True},
-                                "docs": {"agentic_safe_access": "https://safe.unolock.com/docs/features/agentic-safe-access/"},
+                                "docs": {"agentic_safe_access": "https://docs.unolock.com/features/agentic-safe-access.html"},
                             },
                             "advice": [],
                         }

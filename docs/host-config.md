@@ -4,9 +4,9 @@ This document shows the current easiest way to run the UnoLock agent MCP in real
 
 If you need the underlying UnoLock product concepts first, see:
 
-* UnoLock Knowledge Base: `https://safe.unolock.com/docs/`
-* Agentic Safe Access: `https://safe.unolock.com/docs/features/agentic-safe-access/`
-* Spaces: `https://safe.unolock.com/docs/features/spaces/`
+* UnoLock Knowledge Base: `https://docs.unolock.com/index.html`
+* Agentic Safe Access: `https://docs.unolock.com/features/agentic-safe-access.html`
+* Spaces: `https://docs.unolock.com/features/spaces.html`
 
 ## Security Requirement
 

@@ -8,8 +8,8 @@ from pathlib import Path
 
 from .base import TpmDiagnostics
 
-AGENTIC_SAFE_ACCESS_DOC = "https://safe.unolock.com/docs/features/agentic-safe-access/"
-CONNECTING_AGENT_DOC = "https://safe.unolock.com/docs/howto/connecting-an-ai-agent/"
+AGENTIC_SAFE_ACCESS_DOC = "https://docs.unolock.com/features/agentic-safe-access.html"
+CONNECTING_AGENT_DOC = "https://docs.unolock.com/howto/connecting-an-ai-agent.html"
 
 
 def detect_host_tpm_state(provider_name: str, *, production_ready: bool) -> TpmDiagnostics:
