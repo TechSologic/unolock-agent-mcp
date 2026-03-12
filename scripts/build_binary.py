@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import platform
 import shutil
 import subprocess
@@ -38,6 +39,34 @@ def build_binary(clean: bool = False) -> Path:
     BUILD.mkdir(parents=True, exist_ok=True)
     DIST.mkdir(parents=True, exist_ok=True)
 
+    env = os.environ.copy()
+    oqs_install_path = env.get("OQS_INSTALL_PATH")
+    if oqs_install_path:
+        install_root = Path(oqs_install_path)
+        runtime_dirs = []
+        if platform.system().lower() == "windows":
+            runtime_dirs.extend(
+                [
+                    install_root / "bin",
+                    install_root / "lib",
+                ]
+            )
+            path_key = "PATH"
+            separator = ";"
+        else:
+            runtime_dirs.extend(
+                [
+                    install_root / "lib",
+                    install_root / "lib64",
+                ]
+            )
+            path_key = "LD_LIBRARY_PATH" if platform.system().lower() == "linux" else "DYLD_LIBRARY_PATH"
+            separator = ":"
+        existing = env.get(path_key, "")
+        additions = [str(path) for path in runtime_dirs if path.exists()]
+        if additions:
+            env[path_key] = separator.join(additions + ([existing] if existing else []))
+
     cmd = [
         pyinstaller,
         "--noconfirm",
@@ -55,9 +84,11 @@ def build_binary(clean: bool = False) -> Path:
         str(ROOT / "src"),
         "--hidden-import",
         "oqs",
+        "--collect-binaries",
+        "oqs",
         str(ENTRYPOINT),
     ]
-    subprocess.run(cmd, check=True, cwd=ROOT)
+    subprocess.run(cmd, check=True, cwd=ROOT, env=env)
     suffix = ".exe" if platform.system().lower() == "windows" else ""
     return DIST / f"{binary_name()}{suffix}"
 
