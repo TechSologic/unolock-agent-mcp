@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 ENTRYPOINT = ROOT / "src" / "unolock_mcp" / "__main__.py"
 DIST = ROOT / "dist"
 BUILD = ROOT / "build" / "pyinstaller"
+RUNTIME_HOOK = ROOT / "scripts" / "pyinstaller_runtime_hook.py"
 
 
 def platform_suffix() -> str:
@@ -121,6 +122,8 @@ def build_binary(clean: bool = False) -> Path:
         str(BUILD),
         "--paths",
         str(ROOT / "src"),
+        "--runtime-hook",
+        str(RUNTIME_HOOK),
         "--hidden-import",
         "oqs",
         str(ENTRYPOINT),
