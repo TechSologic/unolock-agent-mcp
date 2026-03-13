@@ -54,6 +54,8 @@ If you want to keep the UnoLock MCP alive between interactions instead of relaun
 
 * [mcporter keep-alive setup](mcporter.md)
 
+This is especially useful for UnoLock because the user PIN is kept only in MCP process memory. A keep-alive runner lets the agent continue working without repeatedly asking the user for the PIN while that MCP process stays alive.
+
 You can print a ready-to-paste `mcporter` config with:
 
 ```bash

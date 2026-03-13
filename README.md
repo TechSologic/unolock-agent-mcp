@@ -99,6 +99,8 @@ For real MCP hosts, see:
 * [mcporter example](examples/mcporter.json)
 * [Config file example](examples/unolock-agent-config.json)
 
+`mcporter` is especially useful for UnoLock because the user PIN is kept only in MCP process memory. Keeping the MCP alive means the agent does not need to keep asking the user for the PIN while that process remains running.
+
 If you prefer manual install from source:
 
 ```bash

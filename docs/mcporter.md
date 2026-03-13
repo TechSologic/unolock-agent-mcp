@@ -6,6 +6,7 @@ That matters for UnoLock because the MCP keeps useful state in memory while it i
 
 * in-memory session state
 * in-memory archive cache
+* the agent PIN held only in MCP memory after the user provides it
 * cached Safe record views used by the write path
 
 ## Why use mcporter
@@ -14,6 +15,7 @@ If your host launches a brand-new MCP process on every request, the MCP has to r
 
 Using a keep-alive runner such as `mcporter` gives you:
 
+* the agent does not need to keep re-asking the user for the PIN while the MCP stays alive
 * fewer cold starts
 * less repeated auth/setup work
 * better cache reuse between interactions
@@ -68,12 +70,14 @@ If you prefer a direct binary instead of `npx`, point `command` at the downloade
 With `lifecycle: "keep-alive"`:
 
 * the MCP can remain running between interactions
+* the user-provided PIN can stay in MCP memory for that running process
 * in-memory record/archive cache stays warm
 * active local process state is not thrown away after every request
 
 Without keep-alive:
 
 * the MCP may be relaunched frequently
+* the agent may need to ask the user for the PIN again after each restart or short-lived invocation
 * cold-start overhead increases
 * in-memory state is lost between requests
 
