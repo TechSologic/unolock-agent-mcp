@@ -148,6 +148,12 @@ Use it as a command that OpenClaw can launch, for example:
 npx @techsologic/unolock-agent-mcp mcp
 ```
 
+With no arguments, the npm wrapper starts the MCP server by default:
+
+```bash
+npx @techsologic/unolock-agent-mcp
+```
+
 ## Standalone config
 
 When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock agent key connection URL. Environment variables and config files are primarily for overrides and custom deployments.

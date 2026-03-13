@@ -7,7 +7,7 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.12";
+const PACKAGE_VERSION = "0.1.13";
 const BINARY_VERSION = "0.1.11";
 const REPO = "TechSologic/unolock-agent-mcp";
 
@@ -108,7 +108,8 @@ async function ensureBinary() {
 
 async function main() {
   const dest = await ensureBinary();
-  const child = spawn(dest, process.argv.slice(2), {
+  const forwardedArgs = process.argv.length > 2 ? process.argv.slice(2) : ["mcp"];
+  const child = spawn(dest, forwardedArgs, {
     stdio: "inherit",
     env: process.env
   });

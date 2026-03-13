@@ -44,6 +44,8 @@ This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock M
 
 It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
 
+With no arguments, the wrapper starts the MCP server by default.
+
 Project home:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
