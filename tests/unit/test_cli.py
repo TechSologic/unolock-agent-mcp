@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+import json
 from unittest.mock import patch
 from types import SimpleNamespace
 
@@ -144,6 +145,26 @@ class CliEntryPointTest(unittest.TestCase):
         )
         flow_client_cls.assert_called_once()
         agent_auth_cls.return_value.set_flow_client.assert_called_once_with(flow_client_cls.return_value)
+
+    def test_mcporter_config_defaults_to_npm_keep_alive(self) -> None:
+        with patch("builtins.print") as print_mock:
+            result = cli.main(["mcporter-config"])
+
+        self.assertEqual(result, 0)
+        payload = json.loads(print_mock.call_args.args[0])
+        self.assertEqual(payload["servers"]["unolock-agent"]["command"], "npx")
+        self.assertEqual(payload["servers"]["unolock-agent"]["args"], ["@techsologic/unolock-agent-mcp"])
+        self.assertEqual(payload["servers"]["unolock-agent"]["lifecycle"], "keep-alive")
+
+    def test_mcporter_config_binary_mode_uses_binary_path(self) -> None:
+        with patch("builtins.print") as print_mock:
+            result = cli.main(["mcporter-config", "--mode", "binary", "--binary-path", "/opt/unolock-agent-mcp"])
+
+        self.assertEqual(result, 0)
+        payload = json.loads(print_mock.call_args.args[0])
+        self.assertEqual(payload["servers"]["unolock-agent"]["command"], "/opt/unolock-agent-mcp")
+        self.assertEqual(payload["servers"]["unolock-agent"]["args"], ["mcp"])
+        self.assertEqual(payload["servers"]["unolock-agent"]["lifecycle"], "keep-alive")
 
 
 if __name__ == "__main__":

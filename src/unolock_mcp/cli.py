@@ -86,6 +86,26 @@ def build_parser() -> argparse.ArgumentParser:
     )
     self_test_parser.add_argument("--json", action="store_true", help="Print the self-test result as JSON.")
 
+    mcporter_parser = subparsers.add_parser(
+        "mcporter-config",
+        help="Print a ready-to-paste mcporter keep-alive server config.",
+        description=(
+            "Print a named mcporter server entry for UnoLock Agent MCP. "
+            "Use this when you want mcporter to keep the MCP alive between interactions."
+        ),
+    )
+    mcporter_parser.add_argument(
+        "--mode",
+        choices=["npm", "binary"],
+        default="npm",
+        help="Choose whether mcporter should launch the npm wrapper or a direct binary path.",
+    )
+    mcporter_parser.add_argument(
+        "--binary-path",
+        default="unolock-agent-mcp",
+        help="Binary path to use when --mode=binary.",
+    )
+
     subparsers.add_parser(
         "config-check",
         help="Show the resolved UnoLock runtime configuration and missing values.",
@@ -161,6 +181,30 @@ def main(argv: list[str] | None = None) -> int:
             status = "OK" if payload["ok"] else "NOT_READY"
             print(f"{status}: {payload['summary']}")
         return 0 if payload["ok"] else 1
+
+    if command == "mcporter-config":
+        if args.mode == "binary":
+            payload = {
+                "servers": {
+                    "unolock-agent": {
+                        "command": args.binary_path,
+                        "args": ["mcp"],
+                        "lifecycle": "keep-alive",
+                    }
+                }
+            }
+        else:
+            payload = {
+                "servers": {
+                    "unolock-agent": {
+                        "command": "npx",
+                        "args": ["@techsologic/unolock-agent-mcp"],
+                        "lifecycle": "keep-alive",
+                    }
+                }
+            }
+        print(json.dumps(payload, indent=2))
+        return 0
 
     def resolve_runtime_config(registration_store: RegistrationStore) -> UnoLockConfig:
         registration = registration_store.load()

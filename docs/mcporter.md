@@ -35,6 +35,18 @@ It is **not** an `mcporter` plugin and it is **not** an OpenClaw plugin package.
 
 Define UnoLock as a named stdio server and use a keep-alive lifecycle.
 
+The easiest way to get a ready-to-paste config is:
+
+```bash
+python3 -m unolock_mcp mcporter-config
+```
+
+or, for a direct binary path:
+
+```bash
+python3 -m unolock_mcp mcporter-config --mode binary --binary-path /path/to/unolock-agent-mcp
+```
+
 Example:
 
 ```json

@@ -54,6 +54,12 @@ If you want to keep the UnoLock MCP alive between interactions instead of relaun
 
 * [mcporter keep-alive setup](mcporter.md)
 
+You can print a ready-to-paste `mcporter` config with:
+
+```bash
+python3 -m unolock_mcp mcporter-config
+```
+
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash
