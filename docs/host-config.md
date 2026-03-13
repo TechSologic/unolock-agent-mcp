@@ -40,6 +40,10 @@ If you are integrating with a Node/npm-oriented host, you can also use:
 npx @techsologic/unolock-agent-mcp --version
 ```
 
+This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock MCP binary.
+
+It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
+
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash

@@ -134,6 +134,16 @@ npx @techsologic/unolock-agent-mcp --version
 
 The wrapper downloads the correct GitHub Release binary for the current platform on first use and then reuses the cached copy.
 
+The npm package is an OpenClaw-friendly install and launch path for the external UnoLock MCP binary.
+
+It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
+
+Use it as a command that OpenClaw can launch, for example:
+
+```bash
+npx @techsologic/unolock-agent-mcp mcp
+```
+
 ## Standalone config
 
 When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock agent key connection URL. Environment variables and config files are primarily for overrides and custom deployments.

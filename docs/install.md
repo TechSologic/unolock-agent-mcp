@@ -58,6 +58,16 @@ npx @techsologic/unolock-agent-mcp --version
 
 The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
 
+The npm package is an OpenClaw-friendly install and launch path for the external UnoLock MCP binary.
+
+It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
+
+Use it as a command that OpenClaw can launch, for example:
+
+```bash
+npx @techsologic/unolock-agent-mcp mcp
+```
+
 Expected artifact names:
 
 * `unolock-agent-mcp-macos-arm64`
