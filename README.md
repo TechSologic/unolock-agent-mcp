@@ -91,10 +91,12 @@ For real MCP hosts, see:
 * [macOS Quick Start](docs/macos.md)
 * [Supported Environments](docs/supported-environments.md)
 * [MCP Host Config](docs/host-config.md)
+* [mcporter keep-alive setup](docs/mcporter.md)
 * [Support Matrix](docs/support-matrix.md)
 * [Tool Catalog](docs/tool-catalog.md)
 * [Claude Desktop example](examples/claude-desktop-config.json)
 * [Cursor example](examples/cursor-mcp.json)
+* [mcporter example](examples/mcporter.json)
 * [Config file example](examples/unolock-agent-config.json)
 
 If you prefer manual install from source:

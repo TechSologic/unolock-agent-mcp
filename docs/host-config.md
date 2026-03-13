@@ -50,6 +50,10 @@ Project home:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
+If you want to keep the UnoLock MCP alive between interactions instead of relaunching it repeatedly, see:
+
+* [mcporter keep-alive setup](mcporter.md)
+
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash

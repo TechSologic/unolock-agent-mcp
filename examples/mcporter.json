@@ -1,0 +1,9 @@
+{
+  "servers": {
+    "unolock-agent": {
+      "command": "npx",
+      "args": ["@techsologic/unolock-agent-mcp"],
+      "lifecycle": "keep-alive"
+    }
+  }
+}
