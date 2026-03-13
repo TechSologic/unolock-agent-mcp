@@ -7,7 +7,8 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.11";
+const PACKAGE_VERSION = "0.1.12";
+const BINARY_VERSION = "0.1.11";
 const REPO = "TechSologic/unolock-agent-mcp";
 
 function platformAssetInfo() {
@@ -37,7 +38,7 @@ function cacheRoot() {
 
 function binaryPath() {
   const { executable } = platformAssetInfo();
-  return path.join(cacheRoot(), "unolock-agent-mcp", PACKAGE_VERSION, executable);
+  return path.join(cacheRoot(), "unolock-agent-mcp", BINARY_VERSION, executable);
 }
 
 function binaryUrl() {
@@ -45,7 +46,7 @@ function binaryUrl() {
     return process.env.UNOLOCK_AGENT_MCP_BINARY_URL;
   }
   const { asset } = platformAssetInfo();
-  return `https://github.com/${REPO}/releases/download/v${PACKAGE_VERSION}/${asset}`;
+  return `https://github.com/${REPO}/releases/download/v${BINARY_VERSION}/${asset}`;
 }
 
 function ensureDir(dir) {
@@ -100,7 +101,7 @@ async function ensureBinary() {
     return dest;
   }
   ensureDir(path.dirname(dest));
-  process.stderr.write(`Downloading UnoLock Agent MCP ${PACKAGE_VERSION} for ${process.platform}/${process.arch}...\n`);
+  process.stderr.write(`Downloading UnoLock Agent MCP ${BINARY_VERSION} for ${process.platform}/${process.arch}...\n`);
   await fetchToFile(binaryUrl(), dest);
   return dest;
 }
