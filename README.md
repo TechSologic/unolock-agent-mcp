@@ -138,6 +138,10 @@ The npm package is an OpenClaw-friendly install and launch path for the external
 
 It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
 
+Project home:
+
+* `https://github.com/TechSologic/unolock-agent-mcp`
+
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash

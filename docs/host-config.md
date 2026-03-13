@@ -44,6 +44,10 @@ This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock M
 
 It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
 
+Project home:
+
+* `https://github.com/TechSologic/unolock-agent-mcp`
+
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash
