@@ -58,6 +58,10 @@ If you are new to UnoLock itself, start with these docs first:
 * Spaces: `https://docs.unolock.com/features/spaces.html`
 * Connect an AI Agent to a Safe: `https://docs.unolock.com/howto/connecting-an-ai-agent.html`
 
+Prerequisite:
+
+* Spaces and Agent Keys require the UnoLock Sovereign tier.
+
 The current MCP proves the hardest integration seam first:
 
 * live local `/start` flow compatibility
