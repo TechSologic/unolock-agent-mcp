@@ -34,6 +34,12 @@ For customer use, prefer a standalone GitHub Release binary:
 
 * `https://github.com/TechSologic/unolock-agent-mcp/releases`
 
+If you are integrating with a Node/npm-oriented host, you can also use:
+
+```bash
+npx @techsologic/unolock-agent-mcp --version
+```
+
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash

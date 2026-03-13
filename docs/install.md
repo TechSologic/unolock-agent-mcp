@@ -50,6 +50,14 @@ Download from:
 
 * `https://github.com/TechSologic/unolock-agent-mcp/releases`
 
+If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
+
+```bash
+npx @techsologic/unolock-agent-mcp --version
+```
+
+The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
+
 Expected artifact names:
 
 * `unolock-agent-mcp-macos-arm64`

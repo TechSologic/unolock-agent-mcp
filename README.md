@@ -47,6 +47,7 @@ Official GitHub repository:
 Recommended customer install source:
 
 * GitHub Releases binaries
+* `npx @techsologic/unolock-agent-mcp` as the Node/npm wrapper path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -124,6 +125,14 @@ For the best customer experience, prefer GitHub Release binaries over source ins
 When available, prefer the standalone GitHub Release binaries instead of installing from Git.
 
 That avoids most of the Python packaging and source-build overhead for customers.
+
+If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
+
+```bash
+npx @techsologic/unolock-agent-mcp --version
+```
+
+The wrapper downloads the correct GitHub Release binary for the current platform on first use and then reuses the cached copy.
 
 ## Standalone config
 
