@@ -4,6 +4,26 @@ This repository is the dedicated home for UnoLock's Python agent/MCP client.
 
 UnoLock Agent MCP is currently in alpha. It is available for evaluation and early testing, but it is not ready for broad production rollout yet.
 
+## Why Use UnoLock For An Agent
+
+UnoLock Agent MCP is not only about protecting secrets.
+
+It gives an agent a safer place to keep and use:
+
+* secrets
+* durable memory
+* structured notes
+* checklists
+* space-scoped working data
+
+Compared to local memory files or plaintext secret storage, UnoLock gives the agent:
+
+* encrypted storage
+* controlled access to only the Spaces it should use
+* persistence beyond a single local machine or process
+* safer recovery from host loss, reset, or replacement
+* a stronger access model than reusable API keys or plaintext config secrets
+
 ## Security Requirement
 
 UnoLock Agent MCP is built for customers who want the strongest practical protection for AI-accessed secrets.
@@ -76,7 +96,7 @@ Safe creation remains a human/browser responsibility, matching the product model
 * human admin creates a Safe
 * human admin creates an agent access key for that Safe
 * MCP registers to the existing Safe
-* MCP later authenticates and uses the shared Safe API surface
+* MCP later authenticates and uses the shared Safe API surface for agent memory, notes, checklists, and secrets
 
 ## Quick start
 
