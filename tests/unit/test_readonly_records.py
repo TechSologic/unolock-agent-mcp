@@ -87,6 +87,33 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         self.assertFalse(projected["writable"])
         self.assertEqual(projected["allowed_operations"], ["get_record"])
 
+    def test_string_false_record_ro_does_not_make_record_read_only(self) -> None:
+        self.session_store._auth_contexts["session-1"] = {"ro": False}
+        projected = self.client._project_record(
+            {
+                "id": 13,
+                "version": 1,
+                "recordTitle": "Writable note",
+                "recordBody": '{"ops":[{"insert":"Body\\n"}]}',
+                "pinned": False,
+                "isCbox": False,
+                "labels": [],
+                "ro": "false",
+            },
+            {
+                "id": "archive-2",
+                "sid": 101,
+                "m": {"spaceName": "Main"},
+            },
+            {},
+            session_id="session-1",
+        )
+
+        self.assertFalse(projected["read_only"])
+        self.assertFalse(projected["locked"])
+        self.assertTrue(projected["writable"])
+        self.assertIn("update_note", projected["allowed_operations"])
+
     def test_label_name_filtering_uses_lowercase_names(self) -> None:
         names = self.client._label_names(
             {

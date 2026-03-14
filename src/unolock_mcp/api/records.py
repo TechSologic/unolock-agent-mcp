@@ -136,12 +136,12 @@ class _UnoLockRecordsBase:
         session_id: str | None = None,
     ) -> dict[str, Any]:
         sid = self._coerce_sid(archive.get("sid"))
-        is_checklist = bool(record.get("isCbox"))
+        is_checklist = self._coerce_bool(record.get("isCbox"))
         archive_meta = archive.get("m") if isinstance(archive.get("m"), dict) else {}
         labels = record.get("labels") if isinstance(record.get("labels"), list) else []
         checklist_items = self._project_checklist_items(record.get("checkBoxes"))
         plain_text = self._record_plain_text(record, checklist_items)
-        read_only = bool(record.get("ro"))
+        read_only = self._coerce_bool(record.get("ro"))
         version = self._coerce_positive_int(record.get("version")) or 1
         session_can_write = self._session_can_write(session_id) if session_id else False
         writable = session_can_write and not read_only
@@ -181,7 +181,7 @@ class _UnoLockRecordsBase:
             except (TypeError, ValueError):
                 numeric_id = index
             text = self._strip_html(str(checkbox.get("data", "")))
-            done = bool(checkbox.get("done"))
+            done = self._coerce_bool(checkbox.get("done"))
             items.append(
                 {
                     "id": numeric_id,
@@ -313,7 +313,7 @@ class _UnoLockRecordsBase:
         auth_context = self._session_auth_context(session_id)
         if not auth_context:
             return False
-        return not bool(auth_context.get("ro"))
+        return not self._coerce_bool(auth_context.get("ro"))
 
     def _space_allowed_operations(self, *, writable: bool) -> list[str]:
         operations = ["list_records", "list_notes", "list_checklists"]
@@ -351,6 +351,19 @@ class _UnoLockRecordsBase:
         except (TypeError, ValueError):
             return None
         return number if number > 0 else None
+
+    def _coerce_bool(self, value: Any) -> bool:
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, (int, float)):
+            return value != 0
+        if isinstance(value, str):
+            normalized = value.strip().lower()
+            if normalized in {"", "0", "false", "no", "off", "null", "none"}:
+                return False
+            if normalized in {"1", "true", "yes", "on"}:
+                return True
+        return bool(value)
 
     def _label_names(self, projected_record: dict[str, Any]) -> set[str]:
         raw_labels = projected_record.get("labels")
@@ -592,9 +605,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             archive = write_context["archive"]
             target_record = self._require_record(body, record_id)
 
-            if bool(target_record.get("isCbox")):
+            if self._coerce_bool(target_record.get("isCbox")):
                 raise ValueError("operation_not_allowed: record_ref does not point to a note")
-            if bool(target_record.get("ro")):
+            if self._coerce_bool(target_record.get("ro")):
                 raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
@@ -646,7 +659,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             archive = write_context["archive"]
             target_record = self._require_record(body, record_id)
 
-            if bool(target_record.get("ro")):
+            if self._coerce_bool(target_record.get("ro")):
                 raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
@@ -698,9 +711,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             archive = write_context["archive"]
             target_record = self._require_record(body, record_id)
 
-            if not bool(target_record.get("isCbox")):
+            if not self._coerce_bool(target_record.get("isCbox")):
                 raise ValueError("operation_not_allowed: record_ref does not point to a checklist")
-            if bool(target_record.get("ro")):
+            if self._coerce_bool(target_record.get("ro")):
                 raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
@@ -984,7 +997,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             raise ValueError(
                 "operation_not_allowed: Write access is not confirmed for this session. Authenticate successfully before attempting writes."
             )
-        if bool(auth_context.get("ro")):
+        if self._coerce_bool(auth_context.get("ro")):
             raise ValueError(
                 "space_read_only: This agent has read-only access and cannot modify records in this Safe."
             )
@@ -997,9 +1010,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
     ) -> tuple[dict[str, Any], list[dict[str, Any]], int]:
         target_record = self._require_record(body, record_id)
 
-        if not bool(target_record.get("isCbox")):
+        if not self._coerce_bool(target_record.get("isCbox")):
             raise ValueError("operation_not_allowed: record_ref does not point to a checklist")
-        if bool(target_record.get("ro")):
+        if self._coerce_bool(target_record.get("ro")):
             raise ValueError("record_locked: This record is locked/read-only and cannot be modified.")
 
         current_version = self._coerce_positive_int(target_record.get("version")) or 1
