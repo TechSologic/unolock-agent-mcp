@@ -6,7 +6,12 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from unolock_mcp.runtime import configure_frozen_oqs_runtime
+from unolock_mcp.runtime import (
+    _platform_env_var,
+    _platform_lib_dir_name,
+    _platform_search_names,
+    configure_frozen_oqs_runtime,
+)
 
 
 class FrozenOqsRuntimeTest(unittest.TestCase):
@@ -21,7 +26,7 @@ class FrozenOqsRuntimeTest(unittest.TestCase):
             bundle_root = Path(tmpdir)
             libdir = bundle_root / "nested"
             libdir.mkdir(parents=True, exist_ok=True)
-            libfile = libdir / "liboqs.so"
+            libfile = libdir / _platform_search_names()[0]
             libfile.write_bytes(b"fake-oqs")
 
             with patch.dict(os.environ, {}, clear=True):
@@ -29,9 +34,9 @@ class FrozenOqsRuntimeTest(unittest.TestCase):
                     configure_frozen_oqs_runtime()
                     install_root = os.environ.get("OQS_INSTALL_PATH")
                     self.assertIsNotNone(install_root)
-                    runtime_copy = Path(install_root) / "lib" / "liboqs.so"
+                    runtime_copy = Path(install_root) / _platform_lib_dir_name() / libfile.name
                     self.assertTrue(runtime_copy.exists())
-                    self.assertIn(str(runtime_copy.parent), os.environ.get("LD_LIBRARY_PATH", ""))
+                    self.assertIn(str(runtime_copy.parent), os.environ.get(_platform_env_var(), ""))
 
 
 if __name__ == "__main__":
