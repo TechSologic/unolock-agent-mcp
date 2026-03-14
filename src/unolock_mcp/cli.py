@@ -209,7 +209,7 @@ def main(argv: list[str] | None = None) -> int:
                 "servers": {
                     "unolock-agent": {
                         "command": "npx",
-                        "args": ["@techsologic/unolock-agent-mcp"],
+                        "args": ["@techsologic/unolock-agent-mcp@latest"],
                         "lifecycle": "keep-alive",
                     }
                 }

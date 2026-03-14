@@ -50,7 +50,7 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 The preferred path is:
 
 1. run the MCP through `mcporter` or another keep-alive runner when available
-2. use `npx @techsologic/unolock-agent-mcp` as the MCP command
+2. use `npx @techsologic/unolock-agent-mcp@latest` as the MCP command
 3. keep the MCP warm between interactions so the user PIN can stay in MCP process memory instead of being stored persistently
 
 If you need the public-facing explanation of this path, see:
@@ -68,7 +68,7 @@ Download from:
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
 ```bash
-npx @techsologic/unolock-agent-mcp --version
+npx @techsologic/unolock-agent-mcp@latest --version
 ```
 
 The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
@@ -86,13 +86,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx @techsologic/unolock-agent-mcp mcp
+npx @techsologic/unolock-agent-mcp@latest mcp
 ```
 
 With no arguments, the npm wrapper starts the MCP server by default:
 
 ```bash
-npx @techsologic/unolock-agent-mcp
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 Preferred `mcporter` keep-alive example:
@@ -102,7 +102,7 @@ Preferred `mcporter` keep-alive example:
   "servers": {
     "unolock-agent": {
       "command": "npx",
-      "args": ["@techsologic/unolock-agent-mcp"],
+      "args": ["@techsologic/unolock-agent-mcp@latest"],
       "lifecycle": "keep-alive"
     }
   }
@@ -132,9 +132,10 @@ Or through the MCP:
 
 Preferred behavior by channel:
 
-* `mcporter` + `npx @techsologic/unolock-agent-mcp`
+* `mcporter` + `npx @techsologic/unolock-agent-mcp@latest`
   * preferred path
   * runner restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
+  * npm publishing is only needed when the wrapper itself changes
 * direct GitHub Release binary
   * download the latest binary, replace the current executable, restart the runner
 * source/Python install

@@ -202,7 +202,7 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(result, 0)
         payload = json.loads(print_mock.call_args.args[0])
         self.assertEqual(payload["servers"]["unolock-agent"]["command"], "npx")
-        self.assertEqual(payload["servers"]["unolock-agent"]["args"], ["@techsologic/unolock-agent-mcp"])
+        self.assertEqual(payload["servers"]["unolock-agent"]["args"], ["@techsologic/unolock-agent-mcp@latest"])
         self.assertEqual(payload["servers"]["unolock-agent"]["lifecycle"], "keep-alive")
 
     def test_mcporter_config_binary_mode_uses_binary_path(self) -> None:

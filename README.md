@@ -75,9 +75,9 @@ Agent-first onboarding site:
 
 Recommended customer install source:
 
-* `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp` when available
+* `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp@latest` when available
 * GitHub Releases binaries
-* `npx @techsologic/unolock-agent-mcp` as the Node/npm wrapper path
+* `npx @techsologic/unolock-agent-mcp@latest` as the Node/npm wrapper path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -174,7 +174,7 @@ That avoids most of the Python packaging and source-build overhead for customers
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
 ```bash
-npx @techsologic/unolock-agent-mcp --version
+npx @techsologic/unolock-agent-mcp@latest --version
 ```
 
 The wrapper downloads the correct GitHub Release binary for the current platform on first use and then reuses the cached copy.
@@ -192,13 +192,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx @techsologic/unolock-agent-mcp mcp
+npx @techsologic/unolock-agent-mcp@latest mcp
 ```
 
 With no arguments, the npm wrapper starts the MCP server by default:
 
 ```bash
-npx @techsologic/unolock-agent-mcp
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 Preferred keep-alive example with `mcporter`:
@@ -208,7 +208,7 @@ Preferred keep-alive example with `mcporter`:
   "servers": {
     "unolock-agent": {
       "command": "npx",
-      "args": ["@techsologic/unolock-agent-mcp"],
+      "args": ["@techsologic/unolock-agent-mcp@latest"],
       "lifecycle": "keep-alive"
     }
   }
@@ -237,9 +237,10 @@ Or, through the MCP itself, call:
 
 Preferred channel behavior:
 
-* `mcporter` + `npx @techsologic/unolock-agent-mcp`
+* `mcporter` + `npx @techsologic/unolock-agent-mcp@latest`
   * preferred low-friction path
   * on restart, the npm wrapper checks GitHub Releases and can fetch the latest stable binary
+  * npm publishing is only needed when the wrapper itself changes
 * direct GitHub Release binary
   * replace the binary manually, then restart the MCP runner
 * Python package install

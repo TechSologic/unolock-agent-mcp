@@ -77,7 +77,7 @@ Notes:
 
 * UnoLock Agent MCP should normally be updated by its wrapper or runner, not by the live MCP process replacing itself mid-session.
 * Prefer checking between tasks, not during an active registration, authentication, or sensitive write flow.
-* The preferred low-friction path is `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp`.
+* The preferred low-friction path is `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp@latest`.
 
 ## Explanatory Resources
 

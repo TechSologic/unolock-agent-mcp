@@ -332,7 +332,7 @@ def create_mcp_server() -> FastMCP:
                 "server replacing itself mid-session."
             ),
             "preferred_path": [
-                "Prefer mcporter keep-alive plus `npx @techsologic/unolock-agent-mcp` when available.",
+                "Prefer mcporter keep-alive plus `npx @techsologic/unolock-agent-mcp@latest` when available.",
                 "Use `unolock_get_update_status` or `unolock-agent-mcp check-update` to see whether a newer release exists.",
                 "If an update is available, restart the runner between tasks so the wrapper or binary can be replaced cleanly.",
             ],

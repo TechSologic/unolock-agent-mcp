@@ -38,7 +38,7 @@ Checked against the official host docs on 2026-03-08:
 The preferred mode is:
 
 * use `mcporter` or another keep-alive runner when it is available
-* launch the MCP through `npx @techsologic/unolock-agent-mcp`
+* launch the MCP through `npx @techsologic/unolock-agent-mcp@latest`
 * keep the MCP alive so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
@@ -48,7 +48,7 @@ For customer use, prefer a standalone GitHub Release binary:
 If you are integrating with a Node/npm-oriented host, you can also use:
 
 ```bash
-npx @techsologic/unolock-agent-mcp --version
+npx @techsologic/unolock-agent-mcp@latest --version
 ```
 
 This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock MCP binary.

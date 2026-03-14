@@ -32,7 +32,7 @@ Using a keep-alive runner such as `mcporter` gives you:
 The npm package:
 
 ```bash
-npx @techsologic/unolock-agent-mcp
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 is an easy way to launch the external UnoLock MCP binary.
@@ -62,7 +62,7 @@ Example:
   "servers": {
     "unolock-agent": {
       "command": "npx",
-      "args": ["@techsologic/unolock-agent-mcp"],
+      "args": ["@techsologic/unolock-agent-mcp@latest"],
       "lifecycle": "keep-alive"
     }
   }
@@ -92,7 +92,7 @@ Without keep-alive:
 `mcporter` is also the preferred update path when you launch UnoLock through:
 
 ```bash
-npx @techsologic/unolock-agent-mcp
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 Why:
