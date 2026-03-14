@@ -2,6 +2,11 @@
 
 This document shows the current easiest way to run the UnoLock agent MCP in real MCP hosts.
 
+For the public agent-first onboarding flow, see:
+
+* `https://unolock.ai/index.html`
+* `https://unolock.ai/install-mcp.html`
+
 If you need the underlying UnoLock product concepts first, see:
 
 * UnoLock Knowledge Base: `https://docs.unolock.com/index.html`
@@ -30,6 +35,12 @@ Checked against the official host docs on 2026-03-08:
 
 ## Recommended install mode
 
+The preferred mode is:
+
+* use `mcporter` or another keep-alive runner when it is available
+* launch the MCP through `npx @techsologic/unolock-agent-mcp`
+* keep the MCP alive so the user PIN can remain in MCP process memory instead of being persisted by the agent
+
 For customer use, prefer a standalone GitHub Release binary:
 
 * `https://github.com/TechSologic/unolock-agent-mcp/releases`
@@ -50,11 +61,11 @@ Project home:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
-If you want to keep the UnoLock MCP alive between interactions instead of relaunching it repeatedly, see:
+If you want the preferred keep-alive path instead of relaunching the MCP repeatedly, see:
 
 * [mcporter keep-alive setup](mcporter.md)
 
-This is especially useful for UnoLock because the user PIN is kept only in MCP process memory. A keep-alive runner lets the agent continue working without repeatedly asking the user for the PIN while that MCP process stays alive.
+This is especially useful for UnoLock because the user PIN is kept only in MCP process memory. A keep-alive runner lets the agent continue working without repeatedly asking the user for the PIN while that MCP process stays alive, and reduces pressure to store that PIN persistently.
 
 You can print a ready-to-paste `mcporter` config with:
 

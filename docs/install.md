@@ -4,6 +4,11 @@ This guide explains the recommended ways for customers to install the UnoLock Ag
 
 UnoLock Agent MCP is currently in alpha. The install flow is available for evaluation and early testing, but it is not ready for broad production rollout yet.
 
+If you want the current public agent-first onboarding path, start with:
+
+* `https://unolock.ai/index.html`
+* `https://unolock.ai/install-mcp.html`
+
 ## Security Requirement
 
 UnoLock Agent MCP is intended for high-security AI access to Safe data.
@@ -42,6 +47,16 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 ## Recommended Customer Install
 
+The preferred path is:
+
+1. run the MCP through `mcporter` or another keep-alive runner when available
+2. use `npx @techsologic/unolock-agent-mcp` as the MCP command
+3. keep the MCP warm between interactions so the user PIN can stay in MCP process memory instead of being stored persistently
+
+If you need the public-facing explanation of this path, see:
+
+* `https://unolock.ai/install-mcp.html`
+
 For most customers, prefer a standalone GitHub Release binary for your platform.
 
 That avoids most local Python packaging and source-build overhead.
@@ -76,6 +91,26 @@ With no arguments, the npm wrapper starts the MCP server by default:
 
 ```bash
 npx @techsologic/unolock-agent-mcp
+```
+
+Preferred `mcporter` keep-alive example:
+
+```json
+{
+  "servers": {
+    "unolock-agent": {
+      "command": "npx",
+      "args": ["@techsologic/unolock-agent-mcp"],
+      "lifecycle": "keep-alive"
+    }
+  }
+}
+```
+
+If you already have a Python/source install and want a generated helper output:
+
+```bash
+python3 -m unolock_mcp mcporter-config
 ```
 
 Expected artifact names:

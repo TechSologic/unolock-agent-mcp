@@ -66,8 +66,16 @@ Official GitHub repository:
 * `https://github.com/TechSologic/unolock-agent-mcp`
 * Releases: `https://github.com/TechSologic/unolock-agent-mcp/releases`
 
+Agent-first onboarding site:
+
+* `https://unolock.ai/index.html`
+* `https://unolock.ai/install-mcp.html`
+* `https://unolock.ai/connect-agent.html`
+* `https://unolock.ai/agent-explanation-kit.html`
+
 Recommended customer install source:
 
+* `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp` when available
 * GitHub Releases binaries
 * `npx @techsologic/unolock-agent-mcp` as the Node/npm wrapper path
 * `pipx install` as the fallback source install path when no release binary is available yet
@@ -82,7 +90,8 @@ If you are new to UnoLock itself, start with these docs first:
 
 Prerequisite:
 
-* Spaces and Agent Keys require the UnoLock Sovereign tier.
+* Free and Inheritance can share their single included Safe space with one extra Agent Key.
+* Sovereign and HighRisk are still the right tiers for broader multi-Space and collaboration-heavy agent workflows.
 
 The current MCP proves the hardest integration seam first:
 
@@ -125,7 +134,7 @@ For real MCP hosts, see:
 * [mcporter example](examples/mcporter.json)
 * [Config file example](examples/unolock-agent-config.json)
 
-`mcporter` is especially useful for UnoLock because the user PIN is kept only in MCP process memory. Keeping the MCP alive means the agent does not need to keep asking the user for the PIN while that process remains running.
+`mcporter` is the preferred path when it is available. The user PIN is kept only in MCP process memory, so keeping the MCP alive means lower latency, fewer repeat PIN prompts, and less pressure for the agent to store the PIN persistently.
 
 If you prefer manual install from source:
 
@@ -151,6 +160,12 @@ The first `liboqs-python` run may build or locate `liboqs` under your home direc
 For the best customer experience, prefer GitHub Release binaries over source installs. Source installs still depend on the local `liboqs-python` / `liboqs` environment.
 
 ## Preferred Customer Install
+
+When available, prefer `mcporter` keep-alive plus the npm wrapper or release binary instead of a cold-start bare MCP process.
+
+For an agent-first public onboarding flow, send users or agents to:
+
+* `https://unolock.ai/index.html`
 
 When available, prefer the standalone GitHub Release binaries instead of installing from Git.
 
@@ -182,6 +197,20 @@ With no arguments, the npm wrapper starts the MCP server by default:
 
 ```bash
 npx @techsologic/unolock-agent-mcp
+```
+
+Preferred keep-alive example with `mcporter`:
+
+```json
+{
+  "servers": {
+    "unolock-agent": {
+      "command": "npx",
+      "args": ["@techsologic/unolock-agent-mcp"],
+      "lifecycle": "keep-alive"
+    }
+  }
+}
 ```
 
 ## Standalone config

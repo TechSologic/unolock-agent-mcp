@@ -2,6 +2,12 @@
 
 `mcporter` is a good way to run UnoLock Agent MCP as a persistent external MCP server instead of spawning a fresh process for every interaction.
 
+It is also the preferred path when it is available.
+
+For the public agent-first explanation of this choice, see:
+
+* `https://unolock.ai/install-mcp.html`
+
 That matters for UnoLock because the MCP keeps useful state in memory while it is running:
 
 * in-memory session state

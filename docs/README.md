@@ -2,6 +2,18 @@
 
 This directory should hold MCP-specific design and implementation documentation.
 
+For the current public agent-first onboarding story, start with:
+
+* `https://unolock.ai/index.html`
+* `https://unolock.ai/install-mcp.html`
+* `https://unolock.ai/connect-agent.html`
+* `https://unolock.ai/agent-explanation-kit.html`
+
+For canonical product behavior and setup details, use:
+
+* `https://docs.unolock.com/features/agentic-safe-access.html`
+* `https://docs.unolock.com/howto/connecting-an-ai-agent.html`
+
 Examples:
 
 * provider support matrix
