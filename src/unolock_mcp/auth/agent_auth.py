@@ -141,6 +141,9 @@ class AgentAuthClient:
         validation_error = self._validate_agent_connection_url(parsed)
         if validation_error is not None:
             return validation_error
+        replacement = self._replace_local_registration_state_for_new_connection_url()
+        if replacement is not None:
+            return replacement
         if parsed.passphrase and parsed.access_id:
             self._store_protected_bootstrap_secret(parsed.access_id, parsed.passphrase)
         self._store_registration_material(parsed)
@@ -151,6 +154,67 @@ class AgentAuthClient:
         if warning is not None:
             summary["security_warning"] = warning
         return summary
+
+    def _replace_local_registration_state_for_new_connection_url(self) -> dict[str, Any] | None:
+        registration = self._load_registration()
+        access_ids: set[str] = set()
+        key_ids: set[str] = set()
+
+        if registration.access_id:
+            access_ids.add(registration.access_id)
+        if registration.connection_url and registration.connection_url.access_id:
+            access_ids.add(registration.connection_url.access_id)
+
+        material = self._load_registration_material()
+        if material and material.get("access_id"):
+            access_ids.add(material["access_id"])
+
+        if registration.key_id:
+            key_ids.add(registration.key_id)
+        for access_id in access_ids:
+            key_ids.add(self._resolve_key_id(registration, access_id))
+
+        errors: list[str] = []
+        for key_id in key_ids:
+            if not key_id or key_id == "unolock-agent":
+                continue
+            try:
+                self._tpm.delete_key(key_id)
+            except Exception as exc:
+                errors.append(f"Failed to delete local key '{key_id}': {exc}")
+
+        for access_id in access_ids:
+            for secret_id in (self._bootstrap_secret_id(access_id), self._aidk_secret_id(access_id)):
+                try:
+                    self._tpm.delete_secret(secret_id)
+                except Exception as exc:
+                    errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
+            self._pending_server_keys.pop(access_id, None)
+            self._pending_client_data_keys.pop(access_id, None)
+            self._data_keyrings.pop(access_id, None)
+
+        for secret_id in (self._registration_material_secret_id(), self._registered_access_id_secret_id()):
+            try:
+                self._tpm.delete_secret(secret_id)
+            except Exception as exc:
+                errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
+
+        if errors:
+            return {
+                "ok": False,
+                "blocked": True,
+                "reason": "local_registration_reset_failed",
+                "message": (
+                    "The MCP could not fully clear the previous local UnoLock agent registration before "
+                    "accepting the new Agent Key URL."
+                ),
+                "errors": errors,
+            }
+
+        self._agent_pin = None
+        self._session_store.clear()
+        self._registration_store.reset()
+        return None
 
     def secure_registration_material(self) -> dict[str, Any]:
         registration = self._load_registration()

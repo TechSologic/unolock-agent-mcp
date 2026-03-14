@@ -146,6 +146,55 @@ class CliEntryPointTest(unittest.TestCase):
         flow_client_cls.assert_called_once()
         agent_auth_cls.return_value.set_flow_client.assert_called_once_with(flow_client_cls.return_value)
 
+    def test_bootstrap_list_records_uses_session_store_for_record_writeability(self) -> None:
+        registration = RegistrationState(
+            registered=True,
+            registration_mode="registered",
+            api_base_url="http://127.0.0.1:3000",
+            transparency_origin="http://localhost:4200",
+            app_version="0.20.21",
+            signing_public_key_b64="pq-key",
+        )
+
+        with patch.object(cli, "RegistrationStore") as registration_store_cls:
+            with patch.object(cli, "load_unolock_config") as load_config:
+                with patch.object(cli, "resolve_unolock_config") as resolve_config:
+                    with patch.object(cli, "UnoLockFlowClient") as flow_client_cls:
+                        with patch.object(cli, "AgentAuthClient") as agent_auth_cls:
+                            with patch.object(cli, "UnoLockApiClient") as api_client_cls:
+                                with patch.object(cli, "UnoLockReadonlyRecordsClient") as records_client_cls:
+                                    with patch("builtins.print"):
+                                        registration_store_cls.return_value.load.return_value = registration
+                                        load_config.return_value = SimpleNamespace(
+                                            base_url="http://127.0.0.1:3000",
+                                            app_version="0.1.0",
+                                            signing_public_key_b64="abc",
+                                        )
+                                        resolve_config.return_value = SimpleNamespace(
+                                            base_url="http://127.0.0.1:3000",
+                                            transparency_origin="http://localhost:4200",
+                                            app_version="0.20.21",
+                                            signing_public_key_b64="pq-key",
+                                        )
+                                        agent_auth = agent_auth_cls.return_value
+                                        agent_auth.authenticate_registered_agent.return_value = {
+                                            "ok": True,
+                                            "authorized": True,
+                                            "session": {"session_id": "session-1"},
+                                        }
+                                        records_client_cls.return_value.list_records.return_value = {"count": 0, "records": []}
+
+                                        result = cli.main(["bootstrap", "--list-records"])
+
+        self.assertEqual(result, 0)
+        session_store = api_client_cls.call_args.args[1]
+        records_client_cls.assert_called_once_with(
+            api_client_cls.return_value,
+            agent_auth_cls.return_value,
+            session_store,
+        )
+        records_client_cls.return_value.list_records.assert_called_once_with("session-1")
+
     def test_mcporter_config_defaults_to_npm_keep_alive(self) -> None:
         with patch("builtins.print") as print_mock:
             result = cli.main(["mcporter-config"])

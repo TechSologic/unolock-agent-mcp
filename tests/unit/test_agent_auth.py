@@ -163,6 +163,59 @@ class AgentAuthClientTest(unittest.TestCase):
             )
             self.assertEqual(summary["security_warning"]["reason"], "insecure_tpm_provider")
 
+    def test_submit_connection_url_replaces_previous_local_registration_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir) / "tpm")
+            dao.create_key("agent-old-access")
+            dao.store_secret("bootstrap-old-access", b"pp:old-bootstrap")
+            dao.store_secret("aidk-old-access", b"old-aidk")
+            dao.store_secret("registered-access-id", b"old-access")
+            dao.store_secret(
+                "registration-material",
+                json.dumps({"access_id": "old-access", "registration_code": "old-code"}).encode("utf8"),
+            )
+            store = RegistrationStore(Path(tmpdir) / "registration.json")
+            store.save(
+                RegistrationState(
+                    registered=True,
+                    registration_mode="registered",
+                    access_id="old-access",
+                    key_id="agent-old-access",
+                    tpm_provider="software",
+                )
+            )
+            session_store = SessionStore()
+            session_store.put(
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentAccess",
+                    state="state",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="GetPin"),
+                )
+            )
+            client = AgentAuthClient(Mock(), session_store, store, tpm_dao=dao)
+            client.set_agent_pin("1111")
+
+            summary = client.submit_connection_url(
+                "http://localhost:4200/#/agent-register/"
+                "bmV3LWFjY2Vzcw/bmV3LWNvZGU/cHA6bmV3LWJvb3RzdHJhcA"
+            )
+
+            self.assertTrue(summary["has_connection_url"])
+            self.assertEqual(store.load().registration_mode, "pending_connection_url")
+            self.assertIsNone(dao.load_secret("registered-access-id"))
+            self.assertIsNone(dao.load_secret("bootstrap-old-access"))
+            self.assertIsNone(dao.load_secret("aidk-old-access"))
+            self.assertEqual(
+                json.loads(dao.load_secret("registration-material").decode("utf8")),
+                {"access_id": "new-access", "registration_code": "new-code"},
+            )
+            with self.assertRaises(KeyError):
+                dao.get_public_key("agent-old-access")
+            self.assertEqual(session_store.list(), [])
+            self.assertFalse(client.runtime_status()["has_agent_pin"])
+
     def test_submit_connection_url_rejects_regular_register_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))

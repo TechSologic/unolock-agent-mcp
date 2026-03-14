@@ -263,7 +263,7 @@ def main(argv: list[str] | None = None) -> int:
             and result.get("session", {}).get("session_id")
         ):
             api_client = UnoLockApiClient(flow_client, session_store)
-            records_client = UnoLockReadonlyRecordsClient(api_client, agent_auth)
+            records_client = UnoLockReadonlyRecordsClient(api_client, agent_auth, session_store)
             result["records"] = records_client.list_records(result["session"]["session_id"])
         print(json.dumps(result, indent=2))
         return 0 if result.get("ok") and result.get("authorized") else 1
