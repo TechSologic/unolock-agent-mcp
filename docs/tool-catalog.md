@@ -14,6 +14,7 @@ If the user asks what UnoLock is, why the MCP needs a connection URL, why it may
 
 * `unolock://usage/about`
 * `unolock://usage/security-model`
+* `unolock://usage/updates`
 
 Primary tools for first-time agent use:
 
@@ -64,6 +65,20 @@ Typical `recommended_next_action` values:
 
 The `explanation_resources` field points to MCP resources the agent can read when it needs authoritative user-facing language about UnoLock, Agent Keys, enrollment URLs, PINs, and assurance tradeoffs.
 
+### `unolock_get_update_status`
+
+Purpose:
+Check the installed UnoLock Agent MCP version against the latest GitHub Release and return runner-specific update guidance.
+
+Arguments:
+None.
+
+Notes:
+
+* UnoLock Agent MCP should normally be updated by its wrapper or runner, not by the live MCP process replacing itself mid-session.
+* Prefer checking between tasks, not during an active registration, authentication, or sensitive write flow.
+* The preferred low-friction path is `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp`.
+
 ## Explanatory Resources
 
 ### `unolock://usage/about`
@@ -93,6 +108,11 @@ Typical use:
 
 Purpose:
 Return the preferred short MCP happy path for first-time agent use.
+
+### `unolock://usage/updates`
+
+Purpose:
+Return concise guidance for how UnoLock Agent MCP updates should be checked and applied without pushing the agent toward unsafe in-place self-replacement.
 
 ### `unolock_get_tpm_diagnostics`
 

@@ -67,6 +67,15 @@ If you want the preferred keep-alive path instead of relaunching the MCP repeate
 
 This is especially useful for UnoLock because the user PIN is kept only in MCP process memory. A keep-alive runner lets the agent continue working without repeatedly asking the user for the PIN while that MCP process stays alive, and reduces pressure to store that PIN persistently.
 
+For updates, the preferred pattern is:
+
+* check status with `unolock_get_update_status` or `unolock-agent-mcp check-update`
+* let the current task finish
+* restart the runner
+* let the npm wrapper or replacement binary apply the update between tasks
+
+Do not expect the live MCP process to replace itself in place.
+
 You can print a ready-to-paste `mcporter` config with:
 
 ```bash

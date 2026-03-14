@@ -7,6 +7,7 @@ from pathlib import Path
 from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.domain.models import RegistrationState
+
 from unolock_mcp.mcp.server import _registration_status_payload, _write_error_response
 
 
@@ -66,8 +67,10 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("unolock_get_registration_status", payload["primary_tools"])
             self.assertIn("unolock_list_records", payload["primary_tools"])
             self.assertIn("unolock_call_api", payload["advanced_tools"])
+            self.assertIn("unolock_get_update_status", payload["advanced_tools"])
             self.assertIn("unolock://usage/about", payload["explanation_resources"])
             self.assertIn("unolock://usage/security-model", payload["explanation_resources"])
+            self.assertIn("unolock://usage/updates", payload["explanation_resources"])
 
     def test_unregistered_agent_without_connection_url_requests_agent_key_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -73,6 +73,8 @@ npx @techsologic/unolock-agent-mcp --version
 
 The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
 
+On restart, the npm wrapper checks GitHub Releases for a newer stable binary and can update its cached binary between tasks.
+
 The npm package is an OpenClaw-friendly install and launch path for the external UnoLock MCP binary.
 
 It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
@@ -106,6 +108,43 @@ Preferred `mcporter` keep-alive example:
   }
 }
 ```
+
+## Updates
+
+UnoLock Agent MCP updates should normally be handled by the install channel or runner, not by the live MCP process replacing itself mid-session.
+
+Recommended update flow:
+
+1. check update status
+2. finish the current task or flow
+3. restart the MCP runner
+4. let the wrapper, binary replacement, or package manager apply the update
+
+Check update status locally:
+
+```bash
+unolock-agent-mcp check-update --json
+```
+
+Or through the MCP:
+
+* `unolock_get_update_status`
+
+Preferred behavior by channel:
+
+* `mcporter` + `npx @techsologic/unolock-agent-mcp`
+  * preferred path
+  * runner restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
+* direct GitHub Release binary
+  * download the latest binary, replace the current executable, restart the runner
+* source/Python install
+  * upgrade the Python package in the environment that launches the MCP, restart the runner
+
+Do not update in the middle of:
+
+* active registration/authentication
+* a sensitive write flow
+* a task that depends on the current in-memory PIN remaining available
 
 If you already have a Python/source install and want a generated helper output:
 

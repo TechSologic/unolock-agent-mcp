@@ -87,6 +87,29 @@ Without keep-alive:
 * cold-start overhead increases
 * in-memory state is lost between requests
 
+## Updates with mcporter
+
+`mcporter` is also the preferred update path when you launch UnoLock through:
+
+```bash
+npx @techsologic/unolock-agent-mcp
+```
+
+Why:
+
+* the MCP stays warm between interactions
+* on restart, the npm wrapper can check GitHub Releases for a newer stable binary
+* the user PIN can stay in MCP memory during normal use, without pushing the agent toward persistent PIN storage
+
+Recommended pattern:
+
+1. call `unolock_get_update_status` or run `unolock-agent-mcp check-update`
+2. wait until the current task is finished
+3. restart the `mcporter` server
+4. let the wrapper fetch the latest stable binary if one is available
+
+Do not try to update the running MCP process in place.
+
 ## Security note
 
 Using `mcporter` keep-alive does **not** change the main UnoLock security model:

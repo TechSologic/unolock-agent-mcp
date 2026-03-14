@@ -15,6 +15,7 @@ from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.config import default_config_path, load_unolock_config, resolve_unolock_config
 from unolock_mcp.domain.models import UnoLockConfig
 from unolock_mcp.mcp.server import create_mcp_server
+from unolock_mcp.update import get_update_status
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -105,6 +106,16 @@ def build_parser() -> argparse.ArgumentParser:
         default="unolock-agent-mcp",
         help="Binary path to use when --mode=binary.",
     )
+
+    update_parser = subparsers.add_parser(
+        "check-update",
+        help="Check whether a newer UnoLock Agent MCP release is available.",
+        description=(
+            "Check the installed UnoLock Agent MCP version against the latest GitHub Release and print "
+            "runner-specific update guidance."
+        ),
+    )
+    update_parser.add_argument("--json", action="store_true", help="Print the update status as JSON.")
 
     subparsers.add_parser(
         "config-check",
@@ -204,6 +215,17 @@ def main(argv: list[str] | None = None) -> int:
                 }
             }
         print(json.dumps(payload, indent=2))
+        return 0
+
+    if command == "check-update":
+        payload = get_update_status()
+        if getattr(args, "json", False):
+            print(json.dumps(payload, indent=2))
+        else:
+            status = "UPDATE_AVAILABLE" if payload.get("update_available") else "UP_TO_DATE"
+            if payload.get("ok") is False:
+                status = "UNKNOWN"
+            print(f"{status}: {payload.get('recommended_action')}")
         return 0
 
     def resolve_runtime_config(registration_store: RegistrationStore) -> UnoLockConfig:

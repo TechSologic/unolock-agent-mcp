@@ -8,8 +8,9 @@ const https = require("https");
 const { spawn } = require("child_process");
 
 const PACKAGE_VERSION = "0.1.13";
-const BINARY_VERSION = "0.1.11";
+const FALLBACK_BINARY_VERSION = "0.1.11";
 const REPO = "TechSologic/unolock-agent-mcp";
+const RELEASE_CHECK_TTL_MS = 6 * 60 * 60 * 1000;
 
 function platformAssetInfo() {
   const platform = process.platform;
@@ -36,17 +37,21 @@ function cacheRoot() {
   return process.env.XDG_CACHE_HOME || path.join(os.homedir(), ".cache");
 }
 
-function binaryPath() {
-  const { executable } = platformAssetInfo();
-  return path.join(cacheRoot(), "unolock-agent-mcp", BINARY_VERSION, executable);
+function metadataPath() {
+  return path.join(cacheRoot(), "unolock-agent-mcp", "release.json");
 }
 
-function binaryUrl() {
+function binaryPath(releaseVersion) {
+  const { executable } = platformAssetInfo();
+  return path.join(cacheRoot(), "unolock-agent-mcp", releaseVersion, executable);
+}
+
+function binaryUrl(releaseVersion) {
   if (process.env.UNOLOCK_AGENT_MCP_BINARY_URL) {
     return process.env.UNOLOCK_AGENT_MCP_BINARY_URL;
   }
   const { asset } = platformAssetInfo();
-  return `https://github.com/${REPO}/releases/download/v${BINARY_VERSION}/${asset}`;
+  return `https://github.com/${REPO}/releases/download/v${releaseVersion}/${asset}`;
 }
 
 function ensureDir(dir) {
@@ -95,23 +100,135 @@ function fetchToFile(url, dest) {
   });
 }
 
+function fetchJson(url) {
+  return new Promise((resolve, reject) => {
+    const request = https.get(
+      url,
+      {
+        headers: {
+          "Accept": "application/vnd.github+json",
+          "User-Agent": "unolock-agent-mcp-npm-wrapper"
+        }
+      },
+      (response) => {
+        if (response.statusCode >= 300 && response.statusCode < 400 && response.headers.location) {
+          response.resume();
+          fetchJson(response.headers.location).then(resolve, reject);
+          return;
+        }
+        if (response.statusCode !== 200) {
+          response.resume();
+          reject(new Error(`Failed to query UnoLock Agent MCP latest release: HTTP ${response.statusCode}`));
+          return;
+        }
+        let body = "";
+        response.setEncoding("utf8");
+        response.on("data", (chunk) => {
+          body += chunk;
+        });
+        response.on("end", () => {
+          try {
+            resolve(JSON.parse(body));
+          } catch (error) {
+            reject(error);
+          }
+        });
+      }
+    );
+    request.on("error", reject);
+  });
+}
+
+function normalizeVersion(value) {
+  if (!value || typeof value !== "string") {
+    return null;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return trimmed.startsWith("v") ? trimmed.slice(1) : trimmed;
+}
+
+function readReleaseMetadata() {
+  try {
+    return JSON.parse(fs.readFileSync(metadataPath(), "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeReleaseMetadata(releaseVersion) {
+  ensureDir(path.dirname(metadataPath()));
+  fs.writeFileSync(
+    metadataPath(),
+    JSON.stringify(
+      {
+        releaseVersion,
+        checkedAt: Date.now()
+      },
+      null,
+      2
+    ),
+    "utf8"
+  );
+}
+
+async function resolveReleaseVersion() {
+  const override = normalizeVersion(process.env.UNOLOCK_AGENT_MCP_BINARY_VERSION);
+  if (override) {
+    return override;
+  }
+  const metadata = readReleaseMetadata();
+  if (
+    metadata &&
+    typeof metadata.releaseVersion === "string" &&
+    typeof metadata.checkedAt === "number" &&
+    Date.now() - metadata.checkedAt < RELEASE_CHECK_TTL_MS &&
+    fs.existsSync(binaryPath(metadata.releaseVersion))
+  ) {
+    return metadata.releaseVersion;
+  }
+  try {
+    const payload = await fetchJson(`https://api.github.com/repos/${REPO}/releases/latest`);
+    const latest = normalizeVersion(payload && payload.tag_name);
+    if (latest) {
+      writeReleaseMetadata(latest);
+      return latest;
+    }
+  } catch (error) {
+    if (metadata && typeof metadata.releaseVersion === "string" && fs.existsSync(binaryPath(metadata.releaseVersion))) {
+      return metadata.releaseVersion;
+    }
+    process.stderr.write(`Warning: ${error.message}. Falling back to bundled release ${FALLBACK_BINARY_VERSION}.\n`);
+  }
+  writeReleaseMetadata(FALLBACK_BINARY_VERSION);
+  return FALLBACK_BINARY_VERSION;
+}
+
 async function ensureBinary() {
-  const dest = binaryPath();
+  const releaseVersion = await resolveReleaseVersion();
+  const dest = binaryPath(releaseVersion);
   if (fs.existsSync(dest)) {
-    return dest;
+    return { dest, releaseVersion };
   }
   ensureDir(path.dirname(dest));
-  process.stderr.write(`Downloading UnoLock Agent MCP ${BINARY_VERSION} for ${process.platform}/${process.arch}...\n`);
-  await fetchToFile(binaryUrl(), dest);
-  return dest;
+  process.stderr.write(`Downloading UnoLock Agent MCP ${releaseVersion} for ${process.platform}/${process.arch}...\n`);
+  await fetchToFile(binaryUrl(releaseVersion), dest);
+  return { dest, releaseVersion };
 }
 
 async function main() {
-  const dest = await ensureBinary();
+  const { dest, releaseVersion } = await ensureBinary();
   const forwardedArgs = process.argv.length > 2 ? process.argv.slice(2) : ["mcp"];
   const child = spawn(dest, forwardedArgs, {
     stdio: "inherit",
-    env: process.env
+    env: {
+      ...process.env,
+      UNOLOCK_AGENT_MCP_INSTALL_CHANNEL: "npm-wrapper",
+      UNOLOCK_AGENT_MCP_WRAPPER_VERSION: PACKAGE_VERSION,
+      UNOLOCK_AGENT_MCP_BINARY_VERSION: releaseVersion
+    }
   });
   child.on("exit", (code, signal) => {
     if (signal) {

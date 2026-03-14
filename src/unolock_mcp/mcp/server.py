@@ -13,6 +13,7 @@ from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.config import resolve_unolock_config
 from unolock_mcp.domain.models import UnoLockConfig
+from unolock_mcp.update import get_update_status
 
 
 def _write_error_response(exc: Exception) -> dict[str, Any]:
@@ -136,6 +137,7 @@ def _registration_status_payload(
     ]
     advanced_tools = [
         "unolock_probe_local_server",
+        "unolock_get_update_status",
         "unolock_start_flow",
         "unolock_continue_flow",
         "unolock_get_session",
@@ -161,6 +163,7 @@ def _registration_status_payload(
             "unolock://usage/quickstart",
             "unolock://usage/about",
             "unolock://usage/security-model",
+            "unolock://usage/updates",
         ],
         "workflow_summary": [
             "Check registration status first.",
@@ -316,6 +319,36 @@ def create_mcp_server() -> FastMCP:
             ],
         }
 
+    @server.resource(
+        "unolock://usage/updates",
+        name="UnoLock MCP Updates",
+        description="Agent-safe guidance for how UnoLock Agent MCP updates should be checked and applied.",
+        mime_type="application/json",
+    )
+    def updates_resource() -> dict[str, Any]:
+        return {
+            "summary": (
+                "UnoLock Agent MCP should normally be updated by its wrapper or runner, not by the live MCP "
+                "server replacing itself mid-session."
+            ),
+            "preferred_path": [
+                "Prefer mcporter keep-alive plus `npx @techsologic/unolock-agent-mcp` when available.",
+                "Use `unolock_get_update_status` or `unolock-agent-mcp check-update` to see whether a newer release exists.",
+                "If an update is available, restart the runner between tasks so the wrapper or binary can be replaced cleanly.",
+            ],
+            "rules": [
+                "Do not attempt in-place self-replacement while an active UnoLock session or write flow is in progress.",
+                "Avoid updating in the middle of a sensitive workflow that depends on an in-memory PIN.",
+                "Prefer explicit user awareness before applying an update.",
+            ],
+            "channels": {
+                "npm-wrapper": "Restart and relaunch with `npx @techsologic/unolock-agent-mcp@latest`.",
+                "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart the runner.",
+                "python-package": "Upgrade the Python package in the environment that launches the MCP and restart the runner.",
+            },
+            "release_url": "https://github.com/TechSologic/unolock-agent-mcp/releases",
+        }
+
     @server.prompt(
         name="unolock_request_connection_url",
         title="Request UnoLock Connection URL",
@@ -405,6 +438,16 @@ def create_mcp_server() -> FastMCP:
     )
     def get_registration_status() -> dict[str, Any]:
         return _registration_status_payload(registration_store, session_store, agent_auth)
+
+    @server.tool(
+        name="unolock_get_update_status",
+        description=(
+            "Check the installed UnoLock Agent MCP version against the latest GitHub Release and return "
+            "runner-specific update guidance. Prefer checking between tasks, not during an active flow."
+        ),
+    )
+    def get_update_status_tool() -> dict[str, Any]:
+        return get_update_status()
 
     @server.tool(
         name="unolock_set_agent_pin",

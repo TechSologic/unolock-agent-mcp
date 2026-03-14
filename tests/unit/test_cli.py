@@ -215,6 +215,27 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(payload["servers"]["unolock-agent"]["args"], ["mcp"])
         self.assertEqual(payload["servers"]["unolock-agent"]["lifecycle"], "keep-alive")
 
+    def test_check_update_json_uses_update_status_helper(self) -> None:
+        with patch.object(cli, "get_update_status", return_value={"ok": True, "update_available": False}) as update_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["check-update", "--json"])
+
+        self.assertEqual(result, 0)
+        update_mock.assert_called_once_with()
+        self.assertIn('"update_available": false', print_mock.call_args.args[0])
+
+    def test_check_update_text_mode_prints_status(self) -> None:
+        with patch.object(
+            cli,
+            "get_update_status",
+            return_value={"ok": True, "update_available": True, "recommended_action": "restart the runner"},
+        ):
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["check-update"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(print_mock.call_args.args[0], "UPDATE_AVAILABLE: restart the runner")
+
 
 if __name__ == "__main__":
     unittest.main()
