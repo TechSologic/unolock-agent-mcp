@@ -92,7 +92,7 @@ If you are running outside a UnoLock monorepo checkout, the MCP can normally der
 
 * optionally `UNOLOCK_TPM_PROVIDER`
 
-Use explicit config only when you need overrides or you are connecting to a custom deployment that does not publish the standard hosted metadata.
+Use explicit config only when you need overrides or you are connecting to a custom deployment that does not publish the normal deployment metadata.
 
 You can also place them in:
 
@@ -112,7 +112,7 @@ For a one-shot readiness summary after install, run:
 unolock-agent-self-test
 ```
 
-For the standard hosted UnoLock deployment, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically.
+For normal UnoLock cloud-service use, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically. UnoLock is a cloud service, but Safe data remains client-side encrypted and the system is designed to minimize unnecessary identifying exposure.
 
 TPM provider modes:
 
@@ -170,7 +170,7 @@ Notes:
 
 * If `unolock-agent-mcp` is already on your `PATH`, you can use `"command": "unolock-agent-mcp"`.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
-* For hosted UnoLock, the connection URL is enough for the MCP to resolve what it needs automatically.
+* For normal UnoLock cloud-service use, the connection URL is enough for the MCP to resolve what it needs automatically.
 * Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
 
 ## Cursor

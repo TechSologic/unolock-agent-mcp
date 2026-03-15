@@ -57,7 +57,7 @@ If the MCP does not find a production-ready provider, it falls back to the softw
 
 ## Configure Your MCP Host
 
-For normal hosted UnoLock use, no UnoLock-specific runtime configuration should be necessary.
+For normal UnoLock cloud-service use, no UnoLock-specific runtime configuration should be necessary.
 
 Your MCP host should launch:
 

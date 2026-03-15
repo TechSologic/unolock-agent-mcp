@@ -268,7 +268,7 @@ Advanced override example:
 }
 ```
 
-For the standard hosted UnoLock deployment, the MCP can derive the API origin and PQ validation key from the user-provided agent key connection URL automatically. If you want to force the same hosted deployment without waiting for a connection URL, this also works:
+For normal UnoLock cloud-service use, the MCP can derive the API origin and PQ validation key from the user-provided agent key connection URL automatically. UnoLock remains client-side encrypted, and its design tries to minimize unnecessary identifying exposure. If you want to force the same normal cloud deployment without waiting for a connection URL, this also works:
 
 ```json
 {
@@ -276,7 +276,7 @@ For the standard hosted UnoLock deployment, the MCP can derive the API origin an
 }
 ```
 
-the MCP will derive `https://safe.unolock.com`, fetch `/unolock-client.json`, and read the published `serverPQValidationKey`. If that hosted file is unavailable, it falls back to the transparency bundle.
+the MCP will derive `https://safe.unolock.com`, fetch `/unolock-client.json`, and read the published `serverPQValidationKey`. If that deployment metadata file is unavailable, it falls back to the transparency bundle.
 
 Use this command to verify what the MCP resolved:
 

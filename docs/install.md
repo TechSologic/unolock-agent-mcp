@@ -338,7 +338,8 @@ Advanced override example:
 For most customers:
 
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
-* for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, and PQ validation key from the UnoLock agent key connection URL
+* for normal UnoLock cloud-service use, the MCP can derive the Safe site origin, API base URL, and PQ validation key from the UnoLock agent key connection URL
+* UnoLock is a cloud service, but Safe data remains client-side encrypted and the system is designed to minimize unnecessary identifying exposure
 * for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
 * if no production-ready TPM, vTPM, or platform-backed provider is available, `auto` falls back to the software provider and reports reduced assurance loudly
 * force `UNOLOCK_TPM_PROVIDER=software` when you intentionally want the software provider; `test` remains a legacy alias
