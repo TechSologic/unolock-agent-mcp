@@ -74,6 +74,9 @@ class UnoLockApiClient:
             request["newEtag"] = new_etag
         return self.call_action(session_id, action="GetUploadPutUrl", request=request)
 
+    def get_upload_post_object(self, session_id: str, archive_id: str) -> dict[str, Any]:
+        return self.call_action(session_id, action="GetUploadPostObject", request=archive_id)
+
     @property
     def http_client(self):
         return self._flow_client.http_client

@@ -356,7 +356,13 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
             )
         )
 
-    def _prime_records_archive(self, payload: str, *, etag: str = '"old-etag"') -> None:
+    def _prime_records_archive(
+        self,
+        payload: str,
+        *,
+        etag: str = '"old-etag"',
+        transfer_mode: str = "lput",
+    ) -> None:
         encrypted_payload = self.keyring.encrypt_string(payload, sid=101)
         self.api_client.get_spaces.return_value = {
             "callback": {"type": "GetSpaces", "result": [{"spaceID": 101, "type": "PRIVATE", "owner": True}]}
@@ -364,20 +370,41 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.api_client.get_archives.return_value = {
             "callback": {
                 "type": "GetArchives",
-                "result": [{"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": "lput", "spaceName": "Main"}}],
+                "result": [{"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": transfer_mode, "spaceName": "Main"}}],
             }
         }
-        self.api_client.get_download_url.return_value = {
-            "callback": {"type": "GetDownloadUrl", "result": "https://download"}
-        }
+        if transfer_mode == "lput":
+            self.api_client.get_download_url.return_value = {
+                "callback": {"type": "GetDownloadUrl", "result": "https://download"}
+            }
+        else:
+            self.api_client.get_regional_download_url.return_value = {
+                "callback": {"type": "GetRegionalDownloadUrl", "result": "https://download"}
+            }
         self.api_client.http_client.get_text_with_headers_absolute.return_value = (encrypted_payload, {"ETag": etag})
         self.api_client.update_archive.return_value = {"callback": {"type": "UpdateArchive", "result": {}}}
         self.api_client.get_upload_put_url.return_value = {
             "callback": {"type": "GetUploadPutUrl", "result": "https://upload"}
         }
+        self.api_client.get_upload_post_object.return_value = {
+            "callback": {
+                "type": "GetUploadPostObject",
+                "result": {"fields": {"url": "https://upload", "key": "archive-key"}, "headUrl": "https://head"},
+            }
+        }
         self.api_client.http_client.put_bytes_absolute.return_value = {
             "status": 200,
             "headers": {},
+            "body": b"",
+        }
+        self.api_client.http_client.post_multipart_absolute.return_value = {
+            "status": 204,
+            "headers": {},
+            "body": b"",
+        }
+        self.api_client.http_client.head_absolute.return_value = {
+            "status": 200,
+            "headers": {"ETag": etag},
             "body": b"",
         }
 
@@ -410,6 +437,20 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(result["record"]["plain_text"], "hello world")
         self.assertEqual(result["record"]["title"], "New note")
 
+    def test_create_note_supports_post_transfer_mode(self) -> None:
+        self._prime_records_archive(
+            '{"title":"Records","data":{"nextRecordID":0,"nextLabelID":0,"labels":[],"records":[]}}',
+            transfer_mode="post",
+        )
+
+        result = self.writer.create_note("session-1", space_id=101, title="New note", text="hello world")
+
+        self.assertTrue(result["ok"])
+        self.api_client.get_upload_post_object.assert_called_once_with("session-1", "archive-1")
+        self.api_client.http_client.post_multipart_absolute.assert_called_once()
+        self.api_client.http_client.put_bytes_absolute.assert_not_called()
+        self.api_client.http_client.head_absolute.assert_called_once_with("https://head")
+
     def test_create_note_rejects_read_only_session_before_upload(self) -> None:
         self._authorize_session(ro=True)
         self._prime_records_archive(
@@ -420,6 +461,22 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
             self.writer.create_note("session-1", space_id=101, title="New note", text="hello world")
 
         self.api_client.get_upload_put_url.assert_not_called()
+
+    def test_create_note_post_mode_rejects_etag_mismatch(self) -> None:
+        self._prime_records_archive(
+            '{"title":"Records","data":{"nextRecordID":0,"nextLabelID":0,"labels":[],"records":[]}}',
+            transfer_mode="post",
+        )
+        self.api_client.http_client.head_absolute.return_value = {
+            "status": 200,
+            "headers": {"ETag": '"different-etag"'},
+            "body": b"",
+        }
+
+        with self.assertRaisesRegex(ValueError, "conflict_requires_reread"):
+            self.writer.create_note("session-1", space_id=101, title="New note", text="hello world")
+
+        self.api_client.http_client.post_multipart_absolute.assert_not_called()
 
     def test_create_note_uploads_original_ciphertext_and_only_updates_kek_metadata(self) -> None:
         self._prime_records_archive(

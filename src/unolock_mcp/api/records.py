@@ -5,6 +5,7 @@ import hashlib
 import json
 from html.parser import HTMLParser
 from typing import Any
+from urllib.error import HTTPError
 
 from unolock_mcp.api.client import UnoLockApiClient
 from unolock_mcp.auth.agent_auth import AgentAuthClient
@@ -1058,8 +1059,6 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         space_id = context["space_id"]
         if space_id is None:
             raise ValueError("invalid_input: Archive is not associated with a valid space")
-        if transfer_mode != "lput":
-            raise ValueError(f"operation_not_allowed: Unsupported archive transfer mode for writes: {transfer_mode}")
 
         serialized = json.dumps(body, separators=(",", ":"))
         encrypted = keyring.encrypt_string(serialized, sid=space_id)
@@ -1083,32 +1082,64 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         md5_b64 = base64.b64encode(md5_bytes).decode("ascii")
         new_etag = f"\"{md5_hex}\""
         current_etag = context.get("etag")
-        upload_url = self._extract_result(
-            self._api_client.get_upload_put_url(
-                session_id,
-                archive_id=str(archive.get("id", "")),
-                md5_b64=md5_b64,
-                current_etag=current_etag,
-                new_etag=new_etag,
-            ),
-            expected_type="GetUploadPutUrl",
-        )
-        if not isinstance(upload_url, str) or not upload_url:
-            raise ValueError("invalid_input: Missing upload URL for records archive write")
-        headers = {"Content-MD5": md5_b64}
-        if current_etag:
-            headers["If-Match"] = current_etag
-        try:
-            result = self._api_client.http_client.put_bytes_absolute(upload_url, payload_bytes, headers=headers)
-        except Exception as exc:
-            message = str(exc)
-            if "412" in message or "409" in message:
-                raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.") from exc
-            raise
-        returned_etag = result["headers"].get("ETag") or result["headers"].get("etag")
-        if returned_etag and returned_etag != new_etag:
-            raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.")
-        context["etag"] = returned_etag or new_etag
+
+        if transfer_mode == "post":
+            upload_object = self._extract_result(
+                self._api_client.get_upload_post_object(session_id, str(archive.get("id", ""))),
+                expected_type="GetUploadPostObject",
+            )
+            if not isinstance(upload_object, dict):
+                raise ValueError("invalid_input: Missing upload object for records archive write")
+            fields = upload_object.get("fields")
+            head_url = upload_object.get("headUrl")
+            upload_url = fields.get("url") if isinstance(fields, dict) else None
+            if not isinstance(fields, dict) or not isinstance(upload_url, str) or not upload_url:
+                raise ValueError("invalid_input: Missing upload object for records archive write")
+            if current_etag and isinstance(head_url, str) and head_url:
+                self._ensure_matching_post_etag(head_url, current_etag)
+            file_sha256_b64 = base64.b64encode(hashlib.sha256(payload_bytes).digest()).decode("ascii")
+            multipart_fields = {str(key): str(value) for key, value in fields.items() if key != "url"}
+            multipart_fields["x-amz-checksum-sha256"] = file_sha256_b64
+            try:
+                result = self._api_client.http_client.post_multipart_absolute(
+                    upload_url,
+                    fields=multipart_fields,
+                    file_field="file",
+                    file_name="data",
+                    file_bytes=payload_bytes,
+                )
+            except Exception as exc:
+                self._raise_write_conflict_if_needed(exc)
+                raise
+            context["etag"] = new_etag
+        elif transfer_mode == "lput":
+            upload_url = self._extract_result(
+                self._api_client.get_upload_put_url(
+                    session_id,
+                    archive_id=str(archive.get("id", "")),
+                    md5_b64=md5_b64,
+                    current_etag=current_etag,
+                    new_etag=new_etag,
+                ),
+                expected_type="GetUploadPutUrl",
+            )
+            if not isinstance(upload_url, str) or not upload_url:
+                raise ValueError("invalid_input: Missing upload URL for records archive write")
+            headers = {"Content-MD5": md5_b64}
+            if current_etag:
+                headers["If-Match"] = current_etag
+            try:
+                result = self._api_client.http_client.put_bytes_absolute(upload_url, payload_bytes, headers=headers)
+            except Exception as exc:
+                self._raise_write_conflict_if_needed(exc)
+                raise
+            returned_etag = result["headers"].get("ETag") or result["headers"].get("etag")
+            if returned_etag and returned_etag != new_etag:
+                raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.")
+            context["etag"] = returned_etag or new_etag
+        else:
+            raise ValueError(f"operation_not_allowed: Unsupported archive transfer mode for writes: {transfer_mode}")
+
         self._cache_records_archive_snapshot(
             session_id,
             archive,
@@ -1119,3 +1150,23 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                 "archive_id": str(archive.get("id", "")),
             },
         )
+
+    def _ensure_matching_post_etag(self, head_url: str, current_etag: str) -> None:
+        try:
+            result = self._api_client.http_client.head_absolute(head_url)
+        except HTTPError as exc:
+            if exc.code == 403:
+                return
+            self._raise_write_conflict_if_needed(exc)
+            raise
+        except Exception as exc:
+            self._raise_write_conflict_if_needed(exc)
+            raise
+        latest_etag = result["headers"].get("ETag") or result["headers"].get("etag")
+        if latest_etag and latest_etag != current_etag:
+            raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.")
+
+    def _raise_write_conflict_if_needed(self, exc: Exception) -> None:
+        message = str(exc)
+        if "412" in message or "409" in message:
+            raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.") from exc

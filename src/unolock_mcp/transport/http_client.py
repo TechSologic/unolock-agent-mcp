@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 import json
 import urllib.request
 from typing import Any
@@ -57,6 +58,61 @@ class HttpClient:
             data=body,
             headers=request_headers,
             method="PUT",
+        )
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return {
+                "status": response.status,
+                "headers": dict(response.headers.items()),
+                "body": response.read(),
+            }
+
+    def head_absolute(self, url: str, headers: dict[str, str] | None = None) -> dict[str, Any]:
+        request = urllib.request.Request(url, headers=dict(headers or {}), method="HEAD")
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return {
+                "status": response.status,
+                "headers": dict(response.headers.items()),
+                "body": response.read(),
+            }
+
+    def post_multipart_absolute(
+        self,
+        url: str,
+        *,
+        fields: dict[str, str],
+        file_field: str,
+        file_name: str,
+        file_bytes: bytes,
+        file_content_type: str = "application/octet-stream",
+        headers: dict[str, str] | None = None,
+    ) -> dict[str, Any]:
+        boundary = f"----UnoLockAgentMcp{uuid.uuid4().hex}"
+        request_headers = dict(headers or {})
+        request_headers["Content-Type"] = f"multipart/form-data; boundary={boundary}"
+
+        body = bytearray()
+        for key, value in fields.items():
+            body.extend(f"--{boundary}\r\n".encode("utf8"))
+            body.extend(f'Content-Disposition: form-data; name="{key}"\r\n\r\n'.encode("utf8"))
+            body.extend(value.encode("utf8"))
+            body.extend(b"\r\n")
+
+        body.extend(f"--{boundary}\r\n".encode("utf8"))
+        body.extend(
+            (
+                f'Content-Disposition: form-data; name="{file_field}"; filename="{file_name}"\r\n'
+                f"Content-Type: {file_content_type}\r\n\r\n"
+            ).encode("utf8")
+        )
+        body.extend(file_bytes)
+        body.extend(b"\r\n")
+        body.extend(f"--{boundary}--\r\n".encode("utf8"))
+
+        request = urllib.request.Request(
+            url,
+            data=bytes(body),
+            headers=request_headers,
+            method="POST",
         )
         with urllib.request.urlopen(request, timeout=30) as response:
             return {
