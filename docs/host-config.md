@@ -170,8 +170,8 @@ Notes:
 
 * If `unolock-agent-mcp` is already on your `PATH`, you can use `"command": "unolock-agent-mcp"`.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
-* For hosted UnoLock, the connection URL is enough for the MCP to resolve the published PQ validation key automatically.
-* For custom deployments, set `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` only when overrides are needed.
+* For hosted UnoLock, the connection URL is enough for the MCP to resolve what it needs automatically.
+* Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
 
 ## Cursor
 

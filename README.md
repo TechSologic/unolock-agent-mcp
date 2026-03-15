@@ -250,7 +250,7 @@ For the best user experience, do updates between tasks, not while an enrollment 
 
 ## Standalone config
 
-When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock agent key connection URL. Environment variables and config files are primarily for overrides and custom deployments.
+Normal setup should not require this section. When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock agent key connection URL. Environment variables and config files are primarily for advanced overrides and custom deployments when the normal connection-URL-driven flow is not enough.
 
 Default config file location:
 
@@ -258,7 +258,7 @@ Default config file location:
 ~/.config/unolock-agent-mcp/config.json
 ```
 
-Override example:
+Advanced override example:
 
 ```json
 {

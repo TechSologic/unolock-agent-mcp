@@ -309,7 +309,9 @@ See:
 
 ## Environment Variables
 
-Common environment variables:
+These are advanced overrides, not part of the normal setup flow. In the normal flow, the agent should only need to run the bridge, receive the one-time UnoLock agent registration URL, and ask for the PIN if needed.
+
+Common advanced environment variables:
 
 * `UNOLOCK_TPM_PROVIDER`
 * `UNOLOCK_BASE_URL` override
@@ -323,7 +325,7 @@ Instead of environment variables, you can also create a config file at:
 ~/.config/unolock-agent-mcp/config.json
 ```
 
-Override example:
+Advanced override example:
 
 ```json
 {
