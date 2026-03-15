@@ -268,7 +268,7 @@ Advanced override example:
 }
 ```
 
-For normal UnoLock cloud-service use, the MCP can derive the API origin and PQ validation key from the user-provided agent key connection URL automatically. UnoLock remains client-side encrypted, and its design tries to minimize unnecessary identifying exposure. If you want to force the same normal cloud deployment without waiting for a connection URL, this also works:
+For normal UnoLock cloud-service use, the MCP can derive the API origin and PQ validation key from the user-provided agent key connection URL automatically. UnoLock remains client-side encrypted, no identity is linked to a Safe, and the design tries to minimize unnecessary metadata and correlation exposure. If you want to force the same normal cloud deployment without waiting for a connection URL, this also works:
 
 ```json
 {

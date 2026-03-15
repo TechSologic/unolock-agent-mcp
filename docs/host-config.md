@@ -112,7 +112,7 @@ For a one-shot readiness summary after install, run:
 unolock-agent-self-test
 ```
 
-For normal UnoLock cloud-service use, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically. UnoLock is a cloud service, but Safe data remains client-side encrypted and the system is designed to minimize unnecessary identifying exposure.
+For normal UnoLock cloud-service use, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically. UnoLock is a cloud service, but Safe data remains client-side encrypted, no identity is linked to a Safe, and the system is designed to minimize unnecessary metadata and correlation exposure.
 
 TPM provider modes:
 
