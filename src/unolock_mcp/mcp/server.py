@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
@@ -16,9 +17,13 @@ from unolock_mcp.domain.models import UnoLockConfig
 from unolock_mcp.update import get_update_status
 
 
-def _write_error_response(exc: Exception) -> dict[str, Any]:
+def _advanced_tools_enabled() -> bool:
+    return os.environ.get("UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS", "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _tool_error_response(exc: Exception) -> dict[str, Any]:
     raw_message = str(exc).strip() or "Unknown write failure"
-    reason = "write_failed"
+    reason = "operation_failed"
     message = raw_message
     if ": " in raw_message:
         prefix, remainder = raw_message.split(": ", 1)
@@ -35,6 +40,10 @@ def _write_error_response(exc: Exception) -> dict[str, Any]:
         "record_not_found": "Reread the target space or record and verify the current record_ref or item id.",
         "item_not_found": "Reread the checklist and use the current checklist item ids before retrying.",
         "invalid_input": "Correct the input payload and retry the write operation.",
+        "missing_connection_url": "Ask the user for the one-time-use UnoLock agent key connection URL, then call unolock_submit_agent_bootstrap.",
+        "wrong_connection_url_type": "Ask the user for an AI/agent connection URL in the #/agent-register/... format.",
+        "session_not_found": "Authenticate again or restart the UnoLock bootstrap flow, then retry the request.",
+        "runtime_metadata_missing": "Submit a UnoLock agent key connection URL from the target Safe first. If this is a non-standard deployment, confirm that deployment metadata is published correctly.",
     }
     return {
         "ok": False,
@@ -136,18 +145,20 @@ def _registration_status_payload(
         "unolock_add_checklist_item",
         "unolock_remove_checklist_item",
     ]
-    advanced_tools = [
-        "unolock_probe_local_server",
-        "unolock_get_update_status",
-        "unolock_start_flow",
-        "unolock_continue_flow",
-        "unolock_get_session",
-        "unolock_list_sessions",
-        "unolock_delete_session",
-        "unolock_call_api",
-        "unolock_get_spaces",
-        "unolock_get_archives",
-    ]
+    advanced_tools = []
+    if _advanced_tools_enabled():
+        advanced_tools = [
+            "unolock_probe_local_server",
+            "unolock_get_update_status",
+            "unolock_start_flow",
+            "unolock_continue_flow",
+            "unolock_get_session",
+            "unolock_list_sessions",
+            "unolock_delete_session",
+            "unolock_call_api",
+            "unolock_get_spaces",
+            "unolock_get_archives",
+        ]
 
     return {
         **registration,
@@ -197,8 +208,8 @@ def create_mcp_server() -> FastMCP:
         )
         if not resolved.is_complete():
             raise ValueError(
-                "UnoLock runtime configuration is not resolved yet. Submit a UnoLock agent key connection URL first "
-                "or provide UNOLOCK_BASE_URL / UNOLOCK_SIGNING_PUBLIC_KEY overrides."
+                "runtime_metadata_missing: UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key "
+                "connection URL from the target Safe first."
             )
         return UnoLockConfig(
             base_url=resolved.base_url or "http://127.0.0.1:3000",
@@ -252,7 +263,10 @@ def create_mcp_server() -> FastMCP:
                 "unolock_get_record",
             ],
             "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
-            "advanced_tools_note": "Ignore low-level flow/api tools unless the primary workflow cannot complete the task.",
+            "advanced_tools_note": (
+                "Low-level flow/api tools are hidden by default. Enable them only for debugging with "
+                "UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1."
+            ),
         }
 
     @server.resource(
@@ -276,7 +290,7 @@ def create_mcp_server() -> FastMCP:
             "why_it_matters": [
                 "This lets an AI agent work with Safe data without exposing a reusable plaintext API secret.",
                 "The same Safe can grant different keys different Spaces and permissions.",
-                "Agent Keys are limited to ro or rw and are not allowed to have admin access.",
+                "An Agent Key can be limited to view-only or limited edit access, but not full Safe control.",
             ],
             "docs": [
                 "https://docs.unolock.com/index.html",
@@ -316,7 +330,7 @@ def create_mcp_server() -> FastMCP:
                 "Agent Keys can be restricted to selected Spaces.",
                 "Read-only keys cannot write.",
                 "Locked records cannot be modified.",
-                "Agent Keys are limited to ro or rw and never admin."
+                "An Agent Key can be limited to view-only or limited edit access, but not full Safe control."
             ],
         }
 
@@ -409,26 +423,27 @@ def create_mcp_server() -> FastMCP:
             }
         ]
 
-    @server.tool(
-        name="unolock_probe_local_server",
-        description="Advanced/debug: run the UnoLock local /start probe and return the next callback after PQ negotiation.",
-    )
-    def probe_local_server(
-        base_url: str = "http://127.0.0.1:3000",
-        flow: str = "access",
-        app_version: str = "",
-        signing_public_key: str = "",
-    ) -> dict[str, Any]:
-        if not app_version or not signing_public_key:
-            resolved = resolve_unolock_config(base_url=base_url)
-            app_version = app_version or resolved.app_version or ""
-            signing_public_key = signing_public_key or resolved.signing_public_key_b64 or ""
-        probe = LocalServerProbe(
-            base_url=base_url,
-            app_version=app_version,
-            signing_public_key_b64=signing_public_key,
+    if _advanced_tools_enabled():
+        @server.tool(
+            name="unolock_probe_local_server",
+            description="Advanced/debug: run the UnoLock local /start probe and return the next callback after PQ negotiation.",
         )
-        return probe.run(flow=flow)
+        def probe_local_server(
+            base_url: str = "http://127.0.0.1:3000",
+            flow: str = "access",
+            app_version: str = "",
+            signing_public_key: str = "",
+        ) -> dict[str, Any]:
+            if not app_version or not signing_public_key:
+                resolved = resolve_unolock_config(base_url=base_url)
+                app_version = app_version or resolved.app_version or ""
+                signing_public_key = signing_public_key or resolved.signing_public_key_b64 or ""
+            probe = LocalServerProbe(
+                base_url=base_url,
+                app_version=app_version,
+                signing_public_key_b64=signing_public_key,
+            )
+            return probe.run(flow=flow)
 
     @server.tool(
         name="unolock_get_registration_status",
@@ -448,7 +463,10 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def get_update_status_tool() -> dict[str, Any]:
-        return get_update_status()
+        try:
+            return get_update_status()
+        except Exception as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_set_agent_pin",
@@ -495,7 +513,10 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def submit_connection_url(connection_url: str) -> dict[str, Any]:
-        return agent_auth.submit_connection_url(connection_url)
+        try:
+            return agent_auth.submit_connection_url(connection_url)
+        except ValueError as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_submit_agent_bootstrap",
@@ -546,8 +567,11 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def start_registration_from_connection_url() -> dict[str, Any]:
-        ensure_flow_client()
-        return agent_auth.start_registration_from_stored_url()
+        try:
+            ensure_flow_client()
+            return agent_auth.start_registration_from_stored_url()
+        except ValueError as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_continue_agent_session",
@@ -557,8 +581,11 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def continue_agent_session(session_id: str) -> dict[str, Any]:
-        ensure_flow_client()
-        return agent_auth.advance_session(session_id)
+        try:
+            ensure_flow_client()
+            return agent_auth.advance_session(session_id)
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_authenticate_agent",
@@ -568,8 +595,11 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def authenticate_agent() -> dict[str, Any]:
-        ensure_flow_client()
-        return agent_auth.authenticate_registered_agent()
+        try:
+            ensure_flow_client()
+            return agent_auth.authenticate_registered_agent()
+        except ValueError as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_bootstrap_agent",
@@ -579,126 +609,133 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def bootstrap_agent() -> dict[str, Any]:
-        status = _registration_status_payload(registration_store, session_store, agent_auth)
-        ensure_flow_client()
-        if not status.get("has_connection_url"):
+        try:
+            status = _registration_status_payload(registration_store, session_store, agent_auth)
+            ensure_flow_client()
+            if not status.get("has_connection_url"):
+                return {
+                    "ok": False,
+                    "reason": "missing_connection_url",
+                    "status": status,
+                    "suggested_action": "Ask the user for the one-time-use UnoLock agent key connection URL, then call unolock_submit_agent_bootstrap.",
+                }
+            if not status.get("registered"):
+                return {
+                    "ok": True,
+                    "status": status,
+                    "result": agent_auth.start_registration_from_stored_url(),
+                }
             return {
-                "ok": False,
-                "reason": "missing_connection_url",
+                "ok": True,
                 "status": status,
+                "result": agent_auth.authenticate_registered_agent(),
             }
-        if not status.get("registered"):
-            return {
-                "status": status,
-                "result": agent_auth.start_registration_from_stored_url(),
-            }
-        return {
-            "status": status,
-            "result": agent_auth.authenticate_registered_agent(),
-        }
+        except ValueError as exc:
+            return _tool_error_response(exc)
 
-    @server.tool(
-        name="unolock_start_flow",
-        description=(
-            "Advanced/debug: start a UnoLock auth flow, automatically complete PQ negotiation, and return a "
-            "session_id plus the next callback that requires client handling."
-        ),
-    )
-    def start_flow(flow: str = "access", args: str | None = None) -> dict[str, Any]:
-        flow_client = ensure_flow_client()
-        session = flow_client.start(flow=flow, args=args)
-        session_store.put(session)
-        return session.summary()
-
-    @server.tool(
-        name="unolock_continue_flow",
-        description=(
-            "Advanced/debug: reply to the current UnoLock auth-flow callback for a session. "
-            "If callback_type is omitted, the current callback type is reused."
-        ),
-    )
-    def continue_flow(
-        session_id: str,
-        callback_type: str | None = None,
-        request: Any | None = None,
-        result: Any | None = None,
-        reason: str | None = None,
-        message: list[str] | None = None,
-    ) -> dict[str, Any]:
-        session = session_store.get(session_id)
-        flow_client = ensure_flow_client()
-        updated = flow_client.continue_flow(
-            session,
-            callback_type=callback_type,
-            request=request,
-            result=result,
-            reason=reason,
-            message=message,
+    if _advanced_tools_enabled():
+        @server.tool(
+            name="unolock_start_flow",
+            description=(
+                "Advanced/debug: start a UnoLock auth flow, automatically complete PQ negotiation, and return a "
+                "session_id plus the next callback that requires client handling."
+            ),
         )
-        session_store.put(updated)
-        if updated.authorized and updated.flow == "agentRegister":
-            registration_store.mark_registered(session_id=updated.session_id)
-        return updated.summary()
+        def start_flow(flow: str = "access", args: str | None = None) -> dict[str, Any]:
+            flow_client = ensure_flow_client()
+            session = flow_client.start(flow=flow, args=args)
+            session_store.put(session)
+            return session.summary()
 
-    @server.tool(
-        name="unolock_get_session",
-        description="Advanced/debug: inspect the current in-memory UnoLock auth-flow session state.",
-    )
-    def get_session(session_id: str) -> dict[str, Any]:
-        return session_store.get(session_id).summary()
-
-    @server.tool(
-        name="unolock_list_sessions",
-        description="Advanced/debug: list the current in-memory UnoLock auth-flow sessions.",
-    )
-    def list_sessions() -> list[dict[str, Any]]:
-        return session_store.list()
-
-    @server.tool(
-        name="unolock_delete_session",
-        description="Advanced/debug: delete an in-memory UnoLock auth-flow session.",
-    )
-    def delete_session(session_id: str) -> dict[str, Any]:
-        session_store.delete(session_id)
-        return {"deleted": session_id}
-
-    @server.tool(
-        name="unolock_call_api",
-        description="Advanced/debug: call a generic authenticated UnoLock /api action for an existing session.",
-    )
-    def call_api(
-        session_id: str,
-        action: str,
-        request: Any | None = None,
-        result: Any | None = None,
-        reason: str | None = None,
-        message: list[str] | None = None,
-    ) -> dict[str, Any]:
-        api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-        return api_client.call_action(
-            session_id,
-            action=action,
-            request=request,
-            result=result,
-            reason=reason,
-            message=message,
+        @server.tool(
+            name="unolock_continue_flow",
+            description=(
+                "Advanced/debug: reply to the current UnoLock auth-flow callback for a session. "
+                "If callback_type is omitted, the current callback type is reused."
+            ),
         )
+        def continue_flow(
+            session_id: str,
+            callback_type: str | None = None,
+            request: Any | None = None,
+            result: Any | None = None,
+            reason: str | None = None,
+            message: list[str] | None = None,
+        ) -> dict[str, Any]:
+            session = session_store.get(session_id)
+            flow_client = ensure_flow_client()
+            updated = flow_client.continue_flow(
+                session,
+                callback_type=callback_type,
+                request=request,
+                result=result,
+                reason=reason,
+                message=message,
+            )
+            session_store.put(updated)
+            if updated.authorized and updated.flow == "agentRegister":
+                registration_store.mark_registered(session_id=updated.session_id)
+            return updated.summary()
 
-    @server.tool(
-        name="unolock_get_spaces",
-        description="Advanced/debug: call UnoLock GetSpaces for an authenticated session.",
-    )
-    def get_spaces(session_id: str) -> dict[str, Any]:
-        api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-        return api_client.get_spaces(session_id)
+        @server.tool(
+            name="unolock_get_session",
+            description="Advanced/debug: inspect the current in-memory UnoLock auth-flow session state.",
+        )
+        def get_session(session_id: str) -> dict[str, Any]:
+            return session_store.get(session_id).summary()
 
-    @server.tool(
-        name="unolock_get_archives",
-        description="Advanced/debug: call UnoLock GetArchives for an authenticated session.",
-    )
-    def get_archives(session_id: str) -> dict[str, Any]:
-        api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-        return api_client.get_archives(session_id)
+        @server.tool(
+            name="unolock_list_sessions",
+            description="Advanced/debug: list the current in-memory UnoLock auth-flow sessions.",
+        )
+        def list_sessions() -> list[dict[str, Any]]:
+            return session_store.list()
+
+        @server.tool(
+            name="unolock_delete_session",
+            description="Advanced/debug: delete an in-memory UnoLock auth-flow session.",
+        )
+        def delete_session(session_id: str) -> dict[str, Any]:
+            session_store.delete(session_id)
+            return {"deleted": session_id}
+
+        @server.tool(
+            name="unolock_call_api",
+            description="Advanced/debug: call a generic authenticated UnoLock /api action for an existing session.",
+        )
+        def call_api(
+            session_id: str,
+            action: str,
+            request: Any | None = None,
+            result: Any | None = None,
+            reason: str | None = None,
+            message: list[str] | None = None,
+        ) -> dict[str, Any]:
+            api_client = UnoLockApiClient(ensure_flow_client(), session_store)
+            return api_client.call_action(
+                session_id,
+                action=action,
+                request=request,
+                result=result,
+                reason=reason,
+                message=message,
+            )
+
+        @server.tool(
+            name="unolock_get_spaces",
+            description="Advanced/debug: call UnoLock GetSpaces for an authenticated session.",
+        )
+        def get_spaces(session_id: str) -> dict[str, Any]:
+            api_client = UnoLockApiClient(ensure_flow_client(), session_store)
+            return api_client.get_spaces(session_id)
+
+        @server.tool(
+            name="unolock_get_archives",
+            description="Advanced/debug: call UnoLock GetArchives for an authenticated session.",
+        )
+        def get_archives(session_id: str) -> dict[str, Any]:
+            api_client = UnoLockApiClient(ensure_flow_client(), session_store)
+            return api_client.get_archives(session_id)
 
     @server.tool(
         name="unolock_list_spaces",
@@ -708,12 +745,15 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def list_spaces(session_id: str) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        return readonly_records.list_spaces(session_id)
+        try:
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_records.list_spaces(session_id)
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_list_records",
@@ -730,18 +770,21 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        return readonly_records.list_records(
-            session_id,
-            kind=kind,
-            space_id=space_id,
-            pinned=pinned,
-            label=label,
-        )
+        try:
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_records.list_records(
+                session_id,
+                kind=kind,
+                space_id=space_id,
+                pinned=pinned,
+                label=label,
+            )
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_list_notes",
@@ -753,18 +796,21 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        return readonly_records.list_records(
-            session_id,
-            kind="note",
-            space_id=space_id,
-            pinned=pinned,
-            label=label,
-        )
+        try:
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_records.list_records(
+                session_id,
+                kind="note",
+                space_id=space_id,
+                pinned=pinned,
+                label=label,
+            )
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_list_checklists",
@@ -776,18 +822,21 @@ def create_mcp_server() -> FastMCP:
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        return readonly_records.list_records(
-            session_id,
-            kind="checklist",
-            space_id=space_id,
-            pinned=pinned,
-            label=label,
-        )
+        try:
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_records.list_records(
+                session_id,
+                kind="checklist",
+                space_id=space_id,
+                pinned=pinned,
+                label=label,
+            )
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_get_record",
@@ -797,12 +846,15 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def get_record(session_id: str, record_ref: str) -> dict[str, Any]:
-        readonly_records = UnoLockReadonlyRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        return readonly_records.get_record(session_id, record_ref)
+        try:
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_records.get_record(session_id, record_ref)
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_create_note",
@@ -826,7 +878,7 @@ def create_mcp_server() -> FastMCP:
                 text=text,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_create_checklist",
@@ -851,7 +903,7 @@ def create_mcp_server() -> FastMCP:
                 items=items,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_update_note",
@@ -876,7 +928,7 @@ def create_mcp_server() -> FastMCP:
                 text=text,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_append_note",
@@ -900,7 +952,7 @@ def create_mcp_server() -> FastMCP:
                 append_text=append_text,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_rename_record",
@@ -924,7 +976,7 @@ def create_mcp_server() -> FastMCP:
                 title=title,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_set_checklist_item_done",
@@ -955,7 +1007,7 @@ def create_mcp_server() -> FastMCP:
                 done=done,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_add_checklist_item",
@@ -984,7 +1036,7 @@ def create_mcp_server() -> FastMCP:
                 text=text,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_remove_checklist_item",
@@ -1013,6 +1065,6 @@ def create_mcp_server() -> FastMCP:
                 item_id=item_id,
             )
         except ValueError as exc:
-            return _write_error_response(exc)
+            return _tool_error_response(exc)
 
     return server

@@ -8,7 +8,7 @@ from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.domain.models import RegistrationState
 
-from unolock_mcp.mcp.server import _registration_status_payload, _write_error_response
+from unolock_mcp.mcp.server import _registration_status_payload, _tool_error_response
 
 
 class _FakeAgentAuth:
@@ -66,8 +66,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertFalse(payload["needs_connection_url"])
             self.assertIn("unolock_get_registration_status", payload["primary_tools"])
             self.assertIn("unolock_list_records", payload["primary_tools"])
-            self.assertIn("unolock_call_api", payload["advanced_tools"])
-            self.assertIn("unolock_get_update_status", payload["advanced_tools"])
+            self.assertEqual(payload["advanced_tools"], [])
             self.assertIn("unolock_append_note", payload["write_tools"])
             self.assertIn("unolock://usage/about", payload["explanation_resources"])
             self.assertIn("unolock://usage/security-model", payload["explanation_resources"])
@@ -124,24 +123,24 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("unolock_bootstrap_agent", payload["primary_tools"])
 
 
-class WriteErrorResponseTest(unittest.TestCase):
+class ToolErrorResponseTest(unittest.TestCase):
     def test_structured_space_read_only_error(self) -> None:
-        payload = _write_error_response(ValueError("space_read_only: This agent has read-only access."))
+        payload = _tool_error_response(ValueError("space_read_only: This agent has read-only access."))
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["reason"], "space_read_only")
         self.assertIn("read-only access", payload["message"])
         self.assertIn("allowed_operations", payload["suggested_action"])
 
     def test_structured_conflict_error(self) -> None:
-        payload = _write_error_response(
+        payload = _tool_error_response(
             ValueError("write_conflict_requires_reread: Read the target record again and retry.")
         )
         self.assertEqual(payload["reason"], "write_conflict_requires_reread")
         self.assertIn("Reread", payload["suggested_action"])
 
-    def test_generic_write_error_falls_back_to_write_failed(self) -> None:
-        payload = _write_error_response(ValueError("unexpected failure"))
-        self.assertEqual(payload["reason"], "write_failed")
+    def test_generic_error_falls_back_to_operation_failed(self) -> None:
+        payload = _tool_error_response(ValueError("unexpected failure"))
+        self.assertEqual(payload["reason"], "operation_failed")
         self.assertEqual(payload["message"], "unexpected failure")
 
 

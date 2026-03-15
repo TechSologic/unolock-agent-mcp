@@ -371,8 +371,8 @@ class AgentAuthClient:
     def require_flow_client(self) -> UnoLockFlowClient:
         if self._flow_client is None:
             raise ValueError(
-                "UnoLock runtime configuration is not resolved yet. Submit a UnoLock agent key connection URL first "
-                "or provide explicit UnoLock overrides."
+                "runtime_metadata_missing: UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key "
+                "connection URL from the target Safe first."
             )
         return self._flow_client
 

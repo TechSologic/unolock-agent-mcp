@@ -330,25 +330,20 @@ Installed commands:
 
 Current MCP tools:
 
-* `unolock_probe_local_server`
 * `unolock_get_registration_status`
 * `unolock_get_tpm_diagnostics`
+* `unolock_get_update_status`
 * `unolock_set_agent_pin`
 * `unolock_clear_agent_pin`
+* `unolock_acknowledge_reduced_assurance`
 * `unolock_submit_connection_url`
+* `unolock_submit_agent_bootstrap`
 * `unolock_clear_connection_url`
+* `unolock_disconnect_agent`
 * `unolock_start_registration_from_connection_url`
 * `unolock_continue_agent_session`
 * `unolock_authenticate_agent`
 * `unolock_bootstrap_agent`
-* `unolock_start_flow`
-* `unolock_continue_flow`
-* `unolock_get_session`
-* `unolock_list_sessions`
-* `unolock_delete_session`
-* `unolock_call_api`
-* `unolock_get_spaces`
-* `unolock_get_archives`
 * `unolock_list_spaces`
 * `unolock_list_records`
 * `unolock_list_notes`
@@ -362,6 +357,8 @@ Current MCP tools:
 * `unolock_set_checklist_item_done`
 * `unolock_add_checklist_item`
 * `unolock_remove_checklist_item`
+
+Low-level flow and raw API debug tools are hidden by default. Enable them only for debugging with `UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1`.
 
 Registration discovery support:
 

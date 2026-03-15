@@ -585,6 +585,7 @@ Notes:
 ## Low-Level Utility Tools
 
 These are useful for debugging or deeper integration work, but they are not the preferred surface for the normal agent workflow.
+They are hidden by default and only exposed when the MCP is started with `UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1`.
 
 * `unolock_probe_local_server`
 * `unolock_start_flow`
