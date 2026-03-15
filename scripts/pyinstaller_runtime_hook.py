@@ -1,4 +1,5 @@
-from unolock_mcp.runtime import configure_frozen_oqs_runtime
+from unolock_mcp.runtime import configure_frozen_oqs_runtime, configure_tls_runtime
 
 
+configure_tls_runtime()
 configure_frozen_oqs_runtime()

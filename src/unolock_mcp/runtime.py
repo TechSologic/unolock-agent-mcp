@@ -28,6 +28,49 @@ def _platform_env_var() -> str:
     return "LD_LIBRARY_PATH"
 
 
+def _candidate_ca_bundle_paths() -> tuple[Path, ...]:
+    candidates: list[Path] = []
+    try:
+        import certifi  # type: ignore
+
+        certifi_bundle = certifi.where()
+        if certifi_bundle:
+            candidates.append(Path(certifi_bundle))
+    except Exception:
+        pass
+
+    candidates.extend(
+        [
+            Path("/etc/ssl/cert.pem"),
+            Path("/etc/ssl/certs/ca-certificates.crt"),
+            Path("/etc/pki/tls/certs/ca-bundle.crt"),
+        ]
+    )
+
+    unique: list[Path] = []
+    seen: set[str] = set()
+    for candidate in candidates:
+        key = str(candidate)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(candidate)
+    return tuple(unique)
+
+
+def configure_tls_runtime() -> None:
+    if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
+        return
+
+    for candidate in _candidate_ca_bundle_paths():
+        if not candidate.is_file():
+            continue
+        bundle_path = str(candidate)
+        os.environ["SSL_CERT_FILE"] = bundle_path
+        os.environ["REQUESTS_CA_BUNDLE"] = bundle_path
+        return
+
+
 def configure_frozen_oqs_runtime() -> None:
     if os.environ.get("OQS_INSTALL_PATH"):
         return
