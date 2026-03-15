@@ -85,10 +85,7 @@ def should_fetch_transparency_metadata(
 ) -> bool:
     if not transparency_origin or (not needs_app_version and not needs_signing_key):
         return False
-    if transparency_source and transparency_source != "derived-from-base-url":
-        return True
-    hostname = (urlparse(transparency_origin).hostname or "").lower()
-    return hostname == "safe.unolock.com" or hostname.endswith(".unolock.com")
+    return not is_local_base_url(transparency_origin)
 
 
 def fetch_transparency_metadata(transparency_origin: str, timeout: float = 10.0) -> dict[str, str]:

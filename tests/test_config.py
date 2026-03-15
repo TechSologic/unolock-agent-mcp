@@ -172,6 +172,44 @@ class UnoLockConfigTest(unittest.TestCase):
             "hosted-client-metadata:https://safe.unolock.com",
         )
 
+    @patch("unolock_mcp.config.fetch_hosted_client_metadata")
+    def test_resolve_unolock_config_fetches_hosted_metadata_for_derived_custom_host(
+        self,
+        fetch_hosted_client_metadata,
+    ) -> None:
+        fetch_hosted_client_metadata.return_value = {
+            "app_version": "0.20.21-custom",
+            "signing_public_key_b64": "custom-hosted-key",
+        }
+        old_values = {
+            "UNOLOCK_CONFIG_FILE": os.environ.get("UNOLOCK_CONFIG_FILE"),
+            "UNOLOCK_APP_VERSION": os.environ.get("UNOLOCK_APP_VERSION"),
+            "UNOLOCK_SIGNING_PUBLIC_KEY": os.environ.get("UNOLOCK_SIGNING_PUBLIC_KEY"),
+            "UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY": os.environ.get("UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY"),
+        }
+        os.environ["UNOLOCK_CONFIG_FILE"] = str(Path(tempfile.gettempdir()) / "definitely-missing-unolock-config.json")
+        os.environ["UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY"] = "1"
+        os.environ.pop("UNOLOCK_APP_VERSION", None)
+        os.environ.pop("UNOLOCK_SIGNING_PUBLIC_KEY", None)
+        try:
+            resolved = resolve_unolock_config(base_url="https://api.safe.test.1two.be")
+        finally:
+            for key, value in old_values.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
+
+        fetch_hosted_client_metadata.assert_called_once_with("https://safe.test.1two.be")
+        self.assertEqual(resolved.transparency_origin, "https://safe.test.1two.be")
+        self.assertEqual(resolved.app_version, "0.20.21-custom")
+        self.assertEqual(resolved.signing_public_key_b64, "custom-hosted-key")
+        self.assertEqual(resolved.sources["app_version"], "hosted-client-metadata:https://safe.test.1two.be")
+        self.assertEqual(
+            resolved.sources["signing_public_key_b64"],
+            "hosted-client-metadata:https://safe.test.1two.be",
+        )
+
     @patch("unolock_mcp.config.fetch_transparency_metadata")
     @patch("unolock_mcp.config.fetch_hosted_client_metadata")
     def test_resolve_unolock_config_falls_back_to_transparency_bundle(
