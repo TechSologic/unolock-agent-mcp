@@ -151,20 +151,18 @@ def main(argv: list[str] | None = None) -> int:
             "resolved": {
                 "base_url": runtime_base_url,
                 "transparency_origin": resolved.transparency_origin,
-                "app_version": resolved.app_version,
                 "signing_public_key_b64": "<redacted>" if resolved.signing_public_key_b64 else None,
             },
             "sources": resolved.sources,
             "missing": [
                 key for key, value in {
-                    "app_version": resolved.app_version,
                     "signing_public_key_b64": resolved.signing_public_key_b64,
                 }.items() if not value
             ],
             "guidance": (
                 "In the normal flow, submit a UnoLock agent key connection URL and let the MCP derive the server "
-                "origin, app version, and PQ validation key automatically. Use environment variables or the config "
-                "file only for overrides and custom deployments."
+                "origin and PQ validation key automatically. Use environment variables or the config file only for "
+                "overrides and custom deployments."
             ),
         }
         print(json.dumps(payload, indent=2))
@@ -403,7 +401,6 @@ def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved)
         "runtime_config": {
             "base_url": runtime_base_url,
             "transparency_origin": getattr(resolved, "transparency_origin", None),
-            "app_version_available": bool(getattr(resolved, "app_version", None)),
             "pq_validation_key_available": bool(getattr(resolved, "signing_public_key_b64", None)),
         },
         "summary": summary,

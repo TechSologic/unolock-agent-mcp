@@ -197,7 +197,7 @@ def create_mcp_server() -> FastMCP:
         if not resolved.is_complete():
             raise ValueError(
                 "UnoLock runtime configuration is not resolved yet. Submit a UnoLock agent key connection URL first "
-                "or provide UNOLOCK_BASE_URL / UNOLOCK_APP_VERSION / UNOLOCK_SIGNING_PUBLIC_KEY overrides."
+                "or provide UNOLOCK_BASE_URL / UNOLOCK_SIGNING_PUBLIC_KEY overrides."
             )
         return UnoLockConfig(
             base_url=resolved.base_url or "http://127.0.0.1:3000",

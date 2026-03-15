@@ -314,7 +314,6 @@ Common environment variables:
 * `UNOLOCK_TPM_PROVIDER`
 * `UNOLOCK_BASE_URL` override
 * `UNOLOCK_TRANSPARENCY_ORIGIN` override
-* `UNOLOCK_APP_VERSION`
 * `UNOLOCK_SIGNING_PUBLIC_KEY`
 * `UNOLOCK_CONFIG_FILE`
 
@@ -330,7 +329,6 @@ Override example:
 {
   "base_url": "https://api.unolock.example",
   "transparency_origin": "https://safe.unolock.example",
-  "app_version": "1.2.3",
   "signing_public_key_b64": "BASE64_SERVER_PQ_SIGNING_PUBLIC_KEY"
 }
 ```
@@ -338,7 +336,7 @@ Override example:
 For most customers:
 
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
-* for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, app version, and PQ validation key from the UnoLock agent key connection URL
+* for the standard hosted UnoLock deployment, the MCP can derive the Safe site origin, API base URL, and PQ validation key from the UnoLock agent key connection URL
 * for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
 * if no production-ready TPM, vTPM, or platform-backed provider is available, `auto` falls back to the software provider and reports reduced assurance loudly
 * force `UNOLOCK_TPM_PROVIDER=software` when you intentionally want the software provider; `test` remains a legacy alias

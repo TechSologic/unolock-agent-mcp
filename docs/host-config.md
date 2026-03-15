@@ -88,7 +88,7 @@ If you need the source-install fallback instead, install the MCP as a standalone
 pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 ```
 
-If you are running outside a UnoLock monorepo checkout, the MCP can normally derive the UnoLock server origin, app version, and PQ validation key from the UnoLock agent key connection URL itself. In most cases, the only host-level setting you should need is:
+If you are running outside a UnoLock monorepo checkout, the MCP can normally derive the UnoLock server origin and PQ validation key from the UnoLock agent key connection URL itself. In most cases, the only host-level setting you should need is:
 
 * optionally `UNOLOCK_TPM_PROVIDER`
 
@@ -112,7 +112,7 @@ For a one-shot readiness summary after install, run:
 unolock-agent-self-test
 ```
 
-For the standard hosted UnoLock deployment, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published app version and PQ validation key automatically.
+For the standard hosted UnoLock deployment, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically.
 
 TPM provider modes:
 
@@ -170,8 +170,8 @@ Notes:
 
 * If `unolock-agent-mcp` is already on your `PATH`, you can use `"command": "unolock-agent-mcp"`.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
-* For hosted UnoLock, the connection URL is enough for the MCP to resolve the published app version and PQ validation key automatically.
-* For custom deployments, set `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, `UNOLOCK_APP_VERSION`, or `UNOLOCK_SIGNING_PUBLIC_KEY` only when overrides are needed.
+* For hosted UnoLock, the connection URL is enough for the MCP to resolve the published PQ validation key automatically.
+* For custom deployments, set `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` only when overrides are needed.
 
 ## Cursor
 

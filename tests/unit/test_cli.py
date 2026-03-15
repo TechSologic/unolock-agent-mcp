@@ -81,6 +81,7 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertIn('"recommended_next_action": "ask_for_connection_url"', payload)
         self.assertIn('"ok": true', payload)
         self.assertIn('"base_url": null', payload)
+        self.assertNotIn("app_version", payload)
 
     def test_config_check_hides_internal_default_localhost_base_url(self) -> None:
         with patch.object(cli, "RegistrationStore") as registration_store_cls:
@@ -101,6 +102,7 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(result, 1)
         payload = print_mock.call_args.args[0]
         self.assertIn('"base_url": null', payload)
+        self.assertNotIn("app_version", payload)
 
     def test_bootstrap_uses_pending_connection_url_runtime_fields(self) -> None:
         registration = RegistrationState(

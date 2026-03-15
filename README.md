@@ -264,12 +264,11 @@ Override example:
 {
   "base_url": "https://api.unolock.example",
   "transparency_origin": "https://safe.unolock.example",
-  "app_version": "1.2.3",
   "signing_public_key_b64": "BASE64_SERVER_PQ_SIGNING_PUBLIC_KEY"
 }
 ```
 
-For the standard hosted UnoLock deployment, the MCP can derive the API origin, UnoLock app version, and PQ validation key from the user-provided agent key connection URL automatically. If you want to force the same hosted deployment without waiting for a connection URL, this also works:
+For the standard hosted UnoLock deployment, the MCP can derive the API origin and PQ validation key from the user-provided agent key connection URL automatically. If you want to force the same hosted deployment without waiting for a connection URL, this also works:
 
 ```json
 {
@@ -277,20 +276,13 @@ For the standard hosted UnoLock deployment, the MCP can derive the API origin, U
 }
 ```
 
-the MCP will derive `https://safe.unolock.com`, fetch `/unolock-client.json`, and read the published app version and `serverPQValidationKey`. If that hosted file is unavailable, it falls back to the transparency bundle.
+the MCP will derive `https://safe.unolock.com`, fetch `/unolock-client.json`, and read the published `serverPQValidationKey`. If that hosted file is unavailable, it falls back to the transparency bundle.
 
 Use this command to verify what the MCP resolved:
 
 ```bash
 python3 -m unolock_mcp config-check
 ```
-
-Versioning is intentionally split:
-
-* MCP package version: the version of `unolock-agent-mcp` itself
-* UnoLock app version: the Safe client/server compatibility version sent as `x-app-version`
-
-For the standard hosted UnoLock deployment, the MCP resolves the UnoLock app version from the hosted client metadata rather than reusing the MCP package version.
 
 TPM provider selection:
 
