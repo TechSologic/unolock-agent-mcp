@@ -10,6 +10,11 @@ from urllib.request import urlopen
 from unolock_mcp.domain.models import UnoLockConfig, UnoLockResolvedConfig
 
 
+# Bundled client/runtime compatibility version used when the deployment host does
+# not publish appVersion metadata. The signing/PQ key remains host-specific.
+BUNDLED_UNOLOCK_APP_VERSION = "0.20.21"
+
+
 def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
@@ -262,6 +267,9 @@ def resolve_unolock_config(
     elif local_bundle_metadata.get("app_version"):
         resolved_app_version = local_bundle_metadata["app_version"]
         sources["app_version"] = f"{local_bundle_metadata_source}:{resolved_transparency_origin}"
+    elif BUNDLED_UNOLOCK_APP_VERSION:
+        resolved_app_version = BUNDLED_UNOLOCK_APP_VERSION
+        sources["app_version"] = "bundled-default"
     elif repo_auto_discovery_enabled():
         loaded = load_app_version()
         if loaded:

@@ -129,9 +129,10 @@ class UnoLockConfigTest(unittest.TestCase):
 
         self.assertEqual(resolved.base_url, "https://arg.example")
         self.assertEqual(resolved.transparency_origin, "https://arg.example")
-        self.assertIsNone(resolved.app_version)
+        self.assertEqual(resolved.app_version, "0.20.21")
         self.assertIsNone(resolved.signing_public_key_b64)
         self.assertFalse(resolved.is_complete())
+        self.assertEqual(resolved.sources["app_version"], "bundled-default")
 
     def test_derive_transparency_origin_removes_api_prefix_for_hosted_urls(self) -> None:
         self.assertEqual(derive_transparency_origin("https://api.safe.unolock.com"), "https://safe.unolock.com")
