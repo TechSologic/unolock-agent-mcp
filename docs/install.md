@@ -248,7 +248,14 @@ python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
 ```
 
-If the MCP falls back to the software provider, acknowledge that reduced-assurance mode explicitly before using it:
+For normal installs, do not drive the CLI `bootstrap` command directly. Prefer an MCP host such as `mcporter`, then use the MCP tools:
+
+```text
+unolock_submit_agent_bootstrap
+unolock_bootstrap_agent
+```
+
+If you are doing manual CLI recovery or local debugging and the MCP falls back to the software provider, you can acknowledge reduced-assurance mode explicitly with:
 
 ```bash
 python3 -m unolock_mcp bootstrap --allow-reduced-assurance --connection-url '<unoLock connection url>' --pin 0123

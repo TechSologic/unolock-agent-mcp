@@ -43,8 +43,12 @@ def build_parser() -> argparse.ArgumentParser:
 
     bootstrap_parser = subparsers.add_parser(
         "bootstrap",
-        help="Register or authenticate the UnoLock agent using the local registration store.",
-        description="Use the stored UnoLock connection URL and optional PIN to register/authenticate the agent.",
+        help="Advanced/manual: register or authenticate the UnoLock agent using the local registration store.",
+        description=(
+            "Advanced/manual path. Use the stored UnoLock connection URL and optional PIN to "
+            "register/authenticate the agent. For the normal customer or agent flow, prefer an "
+            "MCP host and the MCP tools instead of calling this CLI command directly."
+        ),
     )
     bootstrap_parser.add_argument("--connection-url", default=None)
     bootstrap_parser.add_argument("--pin", default=None)

@@ -144,12 +144,20 @@ cd unolock-agent-mcp
 python3 -m pip install --user -e .
 unolock-agent-probe probe
 unolock-agent-mcp mcp
-python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --pin 0123 --list-records
 python3 -m unolock_mcp tpm-diagnose
 unolock-agent-tpm-check
 unolock-agent-self-test
 python3 -m unolock_mcp config-check
 ```
+
+For normal customer and agent onboarding, do not drive the CLI `bootstrap` command directly.
+Prefer:
+
+* an MCP host config such as `mcporter`
+* `unolock_submit_agent_bootstrap`
+* `unolock_bootstrap_agent`
+
+The direct CLI `bootstrap` command is an advanced/manual path for debugging, recovery, or local testing.
 
 macOS support is still alpha. The MCP now prefers Secure Enclave when it works cleanly and otherwise falls back to a non-exportable macOS Keychain key for broader compatibility. If you are evaluating it on Apple Silicon, start with:
 
