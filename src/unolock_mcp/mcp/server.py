@@ -262,6 +262,11 @@ def create_mcp_server() -> FastMCP:
                 "unolock_list_records",
                 "unolock_get_record",
             ],
+            "normal_flow_note": (
+                "After the local MCP is running, it should guide the agent through whatever registration or "
+                "authentication step is actually required. Start with unolock_get_registration_status and follow "
+                "its recommended_next_action instead of inventing a manual bootstrap sequence."
+            ),
             "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
             "advanced_tools_note": (
                 "Low-level flow/api tools are hidden by default. Enable them only for debugging with "

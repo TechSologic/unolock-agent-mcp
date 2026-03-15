@@ -136,6 +136,8 @@ For real MCP hosts, see:
 
 `mcporter` is the preferred path when it is available. The user PIN is kept only in MCP process memory, so keeping the MCP alive means lower latency, fewer repeat PIN prompts, and less pressure for the agent to store the PIN persistently.
 
+Once the local MCP is running, the normal flow is that the MCP guides the agent through any registration or authentication step that is actually required. Start with `unolock_get_registration_status` and follow its `recommended_next_action` instead of inventing a manual bootstrap sequence.
+
 If you prefer manual install from source:
 
 ```bash
