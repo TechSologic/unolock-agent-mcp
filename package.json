@@ -1,6 +1,6 @@
 {
   "name": "@techsologic/unolock-agent-mcp",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "npx wrapper for the official UnoLock Agent MCP release binaries",
   "license": "SEE LICENSE IN README.md",
   "homepage": "https://github.com/TechSologic/unolock-agent-mcp",

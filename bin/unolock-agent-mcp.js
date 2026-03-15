@@ -7,10 +7,9 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.13";
-const FALLBACK_BINARY_VERSION = "0.1.11";
+const PACKAGE_VERSION = "0.1.14";
+const FALLBACK_BINARY_VERSION = "0.1.12";
 const REPO = "TechSologic/unolock-agent-mcp";
-const RELEASE_CHECK_TTL_MS = 6 * 60 * 60 * 1000;
 
 function platformAssetInfo() {
   const platform = process.platform;
@@ -180,15 +179,6 @@ async function resolveReleaseVersion() {
     return override;
   }
   const metadata = readReleaseMetadata();
-  if (
-    metadata &&
-    typeof metadata.releaseVersion === "string" &&
-    typeof metadata.checkedAt === "number" &&
-    Date.now() - metadata.checkedAt < RELEASE_CHECK_TTL_MS &&
-    fs.existsSync(binaryPath(metadata.releaseVersion))
-  ) {
-    return metadata.releaseVersion;
-  }
   try {
     const payload = await fetchJson(`https://api.github.com/repos/${REPO}/releases/latest`);
     const latest = normalizeVersion(payload && payload.tag_name);
