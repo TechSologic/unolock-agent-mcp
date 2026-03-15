@@ -7,8 +7,8 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.14";
-const FALLBACK_BINARY_VERSION = "0.1.12";
+const PACKAGE_VERSION = "0.1.15";
+const FALLBACK_BINARY_VERSION = "0.1.15";
 const REPO = "TechSologic/unolock-agent-mcp";
 
 function platformAssetInfo() {
