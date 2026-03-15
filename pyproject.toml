@@ -32,7 +32,7 @@ dependencies = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/TechSologic/unolock-agent-mcp"
+Homepage = "https://unolock.ai"
 Repository = "https://github.com/TechSologic/unolock-agent-mcp"
 Documentation = "https://github.com/TechSologic/unolock-agent-mcp/tree/main/docs"
 Issues = "https://github.com/TechSologic/unolock-agent-mcp/issues"
