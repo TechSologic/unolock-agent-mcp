@@ -7,7 +7,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-from unolock_mcp.config import derive_transparency_origin, load_config_file, resolve_unolock_config
+from unolock_mcp.config import derive_transparency_origin, load_config_file, load_unolock_config, resolve_unolock_config
 
 
 class UnoLockConfigTest(unittest.TestCase):
@@ -138,6 +138,30 @@ class UnoLockConfigTest(unittest.TestCase):
         self.assertEqual(derive_transparency_origin("https://api.safe.unolock.com"), "https://safe.unolock.com")
         self.assertEqual(derive_transparency_origin("https://safe.unolock.com"), "https://safe.unolock.com")
         self.assertIsNone(derive_transparency_origin("http://127.0.0.1:3000"))
+
+    def test_load_unolock_config_uses_generic_runtime_metadata_error(self) -> None:
+        old_values = {
+            "UNOLOCK_CONFIG_FILE": os.environ.get("UNOLOCK_CONFIG_FILE"),
+            "UNOLOCK_APP_VERSION": os.environ.get("UNOLOCK_APP_VERSION"),
+            "UNOLOCK_SIGNING_PUBLIC_KEY": os.environ.get("UNOLOCK_SIGNING_PUBLIC_KEY"),
+            "UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY": os.environ.get("UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY"),
+        }
+        os.environ["UNOLOCK_CONFIG_FILE"] = str(Path(tempfile.gettempdir()) / "definitely-missing-unolock-config.json")
+        os.environ["UNOLOCK_DISABLE_REPO_AUTO_DISCOVERY"] = "1"
+        os.environ.pop("UNOLOCK_APP_VERSION", None)
+        os.environ.pop("UNOLOCK_SIGNING_PUBLIC_KEY", None)
+        try:
+            with self.assertRaisesRegex(
+                ValueError,
+                "UnoLock runtime metadata is not resolved yet\\. Submit a UnoLock agent key connection URL from the target Safe first, or configure a custom deployment override\\.",
+            ):
+                load_unolock_config(base_url="https://arg.example")
+        finally:
+            for key, value in old_values.items():
+                if value is None:
+                    os.environ.pop(key, None)
+                else:
+                    os.environ[key] = value
 
     @patch("unolock_mcp.config.fetch_hosted_client_metadata")
     def test_resolve_unolock_config_uses_hosted_client_metadata_fallback(self, fetch_hosted_client_metadata) -> None:

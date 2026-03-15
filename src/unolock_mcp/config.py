@@ -322,14 +322,13 @@ def load_unolock_config(
 
     if not resolved.app_version:
         raise ValueError(
-            "Missing UnoLock app version. Set UNOLOCK_APP_VERSION, provide app_version in the config file, "
-            "use a hosted UnoLock transparency origin, or run inside a UnoLock repo checkout for auto-discovery."
+            "UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key connection URL from the "
+            "target Safe first, or configure a custom deployment override."
         )
     if not resolved.signing_public_key_b64:
         raise ValueError(
-            "Missing UnoLock signing public key. Set UNOLOCK_SIGNING_PUBLIC_KEY, provide signing_public_key_b64 "
-            "in the config file, use a hosted UnoLock transparency origin, or run inside a UnoLock repo checkout "
-            "for auto-discovery."
+            "UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key connection URL from the "
+            "target Safe first, or configure a custom deployment override."
         )
 
     return UnoLockConfig(
