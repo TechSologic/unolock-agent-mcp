@@ -247,6 +247,7 @@ Relevant tools:
 * `unolock_get_record`
 * `unolock_create_note`
 * `unolock_update_note`
+* `unolock_append_note`
 * `unolock_rename_record`
 * `unolock_create_checklist`
 * `unolock_set_checklist_item_done`

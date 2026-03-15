@@ -463,6 +463,25 @@ Notes:
 * On archive conflict, the MCP rereads from UnoLock and retries only if the note version is unchanged.
 * If the note is locked or the agent only has read-only access, the MCP fails before upload.
 
+### `unolock_append_note`
+
+Purpose:
+Append new line(s) of raw text to the end of an existing note without resending the full note body.
+
+Arguments:
+
+* `session_id: str`
+* `record_ref: str`
+* `expected_version: int`
+* `append_text: str`
+
+Notes:
+
+* Requires cached archive state from a prior read.
+* Uses the same lock checks and optimistic version checks as `unolock_update_note`.
+* Useful for logging-style note patterns where the agent only needs to add lines to the end of the note.
+* If the note is locked or the agent only has read-only access, the MCP fails before upload.
+
 ### `unolock_rename_record`
 
 Purpose:

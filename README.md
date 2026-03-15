@@ -356,6 +356,7 @@ Current MCP tools:
 * `unolock_get_record`
 * `unolock_create_note`
 * `unolock_update_note`
+* `unolock_append_note`
 * `unolock_rename_record`
 * `unolock_create_checklist`
 * `unolock_set_checklist_item_done`
@@ -376,7 +377,7 @@ Registration discovery support:
 * the Windows CNG non-exportable fallback provider is now also usable from Windows/WSL when TPM-backed creation is unavailable
 * the software provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
-* the MCP can now create notes and checklists and perform version-aware note/checklist updates within the agent's allowed Spaces
+* the MCP can now create notes and checklists and perform version-aware note/checklist updates, note appends, and checklist updates within the agent's allowed Spaces
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating
 * registration state now remembers which TPM provider created the agent key and will tell the host to re-register or force the old provider if there is a provider mismatch

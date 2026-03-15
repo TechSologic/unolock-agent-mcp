@@ -113,6 +113,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         self.assertFalse(projected["locked"])
         self.assertTrue(projected["writable"])
         self.assertIn("update_note", projected["allowed_operations"])
+        self.assertIn("append_note", projected["allowed_operations"])
 
     def test_label_name_filtering_uses_lowercase_names(self) -> None:
         names = self.client._label_names(
@@ -578,6 +579,24 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(result["record"]["plain_text"], "after")
         self.api_client.http_client.get_text_with_headers_absolute.assert_not_called()
 
+    def test_append_note_adds_new_line_and_increments_version(self) -> None:
+        payload = '{"title":"Records","data":{"nextRecordID":1,"nextLabelID":0,"labels":[],"records":[{"id":1,"version":3,"recordTitle":"Log","recordBody":"{\\"ops\\":[{\\"insert\\":\\"before\\\\n\\"}]}","pinned":false,"bgColor":"","bgImage":"","color":"","isCbox":false,"labels":[],"archives":null,"wallet":null,"ro":false}]}}'
+        self._prime_records_archive(payload)
+        self._cache_records_archive(payload)
+
+        result = self.writer.append_note(
+            "session-1",
+            record_ref="archive-1:1",
+            expected_version=3,
+            append_text="after\nagain",
+        )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["record"]["version"], 4)
+        self.assertEqual(result["record"]["title"], "Log")
+        self.assertEqual(result["record"]["plain_text"], "before\nafter\nagain")
+        self.assertIn("append_note", result["record"]["allowed_operations"])
+
     def test_update_note_rejects_locked_record(self) -> None:
         payload = '{"title":"Records","data":{"nextRecordID":1,"nextLabelID":0,"labels":[],"records":[{"id":1,"version":2,"recordTitle":"Locked","recordBody":"{\\"ops\\":[{\\"insert\\":\\"before\\\\n\\"}]}","pinned":false,"bgColor":"","bgImage":"","color":"","isCbox":false,"labels":[],"archives":null,"wallet":null,"ro":true}]}}'
         self._prime_records_archive(payload)
@@ -661,6 +680,28 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
                 expected_version=1,
                 title="Updated",
                 text="after",
+            )
+
+    def test_append_note_rejects_stale_version(self) -> None:
+        payload = '{"title":"Records","data":{"nextRecordID":1,"nextLabelID":0,"labels":[],"records":[{"id":1,"version":4,"recordTitle":"Log","recordBody":"{\\"ops\\":[{\\"insert\\":\\"before\\\\n\\"}]}","pinned":false,"bgColor":"","bgImage":"","color":"","isCbox":false,"labels":[],"archives":null,"wallet":null,"ro":false}]}}'
+        self._prime_records_archive(payload)
+        self._cache_records_archive(payload)
+
+        with self.assertRaisesRegex(ValueError, "retry the append with the latest version"):
+            self.writer.append_note(
+                "session-1",
+                record_ref="archive-1:1",
+                expected_version=3,
+                append_text="after",
+            )
+
+    def test_append_note_requires_cached_read_state(self) -> None:
+        with self.assertRaisesRegex(ValueError, "Read the note first"):
+            self.writer.append_note(
+                "session-1",
+                record_ref="archive-1:1",
+                expected_version=1,
+                append_text="after",
             )
 
     def test_rename_record_changes_title_only_and_increments_version(self) -> None:

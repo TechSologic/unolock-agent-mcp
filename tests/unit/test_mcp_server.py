@@ -68,6 +68,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("unolock_list_records", payload["primary_tools"])
             self.assertIn("unolock_call_api", payload["advanced_tools"])
             self.assertIn("unolock_get_update_status", payload["advanced_tools"])
+            self.assertIn("unolock_append_note", payload["write_tools"])
             self.assertIn("unolock://usage/about", payload["explanation_resources"])
             self.assertIn("unolock://usage/security-model", payload["explanation_resources"])
             self.assertIn("unolock://usage/updates", payload["explanation_resources"])

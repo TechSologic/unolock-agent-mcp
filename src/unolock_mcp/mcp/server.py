@@ -129,6 +129,7 @@ def _registration_status_payload(
     write_tools = [
         "unolock_create_note",
         "unolock_update_note",
+        "unolock_append_note",
         "unolock_rename_record",
         "unolock_create_checklist",
         "unolock_set_checklist_item_done",
@@ -873,6 +874,30 @@ def create_mcp_server() -> FastMCP:
                 expected_version=expected_version,
                 title=title,
                 text=text,
+            )
+        except ValueError as exc:
+            return _write_error_response(exc)
+
+    @server.tool(
+        name="unolock_append_note",
+        description=(
+            "Append new line(s) of raw text to the end of an existing UnoLock note without resending the full note body. "
+            "Read the note first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "The MCP still enforces note locks and version conflicts before appending."
+        ),
+    )
+    def append_note(session_id: str, record_ref: str, expected_version: int, append_text: str) -> dict[str, Any]:
+        writable_records = UnoLockWritableRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        try:
+            return writable_records.append_note(
+                session_id,
+                record_ref=record_ref,
+                expected_version=expected_version,
+                append_text=append_text,
             )
         except ValueError as exc:
             return _write_error_response(exc)

@@ -328,7 +328,7 @@ class _UnoLockRecordsBase:
             return operations
         operations.append("rename_record")
         if kind == "note":
-            operations.append("update_note")
+            operations.extend(["update_note", "append_note"])
         elif kind == "checklist":
             operations.extend(
                 [
@@ -589,6 +589,55 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         title: str,
         text: str,
     ) -> dict[str, Any]:
+        return self._mutate_note(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            read_error="read_first_before_write: No cached archive state is available for this record. Read the note first, then retry the update.",
+            stale_error="write_conflict_requires_reread: Read the note again and retry with the latest version.",
+            mutate=lambda target_record, current_version: self._replace_note_contents(
+                target_record,
+                current_version=current_version,
+                title=title,
+                text=text,
+            ),
+        )
+
+    def append_note(
+        self,
+        session_id: str,
+        *,
+        record_ref: str,
+        expected_version: int,
+        append_text: str,
+    ) -> dict[str, Any]:
+        normalized_append = append_text.replace("\r\n", "\n")
+        if not normalized_append.strip():
+            raise ValueError("invalid_input: append_text must contain non-empty text")
+
+        return self._mutate_note(
+            session_id,
+            record_ref=record_ref,
+            expected_version=expected_version,
+            read_error="read_first_before_write: No cached archive state is available for this record. Read the note first, then retry the append.",
+            stale_error="write_conflict_requires_reread: Read the note again and retry the append with the latest version.",
+            mutate=lambda target_record, current_version: self._append_note_contents(
+                target_record,
+                current_version=current_version,
+                append_text=normalized_append,
+            ),
+        )
+
+    def _mutate_note(
+        self,
+        session_id: str,
+        *,
+        record_ref: str,
+        expected_version: int,
+        read_error: str,
+        stale_error: str,
+        mutate,
+    ) -> dict[str, Any]:
         archive_id, record_id = self._parse_record_ref(record_ref)
         expected_version = self._coerce_positive_int(expected_version) or 0
         if expected_version <= 0:
@@ -597,9 +646,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         try:
             write_context = self._get_cached_write_context_for_archive(session_id, archive_id)
         except KeyError as exc:
-            raise ValueError(
-                "read_first_before_write: No cached archive state is available for this record. Read the note first, then retry the update."
-            ) from exc
+            raise ValueError(read_error) from exc
 
         for _ in range(2):
             body = write_context["body"]
@@ -613,11 +660,9 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
 
             current_version = self._coerce_positive_int(target_record.get("version")) or 1
             if current_version != expected_version:
-                raise ValueError("write_conflict_requires_reread: Read the note again and retry with the latest version.")
+                raise ValueError(stale_error)
 
-            target_record["recordTitle"] = title
-            target_record["recordBody"] = self._plain_text_to_delta(text)
-            target_record["version"] = current_version + 1
+            mutate(target_record, current_version)
 
             try:
                 self._upload_records_archive(session_id, write_context)
@@ -633,7 +678,37 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                 "ok": True,
                 "record": self._project_record(target_record, archive, spaces, session_id=session_id),
             }
-        raise ValueError("write_conflict_requires_reread: Read the note again and retry with the latest version.")
+        raise ValueError(stale_error)
+
+    def _replace_note_contents(
+        self,
+        target_record: dict[str, Any],
+        *,
+        current_version: int,
+        title: str,
+        text: str,
+    ) -> None:
+        target_record["recordTitle"] = title
+        target_record["recordBody"] = self._plain_text_to_delta(text)
+        target_record["version"] = current_version + 1
+
+    def _append_note_contents(
+        self,
+        target_record: dict[str, Any],
+        *,
+        current_version: int,
+        append_text: str,
+    ) -> None:
+        existing_text = self._record_plain_text(target_record, [])
+        suffix = append_text.lstrip("\n")
+        if not suffix.strip():
+            raise ValueError("invalid_input: append_text must contain non-empty text")
+        if existing_text:
+            combined_text = f"{existing_text.rstrip(chr(10))}\n{suffix}"
+        else:
+            combined_text = suffix
+        target_record["recordBody"] = self._plain_text_to_delta(combined_text)
+        target_record["version"] = current_version + 1
 
     def rename_record(
         self,
