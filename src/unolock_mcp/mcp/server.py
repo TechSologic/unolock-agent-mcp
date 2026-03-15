@@ -881,7 +881,7 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_append_note",
         description=(
-            "Append new line(s) of raw text to the end of an existing UnoLock note without resending the full note body. "
+            "Append new line(s) of raw text to the end of an existing UnoLock note without resending the entire note body. "
             "Read the note first, then use the returned record_ref, version, and allowed_operations metadata. "
             "The MCP still enforces note locks and version conflicts before appending."
         ),

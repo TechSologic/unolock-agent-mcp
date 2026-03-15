@@ -466,7 +466,7 @@ Notes:
 ### `unolock_append_note`
 
 Purpose:
-Append new line(s) of raw text to the end of an existing note without resending the full note body.
+Append new line(s) of raw text to the end of an existing note without resending the entire note body.
 
 Arguments:
 
@@ -479,7 +479,7 @@ Notes:
 
 * Requires cached archive state from a prior read.
 * Uses the same lock checks and optimistic version checks as `unolock_update_note`.
-* Useful for logging-style note patterns where the agent only needs to add lines to the end of the note.
+* Useful whenever the agent only needs to add content at the end of the note instead of replacing the whole body.
 * If the note is locked or the agent only has read-only access, the MCP fails before upload.
 
 ### `unolock_rename_record`
