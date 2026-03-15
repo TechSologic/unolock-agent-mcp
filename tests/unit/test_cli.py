@@ -67,10 +67,11 @@ class CliEntryPointTest(unittest.TestCase):
                             "advice": [],
                         }
                         resolve_config.return_value = SimpleNamespace(
-                            base_url=None,
+                            base_url="http://127.0.0.1:3000",
                             transparency_origin=None,
                             app_version=None,
                             signing_public_key_b64=None,
+                            sources={"base_url": "default"},
                         )
 
                         result = cli.main(["self-test", "--json"])
@@ -79,6 +80,27 @@ class CliEntryPointTest(unittest.TestCase):
         payload = print_mock.call_args.args[0]
         self.assertIn('"recommended_next_action": "ask_for_connection_url"', payload)
         self.assertIn('"ok": true', payload)
+        self.assertIn('"base_url": null', payload)
+
+    def test_config_check_hides_internal_default_localhost_base_url(self) -> None:
+        with patch.object(cli, "RegistrationStore") as registration_store_cls:
+            with patch.object(cli, "resolve_unolock_config") as resolve_config:
+                with patch("builtins.print") as print_mock:
+                    registration_store_cls.return_value.load.return_value = RegistrationState()
+                    resolve_config.return_value = SimpleNamespace(
+                        base_url="http://127.0.0.1:3000",
+                        transparency_origin=None,
+                        app_version=None,
+                        signing_public_key_b64=None,
+                        is_complete=lambda: False,
+                        sources={"base_url": "default"},
+                    )
+
+                    result = cli.main(["config-check"])
+
+        self.assertEqual(result, 1)
+        payload = print_mock.call_args.args[0]
+        self.assertIn('"base_url": null', payload)
 
     def test_bootstrap_uses_pending_connection_url_runtime_fields(self) -> None:
         registration = RegistrationState(

@@ -143,12 +143,13 @@ def main(argv: list[str] | None = None) -> int:
             app_version=args.app_version,
             signing_public_key_b64=args.signing_public_key,
         )
+        runtime_base_url = _display_runtime_base_url(resolved=resolved, registration=registration.summary())
         payload = {
             "ok": resolved.is_complete(),
             "mcp_version": MCP_VERSION,
             "config_file": str(default_config_path()),
             "resolved": {
-                "base_url": resolved.base_url,
+                "base_url": runtime_base_url,
                 "transparency_origin": resolved.transparency_origin,
                 "app_version": resolved.app_version,
                 "signing_public_key_b64": "<redacted>" if resolved.signing_public_key_b64 else None,
@@ -361,6 +362,7 @@ def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved)
     environment = diagnostics.get("details", {}).get("environment", {})
     recommended_host_shape = _recommended_host_shape(environment)
     docs = diagnostics.get("details", {}).get("docs", {})
+    runtime_base_url = _display_runtime_base_url(resolved=resolved, registration=registration)
 
     if registration.get("registered"):
         next_action = "authenticate_agent"
@@ -399,7 +401,7 @@ def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved)
             "tpm_provider": registration.get("tpm_provider"),
         },
         "runtime_config": {
-            "base_url": getattr(resolved, "base_url", None),
+            "base_url": runtime_base_url,
             "transparency_origin": getattr(resolved, "transparency_origin", None),
             "app_version_available": bool(getattr(resolved, "app_version", None)),
             "pq_validation_key_available": bool(getattr(resolved, "signing_public_key_b64", None)),
@@ -419,6 +421,16 @@ def _recommended_host_shape(environment: dict) -> str:
         runtime = environment.get("container_runtime") or "container"
         return f"{runtime} backed by a real host or VM TPM/vTPM path"
     return "normal logged-in desktop or VM session with TPM/vTPM/platform-backed key access"
+
+
+def _display_runtime_base_url(*, resolved, registration: dict) -> str | None:
+    if getattr(resolved, "base_url", None) is None:
+        return None
+    if getattr(resolved, "sources", {}).get("base_url") != "default":
+        return resolved.base_url
+    if registration.get("api_base_url") or (registration.get("connection_url") or {}).get("api_base_url"):
+        return resolved.base_url
+    return None
 
 
 if __name__ == "__main__":
