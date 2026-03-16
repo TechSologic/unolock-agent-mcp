@@ -4,6 +4,12 @@
 
 It is also the preferred path when it is available.
 
+When you choose `mcporter`, use it as the normal control surface:
+
+* start and restart the UnoLock MCP through `mcporter`
+* call UnoLock tools through `mcporter`
+* do not bypass it with a parallel direct CLI workflow unless you are debugging
+
 For the public agent-first explanation of this choice, see:
 
 * `https://unolock.ai/install-mcp.html`
@@ -86,6 +92,16 @@ Without keep-alive:
 * the agent may need to ask the user for the PIN again after each restart or short-lived invocation
 * cold-start overhead increases
 * in-memory state is lost between requests
+
+## Important operating rule
+
+If UnoLock is running under `mcporter`, all normal communication and control should go through `mcporter`:
+
+* use `mcporter` to launch the server
+* use `mcporter` to call UnoLock MCP tools
+* use `mcporter` to restart the MCP between tasks or updates
+
+Do not mix that with a separate direct `unolock-agent-mcp ...` CLI workflow during normal agent use, because that creates avoidable confusion about which process owns the active registration state, in-memory PIN, and live session state.
 
 ## Updates with mcporter
 

@@ -138,6 +138,8 @@ For real MCP hosts, see:
 
 Once the local MCP is running, the normal flow is that the MCP guides the agent through any registration or authentication step that is actually required. Start with `unolock_get_registration_status` and follow its `recommended_next_action` instead of inventing a manual bootstrap sequence.
 
+If you are using `mcporter`, keep interacting with UnoLock through `mcporter`. Treat `mcporter` as the active MCP host and control surface for starting the server, calling tools, and restarting it between tasks.
+
 If you prefer manual install from source:
 
 ```bash
