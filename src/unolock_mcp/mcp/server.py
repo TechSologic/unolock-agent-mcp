@@ -228,8 +228,7 @@ def create_mcp_server() -> FastMCP:
             "Start with unolock_get_registration_status and follow its recommended_next_action. "
             "Prefer the primary workflow tools first: unolock_submit_agent_bootstrap, unolock_bootstrap_agent, "
             "unolock_list_spaces, unolock_list_records, and unolock_get_record. Read records before writing so you "
-            "have current version and allowed_operations metadata. Low-level flow and API tools are advanced/debug "
-            "tools and should not be the normal first choice. If registration is not configured, ask the user for "
+            "have current version and allowed_operations metadata. If registration is not configured, ask the user for "
             "the one-time-use UnoLock agent key connection URL and the optional agent PIN together when possible, "
             "then submit them with unolock_submit_agent_bootstrap. The connection URL is for enrollment only. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for a connection URL or PIN, "
@@ -268,10 +267,6 @@ def create_mcp_server() -> FastMCP:
                 "its recommended_next_action instead of inventing a manual bootstrap sequence."
             ),
             "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
-            "advanced_tools_note": (
-                "Low-level flow/api tools are hidden by default. Enable them only for debugging with "
-                "UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1."
-            ),
         }
 
     @server.resource(
