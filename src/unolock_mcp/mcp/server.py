@@ -263,7 +263,7 @@ def create_mcp_server() -> FastMCP:
                 "unolock_get_record",
             ],
             "normal_flow_note": (
-                "After the local MCP is running, it should guide the agent through whatever registration or "
+                "After the local stdio MCP is running, it should guide the agent through whatever registration or "
                 "authentication step is actually required. Start with unolock_get_registration_status and follow "
                 "its recommended_next_action instead of inventing a manual bootstrap sequence."
             ),

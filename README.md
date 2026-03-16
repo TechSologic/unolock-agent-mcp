@@ -48,7 +48,7 @@ UnoLock Agent MCP is designed to work across a wide range of agent environments.
 The strongest deployments are environments that can provide device-bound, non-exportable key storage in a normal user-controlled session. That includes:
 
 * desktop AI assistants
-* local MCP hosts such as Claude Desktop or Cursor
+* local stdio MCP hosts such as Claude Desktop or Cursor
 * user-controlled workstations, laptops, and VMs with TPM/vTPM access
 * macOS hosts that can use either Secure Enclave or a non-exportable Keychain-backed key
 * Windows or WSL hosts that can use either TPM-backed keys or the non-exportable Windows CNG fallback
@@ -136,7 +136,7 @@ For real MCP hosts, see:
 
 `mcporter` is the preferred path when it is available. The user PIN is kept only in MCP process memory, so keeping the MCP alive means lower latency, fewer repeat PIN prompts, and less pressure for the agent to store the PIN persistently.
 
-Once the local MCP is running, the normal flow is that the MCP guides the agent through any registration or authentication step that is actually required. Start with `unolock_get_registration_status` and follow its `recommended_next_action` instead of inventing a manual bootstrap sequence.
+Once the local stdio MCP is running, the normal flow is that the MCP guides the agent through any registration or authentication step that is actually required. Start with `unolock_get_registration_status` and follow its `recommended_next_action` instead of inventing a manual bootstrap sequence.
 
 If you are using `mcporter`, keep interacting with UnoLock through `mcporter`. Treat `mcporter` as the active MCP host and control surface for starting the server, calling tools, and restarting it between tasks.
 
