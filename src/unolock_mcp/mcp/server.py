@@ -112,16 +112,16 @@ def _registration_status_payload(
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
-            "Ask the user for the one-time-use UnoLock agent key connection URL and, if they configured one, the "
-            "UnoLock agent PIN at the same time. The connection URL is for enrollment only and should not be reused "
-            "or treated like a persistent secret. Then call unolock_submit_agent_bootstrap or submit the connection "
-            "URL and PIN separately."
+            "Ask the user for the one-time UnoLock Agent Key URL in the #/agent-register/... format. If they do not "
+            "have one yet, ask them to open the Safe web app at https://safe.unolock.com/, create a dedicated Agent "
+            "Key, and paste the generated URL here. Ask for the agent PIN only if that key uses one."
         )
     else:
         next_action = "start_registration"
         guidance = (
-            "A one-time-use UnoLock agent key connection URL is stored. Call "
-            "unolock_start_registration_from_connection_url to register this MCP."
+            "The Agent Key URL is already stored. Continue registration now with "
+            "unolock_start_registration_from_connection_url or unolock_bootstrap_agent. Do not speculate about menu "
+            "labels, URL expiry, or deployment internals unless the MCP reports a concrete blocker."
         )
 
     if security_warning:
@@ -160,8 +160,21 @@ def _registration_status_payload(
             "unolock_get_archives",
         ]
 
+    public_registration = {
+        key: value
+        for key, value in registration.items()
+        if key != "registration_mode"
+    }
+    public_registration["registration_state"] = (
+        "registered"
+        if registration.get("registered")
+        else "waiting_for_connection_url"
+        if not registration.get("has_connection_url")
+        else "ready_to_register"
+    )
+
     return {
-        **registration,
+        **public_registration,
         **runtime,
         "tpm_diagnostics": tpm,
         "security_warning": security_warning,
@@ -183,6 +196,12 @@ def _registration_status_payload(
             "Authenticate or finish registration before using data tools.",
             "Read a space or record before writing so you have current version and allowed_operations metadata.",
             "If a write reports conflict, reread the target record and retry with the latest version.",
+        ],
+        "agent_behavior_rules": [
+            "Do not narrate raw internal MCP state names to the user.",
+            "Do not guess UnoLock UI menu labels or screen paths.",
+            "Do not guess that a URL expired unless the MCP reports a concrete enrollment failure.",
+            "If progress stops, report one concrete blocker and ask for one concrete next input.",
         ],
     }
 
@@ -266,6 +285,10 @@ def create_mcp_server() -> FastMCP:
                 "authentication step is actually required. Start with unolock_get_registration_status and follow "
                 "its recommended_next_action instead of inventing a manual bootstrap sequence."
             ),
+            "agent_behavior_note": (
+                "Ask only for the Agent Key URL and, if needed, the PIN. Do not invent menu paths, expiry behavior, "
+                "or deployment internals unless the MCP reports a concrete blocker."
+            ),
             "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
         }
 
@@ -286,6 +309,10 @@ def create_mcp_server() -> FastMCP:
                 "An Agent Key is a dedicated access key for an AI agent, not a full admin credential.",
                 "The agent only gets the Spaces and permissions granted to that Agent Key.",
                 "The one-time connection URL is for enrollment only and cannot be reused after registration succeeds.",
+            ],
+            "how_to_ask": [
+                "If the user does not already have an Agent Key URL, ask them to open the Safe web app at https://safe.unolock.com/ and create one.",
+                "Do not guess where that action lives in the UI. Let the user navigate the Safe app themselves if needed.",
             ],
             "why_it_matters": [
                 "This lets an AI agent work with Safe data without exposing a reusable plaintext API secret.",

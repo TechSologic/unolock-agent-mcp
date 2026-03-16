@@ -64,6 +64,8 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertEqual(payload["recommended_next_action"], "authenticate_or_set_pin")
             self.assertIn("agent PIN", payload["guidance"])
             self.assertFalse(payload["needs_connection_url"])
+            self.assertEqual(payload["registration_state"], "registered")
+            self.assertNotIn("registration_mode", payload)
             self.assertIn("unolock_get_registration_status", payload["primary_tools"])
             self.assertIn("unolock_list_records", payload["primary_tools"])
             self.assertEqual(payload["advanced_tools"], [])
@@ -81,11 +83,14 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             )
 
             self.assertEqual(payload["recommended_next_action"], "ask_for_connection_url")
-            self.assertIn("agent key connection URL", payload["guidance"])
-            self.assertIn("one-time-use", payload["guidance"])
+            self.assertIn("Agent Key URL", payload["guidance"])
+            self.assertIn("safe.unolock.com", payload["guidance"])
             self.assertIn("agent PIN", payload["guidance"])
+            self.assertEqual(payload["registration_state"], "waiting_for_connection_url")
+            self.assertNotIn("registration_mode", payload)
             self.assertIn("Check registration status first.", payload["workflow_summary"])
             self.assertIn("unolock://usage/quickstart", payload["explanation_resources"])
+            self.assertIn("Do not narrate raw internal MCP state names to the user.", payload["agent_behavior_rules"])
 
     def test_unacknowledged_reduced_assurance_changes_next_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
