@@ -36,7 +36,13 @@ class AgentAuthClient:
 
     def _get_tpm(self) -> TpmDao:
         if self._tpm is None:
-            self._tpm = create_tpm_dao()
+            provider = None
+            if self._registration_store is not None:
+                try:
+                    provider = self._registration_store.load().tpm_provider
+                except Exception:
+                    provider = None
+            self._tpm = create_tpm_dao(provider)
         return self._tpm
 
     def set_flow_client(self, flow_client: UnoLockFlowClient) -> None:

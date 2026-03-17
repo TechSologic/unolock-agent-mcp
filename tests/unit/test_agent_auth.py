@@ -62,6 +62,24 @@ class AgentAuthClientTest(unittest.TestCase):
             create_tpm_dao.assert_called_once()
             self.assertEqual(status["tpm_provider"], "software")
 
+    def test_stored_provider_is_reused_when_creating_tpm(self) -> None:
+        with patch("unolock_mcp.auth.agent_auth.create_tpm_dao") as create_tpm_dao:
+            dao = Mock()
+            dao.provider_name.return_value = "software"
+            dao.diagnose.return_value = Mock(
+                production_ready=False,
+                available=False,
+                to_dict=lambda: {},
+            )
+            create_tpm_dao.return_value = dao
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(tpm_provider="software")
+
+            client = AgentAuthClient(None, Mock(), store)
+            client.runtime_status()
+
+            create_tpm_dao.assert_called_once_with("software")
+
     def test_flow_session_summary_does_not_require_tpm_provider(self) -> None:
         session = FlowSession(
             session_id="session-1",
