@@ -199,8 +199,9 @@ def main(argv: list[str] | None = None) -> int:
     if command == "mcporter-config":
         if args.mode == "binary":
             payload = {
-                "servers": {
+                "mcpServers": {
                     "unolock-agent": {
+                        "type": "stdio",
                         "command": args.binary_path,
                         "args": ["mcp"],
                         "lifecycle": "keep-alive",
@@ -209,8 +210,9 @@ def main(argv: list[str] | None = None) -> int:
             }
         else:
             payload = {
-                "servers": {
+                "mcpServers": {
                     "unolock-agent": {
+                        "type": "stdio",
                         "command": "npx",
                         "args": ["@techsologic/unolock-agent-mcp@latest"],
                         "lifecycle": "keep-alive",

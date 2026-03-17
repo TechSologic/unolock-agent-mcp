@@ -217,8 +217,9 @@ Preferred keep-alive example with `mcporter`:
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "unolock-agent": {
+      "type": "stdio",
       "command": "npx",
       "args": ["@techsologic/unolock-agent-mcp@latest"],
       "lifecycle": "keep-alive"

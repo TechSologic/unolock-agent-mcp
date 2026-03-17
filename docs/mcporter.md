@@ -65,8 +65,9 @@ Example:
 
 ```json
 {
-  "servers": {
+  "mcpServers": {
     "unolock-agent": {
+      "type": "stdio",
       "command": "npx",
       "args": ["@techsologic/unolock-agent-mcp@latest"],
       "lifecycle": "keep-alive"
