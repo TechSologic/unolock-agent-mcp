@@ -27,12 +27,17 @@ class AgentAuthClient:
         self._flow_client = flow_client
         self._session_store = session_store
         self._registration_store = registration_store
-        self._tpm = tpm_dao or create_tpm_dao()
+        self._tpm = tpm_dao
         self._data_keyrings: dict[str, SafeKeyringManager] = {}
         self._agent_pin: str | None = None
         self._reduced_assurance_acknowledged = False
         self._pending_server_keys: dict[str, str] = {}
         self._pending_client_data_keys: dict[str, bytes] = {}
+
+    def _get_tpm(self) -> TpmDao:
+        if self._tpm is None:
+            self._tpm = create_tpm_dao()
+        return self._tpm
 
     def set_flow_client(self, flow_client: UnoLockFlowClient) -> None:
         self._flow_client = flow_client
@@ -62,7 +67,7 @@ class AgentAuthClient:
 
         if key_id and key_id != "unolock-agent":
             try:
-                self._tpm.delete_key(key_id)
+                self._get_tpm().delete_key(key_id)
                 deleted["key_id"] = key_id
             except Exception as exc:
                 errors.append(f"Failed to delete local key '{key_id}': {exc}")
@@ -71,11 +76,11 @@ class AgentAuthClient:
             bootstrap_secret_id = self._bootstrap_secret_id(access_id)
             aidk_secret_id = self._aidk_secret_id(access_id)
             try:
-                self._tpm.delete_secret(bootstrap_secret_id)
+                self._get_tpm().delete_secret(bootstrap_secret_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local secret '{bootstrap_secret_id}': {exc}")
             try:
-                self._tpm.delete_secret(aidk_secret_id)
+                self._get_tpm().delete_secret(aidk_secret_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local secret '{aidk_secret_id}': {exc}")
             deleted["bootstrap_secret_id"] = bootstrap_secret_id
@@ -85,7 +90,7 @@ class AgentAuthClient:
             self._data_keyrings.pop(access_id, None)
         for secret_id in (self._registration_material_secret_id(), self._registered_access_id_secret_id()):
             try:
-                self._tpm.delete_secret(secret_id)
+                self._get_tpm().delete_secret(secret_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
 
@@ -109,11 +114,11 @@ class AgentAuthClient:
 
     def runtime_status(self) -> dict[str, Any]:
         registration = self._load_registration()
-        diagnostics = self._tpm.diagnose()
+        diagnostics = self._get_tpm().diagnose()
         provider_mismatch = self._get_provider_mismatch(registration)
         access_id = registration.access_id or (registration.connection_url.access_id if registration.connection_url else None)
         security_warning = self._insecure_provider_warning()
-        tpm_provider = self._normalize_provider_name(self._tpm.provider_name())
+        tpm_provider = self._normalize_provider_name(self._get_tpm().provider_name())
         registered_tpm_provider = self._normalize_provider_name(registration.tpm_provider)
         return {
             "has_agent_pin": self._agent_pin is not None,
@@ -131,7 +136,7 @@ class AgentAuthClient:
         }
 
     def tpm_diagnostics(self) -> dict[str, Any]:
-        return self._tpm.diagnose().to_dict()
+        return self._get_tpm().diagnose().to_dict()
 
     def ensure_secure_provider(self) -> dict[str, Any] | None:
         return self._insecure_provider_warning()
@@ -179,14 +184,14 @@ class AgentAuthClient:
             if not key_id or key_id == "unolock-agent":
                 continue
             try:
-                self._tpm.delete_key(key_id)
+                self._get_tpm().delete_key(key_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local key '{key_id}': {exc}")
 
         for access_id in access_ids:
             for secret_id in (self._bootstrap_secret_id(access_id), self._aidk_secret_id(access_id)):
                 try:
-                    self._tpm.delete_secret(secret_id)
+                    self._get_tpm().delete_secret(secret_id)
                 except Exception as exc:
                     errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
             self._pending_server_keys.pop(access_id, None)
@@ -195,7 +200,7 @@ class AgentAuthClient:
 
         for secret_id in (self._registration_material_secret_id(), self._registered_access_id_secret_id()):
             try:
-                self._tpm.delete_secret(secret_id)
+                self._get_tpm().delete_secret(secret_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
 
@@ -304,7 +309,7 @@ class AgentAuthClient:
                     access_id=resolved_access_id,
                     key_id=self._resolve_key_id(registration),
                     bootstrap_secret="",
-                    tpm_provider=self._tpm.provider_name(),
+                    tpm_provider=self._get_tpm().provider_name(),
                 )
                 if resolved_access_id:
                     self._store_registered_access_id(resolved_access_id)
@@ -444,7 +449,7 @@ class AgentAuthClient:
                     "reason": "missing_access_id",
                     "message": "No accessID is available for agent key registration.",
                 }
-            created = self._tpm.create_key(self._resolve_key_id(registration, access_id))
+            created = self._get_tpm().create_key(self._resolve_key_id(registration, access_id))
             self._registration_store.save(
                 RegistrationState(
                     registered=registration.registered,
@@ -455,7 +460,7 @@ class AgentAuthClient:
                     access_id=access_id,
                     key_id=created.key_id,
                     bootstrap_secret=None,
-                    tpm_provider=self._tpm.provider_name(),
+                    tpm_provider=self._get_tpm().provider_name(),
                     api_base_url=registration.api_base_url or (registration.connection_url.api_base_url if registration.connection_url else None),
                     transparency_origin=registration.transparency_origin or (registration.connection_url.site_origin if registration.connection_url else None),
                 )
@@ -490,7 +495,7 @@ class AgentAuthClient:
                 }
             key_id = self._resolve_key_id(registration, access_id)
             challenge = str(callback.request.get("challenge", ""))
-            signature = self._tpm.sign(key_id, challenge.encode("utf8"))
+            signature = self._get_tpm().sign(key_id, challenge.encode("utf8"))
             return {
                 "result": {
                     "accessID": access_id,
@@ -651,7 +656,7 @@ class AgentAuthClient:
 
     def _get_provider_mismatch(self, registration: RegistrationState) -> dict[str, Any] | None:
         stored_provider = registration.tpm_provider
-        current_provider = self._tpm.provider_name()
+        current_provider = self._get_tpm().provider_name()
         normalized_stored_provider = self._normalize_provider_name(stored_provider)
         normalized_current_provider = self._normalize_provider_name(current_provider)
         if not stored_provider or normalized_stored_provider == normalized_current_provider:
@@ -822,12 +827,12 @@ class AgentAuthClient:
     def _store_protected_bootstrap_secret(self, access_id: str | None, bootstrap_secret: str) -> None:
         if not access_id or not bootstrap_secret:
             return
-        self._tpm.store_secret(self._bootstrap_secret_id(access_id), bootstrap_secret.encode("utf8"))
+        self._get_tpm().store_secret(self._bootstrap_secret_id(access_id), bootstrap_secret.encode("utf8"))
 
     def _load_protected_bootstrap_secret(self, access_id: str | None) -> str | None:
         if not access_id:
             return None
-        secret = self._tpm.load_secret(self._bootstrap_secret_id(access_id))
+        secret = self._get_tpm().load_secret(self._bootstrap_secret_id(access_id))
         if not secret:
             return None
         return secret.decode("utf8")
@@ -835,7 +840,7 @@ class AgentAuthClient:
     def _delete_protected_bootstrap_secret(self, access_id: str | None) -> None:
         if not access_id:
             return
-        self._tpm.delete_secret(self._bootstrap_secret_id(access_id))
+        self._get_tpm().delete_secret(self._bootstrap_secret_id(access_id))
 
     def _store_registration_material(self, parsed) -> None:
         if not parsed.access_id or not parsed.registration_code:
@@ -846,10 +851,10 @@ class AgentAuthClient:
                 "registration_code": parsed.registration_code,
             }
         ).encode("utf8")
-        self._tpm.store_secret(self._registration_material_secret_id(), payload)
+        self._get_tpm().store_secret(self._registration_material_secret_id(), payload)
 
     def _load_registration_material(self) -> dict[str, str] | None:
-        raw = self._tpm.load_secret(self._registration_material_secret_id())
+        raw = self._get_tpm().load_secret(self._registration_material_secret_id())
         if not raw:
             return None
         try:
@@ -868,13 +873,13 @@ class AgentAuthClient:
         }
 
     def _delete_registration_material(self) -> None:
-        self._tpm.delete_secret(self._registration_material_secret_id())
+        self._get_tpm().delete_secret(self._registration_material_secret_id())
 
     def _store_registered_access_id(self, access_id: str) -> None:
-        self._tpm.store_secret(self._registered_access_id_secret_id(), access_id.encode("utf8"))
+        self._get_tpm().store_secret(self._registered_access_id_secret_id(), access_id.encode("utf8"))
 
     def _load_registered_access_id(self) -> str | None:
-        raw = self._tpm.load_secret(self._registered_access_id_secret_id())
+        raw = self._get_tpm().load_secret(self._registered_access_id_secret_id())
         if not raw:
             return None
         try:
@@ -883,14 +888,14 @@ class AgentAuthClient:
             return None
 
     def _load_agent_aidk(self, access_id: str) -> bytes | None:
-        return self._tpm.load_secret(self._aidk_secret_id(access_id))
+        return self._get_tpm().load_secret(self._aidk_secret_id(access_id))
 
     def _load_or_create_agent_aidk(self, access_id: str) -> bytes:
         existing = self._load_agent_aidk(access_id)
         if existing is not None:
             return existing
         aidk = secrets.token_bytes(32)
-        self._tpm.store_secret(self._aidk_secret_id(access_id), aidk)
+        self._get_tpm().store_secret(self._aidk_secret_id(access_id), aidk)
         return aidk
 
     def _protect_bootstrap_secret_if_needed(self, registration: RegistrationState) -> None:
@@ -902,10 +907,10 @@ class AgentAuthClient:
         self._registration_store.save(registration)
 
     def _insecure_provider_warning(self) -> dict[str, Any] | None:
-        diagnostics = self._tpm.diagnose()
+        diagnostics = self._get_tpm().diagnose()
         if diagnostics.production_ready:
             return None
-        provider_name = self._normalize_provider_name(self._tpm.provider_name())
+        provider_name = self._normalize_provider_name(self._get_tpm().provider_name())
         return {
             "ok": True,
             "blocked": False,
@@ -935,11 +940,11 @@ class AgentAuthClient:
         }
 
     def _build_device_assurance_summary(self, key_id: str) -> dict[str, Any]:
-        binding_info = self._tpm.get_binding_info(key_id)
-        diagnostics = self._tpm.diagnose()
+        binding_info = self._get_tpm().get_binding_info(key_id)
+        diagnostics = self._get_tpm().diagnose()
         return {
             "scheme": "agent-mcp",
-            "provider": self._normalize_provider_name(self._tpm.provider_name()),
+            "provider": self._normalize_provider_name(self._get_tpm().provider_name()),
             "recordedAt": datetime.now(timezone.utc).isoformat(),
             "binding": {
                 "protection": binding_info.protection,

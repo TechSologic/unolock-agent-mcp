@@ -6,7 +6,7 @@ import hashlib
 import unittest
 import tempfile
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 from unolock_mcp.auth.agent_auth import AgentAuthClient
 from unolock_mcp.auth.registration_store import RegistrationStore
@@ -42,6 +42,25 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertIn("tpm_provider", status)
             self.assertIn("tpm_production_ready", status)
             self.assertIn("tpm_available", status)
+
+    def test_constructor_does_not_create_tpm_until_needed(self) -> None:
+        with patch("unolock_mcp.auth.agent_auth.create_tpm_dao") as create_tpm_dao:
+            dao = Mock()
+            dao.provider_name.return_value = "software"
+            dao.diagnose.return_value = Mock(
+                production_ready=False,
+                available=False,
+                to_dict=lambda: {},
+            )
+            create_tpm_dao.return_value = dao
+
+            client = AgentAuthClient(None, Mock(), Mock())
+            create_tpm_dao.assert_not_called()
+
+            status = client.runtime_status()
+
+            create_tpm_dao.assert_called_once()
+            self.assertEqual(status["tpm_provider"], "software")
 
     def test_flow_session_summary_does_not_require_tpm_provider(self) -> None:
         session = FlowSession(
