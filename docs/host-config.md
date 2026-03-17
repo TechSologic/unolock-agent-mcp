@@ -88,7 +88,7 @@ If you need the source-install fallback instead, install the MCP as a standalone
 pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 ```
 
-If you are running outside a UnoLock monorepo checkout, the MCP can normally derive the UnoLock server origin and PQ validation key from the UnoLock agent key connection URL itself. In most cases, the only host-level setting you should need is:
+If you are running outside a UnoLock monorepo checkout, the MCP can normally derive the UnoLock server origin and PQ validation key from the UnoLock Agent Key URL itself. In most cases, the only host-level setting you should need is:
 
 * optionally `UNOLOCK_TPM_PROVIDER`
 
@@ -112,7 +112,7 @@ For a one-shot readiness summary after install, run:
 unolock-agent-self-test
 ```
 
-For normal UnoLock cloud-service use, no UnoLock runtime env vars are required at MCP startup. Once the user provides an UnoLock agent key connection URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically. UnoLock is a cloud service, but Safe data remains client-side encrypted, no identity is linked to a Safe, and the system is designed to minimize unnecessary metadata and correlation exposure.
+For normal UnoLock cloud-service use, no UnoLock runtime env vars are required at MCP startup. Once the user provides a UnoLock Agent Key URL, the MCP derives the Safe site origin, API base URL, and then fetches the published PQ validation key automatically. UnoLock is a cloud service, but Safe data remains client-side encrypted, no identity is linked to a Safe, and the system is designed to minimize unnecessary metadata and correlation exposure.
 
 TPM provider modes:
 
@@ -170,7 +170,7 @@ Notes:
 
 * If `unolock-agent-mcp` is already on your `PATH`, you can use `"command": "unolock-agent-mcp"`.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
-* For normal UnoLock cloud-service use, the connection URL is enough for the MCP to resolve what it needs automatically.
+* For normal UnoLock cloud-service use, the Agent Key URL is enough for the MCP to resolve what it needs automatically.
 * Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
 
 ## Cursor
@@ -219,7 +219,7 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 Once the host can launch the MCP:
 
 1. Ask the MCP for registration status.
-2. If it says a connection URL is needed, ask the user for the one-time-use UnoLock agent key connection URL and, if they configured one, the agent PIN at the same time.
+2. If it says an Agent Key URL is needed, ask the user for the one-time UnoLock Agent Key URL and, if they configured one, the agent PIN at the same time.
    Treat that URL as enrollment-only, not as a reusable credential.
 3. Submit them to the MCP with `unolock_submit_agent_bootstrap`.
 4. If the PIN was not collected up front and the Safe later asks for it, set it in MCP memory.
@@ -305,4 +305,4 @@ If the MCP detects that it is running in Docker or another plain container witho
 If the MCP reports a TPM provider mismatch after you change hosts or switch `UNOLOCK_TPM_PROVIDER`, either:
 
 * re-run the MCP with the provider that originally registered the agent key
-* or generate a fresh UnoLock agent key connection URL and register a new agent credential with the current provider
+* or generate a fresh UnoLock Agent Key URL and register a new agent credential with the current provider

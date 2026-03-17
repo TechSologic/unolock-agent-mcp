@@ -209,7 +209,7 @@ Then configure your MCP host to launch:
 unolock-agent-mcp mcp
 ```
 
-The agent should then ask the user for the UnoLock Agent Key connection URL and optional PIN.
+The agent should then ask the user for the UnoLock Agent Key URL and optional PIN.
 
 ## Option 0: Install A Standalone Release Binary
 
@@ -345,7 +345,7 @@ Advanced override example:
 For most customers:
 
 * `UNOLOCK_TPM_PROVIDER=auto` should remain the default
-* for normal UnoLock cloud-service use, the MCP can derive the Safe site origin, API base URL, and PQ validation key from the UnoLock agent key connection URL
+* for normal UnoLock cloud-service use, the MCP can derive the Safe site origin, API base URL, and PQ validation key from the UnoLock Agent Key URL
 * UnoLock is a cloud service, but Safe data remains client-side encrypted, no identity is linked to a Safe, and the system is designed to minimize unnecessary metadata and correlation exposure
 * for custom deployments, only set overrides when automatic discovery is unavailable or you intentionally want to force different values
 * if no production-ready TPM, vTPM, or platform-backed provider is available, `auto` falls back to the software provider and reports reduced assurance loudly

@@ -262,7 +262,7 @@ For the best user experience, do updates between tasks, not while an enrollment 
 
 ## Standalone config
 
-Normal setup should not require this section. When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock agent key connection URL. Environment variables and config files are primarily for advanced overrides and custom deployments when the normal connection-URL-driven flow is not enough.
+Normal setup should not require this section. When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock Agent Key URL. Environment variables and config files are primarily for advanced overrides and custom deployments when the normal Agent-Key-URL-driven flow is not enough.
 
 Default config file location:
 
@@ -280,7 +280,7 @@ Advanced override example:
 }
 ```
 
-For normal UnoLock cloud-service use, the MCP can derive the API origin and PQ validation key from the user-provided agent key connection URL automatically. UnoLock remains client-side encrypted, no identity is linked to a Safe, and the design tries to minimize unnecessary metadata and correlation exposure. If you want to force the same normal cloud deployment without waiting for a connection URL, this also works:
+For normal UnoLock cloud-service use, the MCP can derive the API origin and PQ validation key from the user-provided Agent Key URL automatically. UnoLock remains client-side encrypted, no identity is linked to a Safe, and the design tries to minimize unnecessary metadata and correlation exposure. If you want to force the same normal cloud deployment without waiting for an Agent Key URL, this also works:
 
 ```json
 {
@@ -375,11 +375,11 @@ Low-level flow and raw API debug tools are hidden by default. Enable them only f
 Registration discovery support:
 
 * the MCP can report whether it is registered
-* if not registered, it tells the agent to ask the user for the UnoLock agent key connection URL
+* if not registered, it tells the agent to ask the user for the UnoLock Agent Key URL
 * that URL is explicitly treated as one-time-use and enrollment-only
-* in the cold-start path, the MCP now prefers that the agent ask for the connection URL and the optional PIN together
-* the agent key connection URL can be submitted and stored locally
-* `unolock_submit_agent_bootstrap` can submit the connection URL and optional PIN in one step
+* in the cold-start path, the MCP now prefers that the agent ask for the Agent Key URL and the optional PIN together
+* the Agent Key URL can be submitted and stored locally
+* `unolock_submit_agent_bootstrap` can submit the Agent Key URL and optional PIN in one step
 * the optional agent PIN is held only in MCP process memory and cleared on restart or via `unolock_clear_agent_pin`
 * the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
 * the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
@@ -405,7 +405,7 @@ Read and write support:
 Current bootstrap limitation:
 
 * to finish `DecodeKey` and `ClientDataKey`, the MCP still needs the bootstrap AIDK material for the access
-* if the connection URL does not include that bootstrap secret, the MCP will stop with a clear blocker instead of faking progress
+* if the Agent Key URL does not include that bootstrap secret, the MCP will stop with a clear blocker instead of faking progress
 * that keeps the implementation aligned with UnoLock's current AIDK/CDMK hierarchy instead of bypassing it
 
 ## Testing with a local Safe
@@ -433,7 +433,7 @@ cat /tmp/unolock-agent-bootstrap.json
 
 That artifact includes:
 
-* the generated UnoLock agent key connection URL
+* the generated UnoLock Agent Key URL
 * the access ID used for the agent registration
 * the bootstrap secret encoding needed by the MCP
 * whether the browser had to fall back to the current access because the Safe tier could not create another device access
