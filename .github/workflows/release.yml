@@ -157,6 +157,21 @@ jobs:
           node-version: "24"
           registry-url: "https://registry.npmjs.org"
 
+      - name: Check whether npm version already exists
+        id: npm-version
+        shell: bash
+        run: |
+          set -euo pipefail
+          PACKAGE_NAME=$(node -p "require('./package.json').name")
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if npm view "${PACKAGE_NAME}@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
+            echo "already_published=true" >> "$GITHUB_OUTPUT"
+            echo "Version ${PACKAGE_VERSION} is already published to npm; skipping publish."
+          else
+            echo "already_published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish npm wrapper
+        if: steps.npm-version.outputs.already_published != 'true'
         run: |
           npm publish --access public
