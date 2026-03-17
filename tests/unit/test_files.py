@@ -141,6 +141,73 @@ class UnoLockFilesClientTest(unittest.TestCase):
             self.assertEqual(output_path.read_bytes(), chunk_one + chunk_two)
             self.assertEqual(result["bytes_written"], len(chunk_one) + len(chunk_two))
 
+    def test_download_file_rejects_existing_path_without_overwrite(self) -> None:
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {
+                "type": "GetArchives",
+                "result": [
+                    {
+                        "id": "cloud-1",
+                        "t": "Cloud",
+                        "sid": 42,
+                        "m": self._encrypted_metadata({"name": "report.txt", "type": "text/plain"}, 42),
+                        "fs": 5,
+                        "s": 16,
+                        "p": [16],
+                    }
+                ],
+            }
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "report.txt"
+            output_path.write_text("existing", encoding="utf8")
+
+            with self.assertRaisesRegex(ValueError, "output_path already exists"):
+                self.readonly_client.download_file(
+                    "session-1",
+                    archive_id="cloud-1",
+                    output_path=str(output_path),
+                )
+
+    def test_get_file_rejects_non_cloud_archive(self) -> None:
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {
+                "type": "GetArchives",
+                "result": [
+                    {
+                        "id": "msg-1",
+                        "t": "Msg",
+                        "sid": 42,
+                        "m": self._encrypted_metadata({"name": "message.bin"}, 42),
+                    }
+                ],
+            }
+        }
+
+        with self.assertRaisesRegex(ValueError, "Only Cloud files are supported"):
+            self.readonly_client.get_file("session-1", "msg-1")
+
+    def test_upload_file_rejects_read_only_session(self) -> None:
+        self.session_store._auth_contexts["session-1"] = {"ro": True}
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "payload.bin"
+            source_path.write_bytes(b"abc")
+
+            with self.assertRaisesRegex(ValueError, "read-only access"):
+                self.writable_client.upload_file(
+                    "session-1",
+                    space_id=42,
+                    local_path=str(source_path),
+                )
+
     def test_upload_file_creates_cloud_archive_and_completes_multipart_upload(self) -> None:
         archive_id = "cloud-1"
         records_archive = {
@@ -232,6 +299,52 @@ class UnoLockFilesClientTest(unittest.TestCase):
         self.assertIsInstance(complete_kwargs["metadata"], str)
         self.assertEqual(len(complete_kwargs["parts"]), 2)
         self.api_client.delete_archive.assert_not_called()
+
+    def test_upload_file_deletes_created_archive_after_part_upload_failure(self) -> None:
+        archive_id = "cloud-1"
+        records_archive = {
+            "id": "records-1",
+            "t": "Records",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata({"tr": "lput", "spaceName": "Main"}, 42),
+        }
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {"type": "GetArchives", "result": [records_archive]}
+        }
+        self.api_client.create_archive.return_value = {
+            "callback": {"type": "CreateArchive", "result": {"id": archive_id, "t": "Cloud", "sid": 42, "l": "17"}}
+        }
+        self.api_client.init_archive_upload.return_value = {
+            "callback": {
+                "type": "InitArchiveUpload",
+                "result": {"uploadId": "upload-1", "signedUrl": "https://upload.example/part-1"},
+            }
+        }
+        self.api_client.http_client.put_bytes_absolute.side_effect = RuntimeError("network broke")
+        self.api_client.abort_multipart_upload.return_value = {
+            "callback": {"type": "AbortMultipartUpload", "result": {}}
+        }
+        self.api_client.delete_archive.return_value = {
+            "callback": {"type": "DeleteArchive", "result": {}}
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "payload.bin"
+            source_path.write_bytes(b"abcdefgh")
+
+            with self.assertRaisesRegex(RuntimeError, "network broke"):
+                self.writable_client.upload_file(
+                    "session-1",
+                    space_id=42,
+                    local_path=str(source_path),
+                )
+
+        self.api_client.abort_multipart_upload.assert_called_once()
+        self.api_client.delete_archive.assert_called_once_with("session-1", archive_id)
 
 
 if __name__ == "__main__":
