@@ -46,7 +46,7 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertEqual(state.bootstrap_secret, None)
             self.assertFalse(state.summary()["has_bootstrap_secret"])
             self.assertNotIn("bootstrap_secret", state.summary())
-            self.assertFalse(state.summary()["connection_url"]["has_passphrase"])
+            self.assertTrue(state.summary()["connection_url"]["enrollment_payload_stored"])
             self.assertFalse(state.summary()["connection_url"]["has_raw_url"])
             self.assertNotIn("passphrase", state.summary()["connection_url"])
             self.assertNotIn("raw_url", state.summary()["connection_url"])

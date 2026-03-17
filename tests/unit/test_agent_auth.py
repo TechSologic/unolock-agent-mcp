@@ -273,6 +273,51 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertEqual(session_store.list(), [])
             self.assertFalse(client.runtime_status()["has_agent_pin"])
 
+    def test_agent_registration_code_failure_reports_consumed_or_invalid_key(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir) / "tpm")
+            flow_client = Mock()
+            flow_client.continue_flow.return_value = FlowSession(
+                session_id="session-1",
+                flow="agentRegister",
+                state="state-2",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="FAILED"),
+            )
+            store = Mock(spec=RegistrationStore)
+            store.load.side_effect = [
+                RegistrationState(
+                    registered=False,
+                    registration_mode="pending_connection_url",
+                    connection_url=None,
+                    access_id="access-123",
+                ),
+                RegistrationState(
+                    registered=False,
+                    registration_mode="pending_connection_url",
+                    connection_url=None,
+                    access_id="access-123",
+                ),
+            ]
+            session_store = SessionStore()
+            session_store.put(
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentRegister",
+                    state="state",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="AgentRegistrationCode"),
+                )
+            )
+            client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
+            client._load_registration_material = Mock(return_value={"access_id": "access-123", "registration_code": "code-123"})  # type: ignore[method-assign]
+
+            result = client._advance_session("session-1")
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason"], "agent_key_invalid_or_consumed")
+            self.assertIn("fresh UnoLock Agent Key URL", result["suggested_action"])
+
     def test_software_mode_stores_aidk_via_provider_storage(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))

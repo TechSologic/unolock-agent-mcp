@@ -541,8 +541,7 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_submit_connection_url",
         description=(
-            "Accept a one-time UnoLock Agent Key URL from the user, persist it locally for "
-            "enrollment, and parse any flow/args or registration code embedded in it."
+            "Accept a one-time UnoLock Agent Key URL from the user and store it locally for MCP-guided enrollment."
         ),
     )
     def submit_connection_url(connection_url: str) -> dict[str, Any]:
@@ -569,8 +568,7 @@ def create_mcp_server() -> FastMCP:
             "registration": registration_store.load().summary(),
             "runtime": agent_auth.runtime_status(),
             "message": (
-                "UnoLock agent bootstrap material was accepted. If registration is not complete yet, "
-                "call unolock_bootstrap_agent."
+                "UnoLock Agent Key URL was accepted. Continue with MCP-guided registration next."
             ),
         }
 
@@ -595,8 +593,7 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_start_registration_from_connection_url",
         description=(
-            "Attempt to start UnoLock registration from the stored one-time Agent Key URL. If the server-side "
-            "agent registration flow is not implemented yet, this returns a clear pending/unsupported result."
+            "Start UnoLock registration from the stored one-time Agent Key URL."
         ),
     )
     def start_registration_from_connection_url() -> dict[str, Any]:

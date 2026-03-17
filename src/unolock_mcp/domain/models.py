@@ -125,14 +125,12 @@ class ConnectionUrlInfo:
     def summary(self) -> dict[str, Any]:
         return {
             "flow": self.flow,
-            "has_args": self.args is not None,
             "action": self.action,
-            "has_passphrase": self.passphrase is not None,
             "key_name": self.key_name,
-            "has_registration_code": self.registration_code is not None,
             "source": self.source,
             "has_raw_url": bool(self.raw_url),
             "one_time_use": True,
+            "enrollment_payload_stored": self.flow == "agentRegister" and self.action == "agent-register",
         }
 
 
@@ -169,5 +167,12 @@ class RegistrationState:
                 "If registration is needed, ask the user for the one-time-use UnoLock agent key connection URL and "
                 "pass it to unolock_submit_connection_url. The connection URL is for enrollment only and should not "
                 "be treated as a reusable credential."
+            ),
+            "next_step": (
+                "Agent Key URL accepted. Start or continue MCP-guided registration next."
+                if self.connection_url and not self.registered
+                else "Ask the user for a UnoLock Agent Key URL."
+                if not self.connection_url and not self.registered
+                else "Authenticate the registered agent and begin using UnoLock."
             ),
         }

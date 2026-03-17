@@ -246,7 +246,7 @@ class AgentAuthClient:
             return {
                 "started": False,
                 "reason": "missing_connection_url",
-                "message": "Ask the user for a UnoLock connection URL, then call unolock_submit_connection_url.",
+                "message": "Ask the user for a UnoLock Agent Key URL, then call unolock_submit_connection_url.",
             }
 
         flow = registration.connection_url.flow or "agentRegister"
@@ -321,6 +321,7 @@ class AgentAuthClient:
                     "registration": updated.summary(),
                 }
             if callback.type in {"FAILED"}:
+                failure = self._classify_failed_callback(session, registration, steps)
                 return {
                     "ok": False,
                     "authorized": session.authorized,
@@ -328,6 +329,7 @@ class AgentAuthClient:
                     "steps": steps,
                     "session": session.summary(),
                     "registration": registration.summary(),
+                    **failure,
                 }
 
             handled = self._build_auto_response(session, registration)
@@ -368,11 +370,41 @@ class AgentAuthClient:
             self._session_store.put(session)
             registration = self._load_registration()
 
+    def _classify_failed_callback(
+        self,
+        session: FlowSession,
+        registration: RegistrationState,
+        steps: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        callback = session.current_callback
+        if (
+            session.flow == "agentRegister"
+            and steps
+            and steps[-1].get("callback_type") == "AgentRegistrationCode"
+            and callback.type == "FAILED"
+        ):
+            return {
+                "reason": "agent_key_invalid_or_consumed",
+                "message": (
+                    "The submitted UnoLock Agent Key URL was accepted locally, but the Safe rejected it during "
+                    "registration. The one-time Agent Key may already be used, expired, or no longer valid."
+                ),
+                "suggested_action": (
+                    "Ask the user for a fresh UnoLock Agent Key URL from the Safe app and submit it again."
+                ),
+            }
+        return {
+            "reason": "flow_failed",
+            "message": (
+                "The UnoLock server ended the current flow without authorizing the agent."
+            ),
+        }
+
     def require_flow_client(self) -> UnoLockFlowClient:
         if self._flow_client is None:
             raise ValueError(
-                "runtime_metadata_missing: UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key "
-                "connection URL from the target Safe first."
+                "runtime_metadata_missing: UnoLock runtime metadata is not resolved yet. Submit a UnoLock Agent Key "
+                "URL from the target Safe first."
             )
         return self._flow_client
 
