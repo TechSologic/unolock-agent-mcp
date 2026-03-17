@@ -51,6 +51,20 @@ class HttpClient:
         with urllib.request.urlopen(request, timeout=30) as response:
             return response.read().decode("utf8"), dict(response.headers.items())
 
+    def get_bytes_absolute(self, url: str, headers: dict[str, str] | None = None) -> bytes:
+        request = urllib.request.Request(url, headers=dict(headers or {}), method="GET")
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.read()
+
+    def get_bytes_with_headers_absolute(
+        self,
+        url: str,
+        headers: dict[str, str] | None = None,
+    ) -> tuple[bytes, dict[str, str]]:
+        request = urllib.request.Request(url, headers=dict(headers or {}), method="GET")
+        with urllib.request.urlopen(request, timeout=30) as response:
+            return response.read(), dict(response.headers.items())
+
     def put_bytes_absolute(self, url: str, body: bytes, headers: dict[str, str] | None = None) -> dict[str, Any]:
         request_headers = dict(headers or {})
         request = urllib.request.Request(

@@ -133,6 +133,15 @@ class SafeKeyringManager:
         )
         return base64.b64encode(ciphertext).decode("ascii")
 
+    def encrypt_bytes(self, data: bytes, *, archive_id: str, sid: int | None = None) -> bytes:
+        key_provider = self._get_key_provider_for_sid(sid)
+        ciphertext, _ = self._client.encrypt(
+            source=data,
+            key_provider=key_provider,
+            encryption_context={"archiveID": archive_id, "type": "archiveData"},
+        )
+        return bytes(ciphertext)
+
     def decrypt_string(self, encrypted: str, sid: int | None = None) -> str:
         key_provider = self._get_key_provider_for_sid(sid)
         plaintext, header = self._client.decrypt(
@@ -143,10 +152,47 @@ class SafeKeyringManager:
             raise ValueError("Encryption context does not match expected values")
         return plaintext.decode("utf8")
 
+    def decrypt_bytes(self, encrypted: bytes, *, archive_id: str, sid: int | None = None) -> bytes:
+        key_provider = self._get_key_provider_for_sid(sid)
+        plaintext, header = self._client.decrypt(
+            source=encrypted,
+            key_provider=key_provider,
+        )
+        expected = {"archiveID": archive_id, "type": "archiveData"}
+        for key, value in expected.items():
+            if header.encryption_context.get(key) != value:
+                raise ValueError("Encryption context does not match expected values")
+        return bytes(plaintext)
+
     def xor_encrypted_data_keys_in_header_string(self, encrypted: str, kek: str | None) -> str:
         encrypted_data = bytearray(base64.b64decode(encrypted.encode("ascii")))
         self.xor_encrypted_data_keys_in_header(encrypted_data, kek)
         return base64.b64encode(encrypted_data).decode("ascii")
+
+    def encrypt_bytes_with_kek(
+        self,
+        data: bytes,
+        *,
+        archive_id: str,
+        sid: int | None = None,
+        kek: str | None = None,
+    ) -> tuple[bytes, str]:
+        encrypted = bytearray(self.encrypt_bytes(data, archive_id=archive_id, sid=sid))
+        next_kek = self.xor_encrypted_data_keys_in_header(encrypted, kek)
+        return bytes(encrypted), next_kek
+
+    def decrypt_bytes_with_kek(
+        self,
+        encrypted: bytes,
+        *,
+        archive_id: str,
+        sid: int | None = None,
+        kek: str | None = None,
+    ) -> bytes:
+        payload = bytearray(encrypted)
+        if kek:
+            self.xor_encrypted_data_keys_in_header(payload, kek)
+        return self.decrypt_bytes(bytes(payload), archive_id=archive_id, sid=sid)
 
     def apply_kek_to_encrypted_data_keys_string(self, encrypted: str, kek: str | None) -> tuple[str, str]:
         encrypted_data = bytearray(base64.b64decode(encrypted.encode("ascii")))

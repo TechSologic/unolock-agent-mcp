@@ -358,12 +358,16 @@ Current MCP tools:
 * `unolock_bootstrap_agent`
 * `unolock_list_spaces`
 * `unolock_list_records`
+* `unolock_list_files`
 * `unolock_list_notes`
 * `unolock_list_checklists`
+* `unolock_get_file`
 * `unolock_get_record`
+* `unolock_download_file`
 * `unolock_create_note`
 * `unolock_update_note`
 * `unolock_append_note`
+* `unolock_upload_file`
 * `unolock_rename_record`
 * `unolock_create_checklist`
 * `unolock_set_checklist_item_done`
@@ -396,11 +400,14 @@ Read and write support:
 
 * `unolock_list_records` accepts `kind`, `space_id`, `pinned`, and `label`
 * `unolock_list_notes` and `unolock_list_checklists` are convenience wrappers
-* `unolock_list_spaces` returns space metadata plus record counts
+* `unolock_list_files` exposes only `Cloud` archives; `Local` and `Msg` archives are intentionally excluded
+* `unolock_list_spaces` returns space metadata plus record counts and Cloud file counts
 * read/list/get responses include `writable`, `allowed_operations`, `version`, `read_only`, and `locked`
 * write tools use cache-first optimistic writes with 5-minute in-memory archive TTLs
 * archive rereads happen only on cache miss, cache expiry, or upload conflict
 * write conflicts return stable structured reasons such as `write_conflict_requires_reread`
+* `unolock_upload_file` creates a `Cloud` archive and uploads encrypted multipart chunks like the web client path
+* `unolock_download_file` reconstructs multipart Cloud archives part by part before writing plaintext to the local filesystem
 
 Current bootstrap limitation:
 

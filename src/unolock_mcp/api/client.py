@@ -59,6 +59,12 @@ class UnoLockApiClient:
     def update_archive(self, session_id: str, archive: dict[str, Any]) -> dict[str, Any]:
         return self.call_action(session_id, action="UpdateArchive", request=archive)
 
+    def create_archive(self, session_id: str, archive: dict[str, Any]) -> dict[str, Any]:
+        return self.call_action(session_id, action="CreateArchive", request=archive)
+
+    def delete_archive(self, session_id: str, archive_id: str) -> dict[str, Any]:
+        return self.call_action(session_id, action="DeleteArchive", request=archive_id)
+
     def get_upload_put_url(
         self,
         session_id: str,
@@ -76,6 +82,60 @@ class UnoLockApiClient:
 
     def get_upload_post_object(self, session_id: str, archive_id: str) -> dict[str, Any]:
         return self.call_action(session_id, action="GetUploadPostObject", request=archive_id)
+
+    def init_archive_upload(self, session_id: str, archive_id: str, md5_b64: str) -> dict[str, Any]:
+        return self.call_action(
+            session_id,
+            action="InitArchiveUpload",
+            request={"archiveID": archive_id, "md5": md5_b64},
+        )
+
+    def get_archive_upload_url(
+        self,
+        session_id: str,
+        *,
+        archive_id: str,
+        part_number: int,
+        upload_id: str,
+        md5_b64: str,
+    ) -> dict[str, Any]:
+        return self.call_action(
+            session_id,
+            action="GetArchiveUploadUrl",
+            request={
+                "archiveID": archive_id,
+                "partNumber": part_number,
+                "uploadId": upload_id,
+                "md5": md5_b64,
+            },
+        )
+
+    def complete_archive_upload(
+        self,
+        session_id: str,
+        *,
+        archive_id: str,
+        upload_id: str,
+        metadata: str,
+        parts: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        return self.call_action(
+            session_id,
+            action="CompleteArchiveUpload",
+            request={
+                "archiveID": archive_id,
+                "metadata": metadata,
+                "uploadId": upload_id,
+                "parts": parts,
+            },
+        )
+
+    def abort_multipart_upload(self, session_id: str, *, archive_id: str, upload_id: str) -> dict[str, Any]:
+        return self.call_action(
+            session_id,
+            action="AbortMultipartUpload",
+            request={"archiveID": archive_id, "uploadId": upload_id},
+        )
 
     @property
     def http_client(self):

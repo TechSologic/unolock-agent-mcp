@@ -78,6 +78,51 @@ class UnoLockApiClientTest(unittest.TestCase):
             request="archive-9",
         )
 
+    def test_create_archive_uses_archive_request(self) -> None:
+        self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
+
+        archive = {"t": "Cloud", "m": "encrypted-meta", "l": "17", "sid": 123}
+        self.client.create_archive("session-1", archive)
+
+        self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
+            "session-1",
+            action="CreateArchive",
+            request=archive,
+        )
+
+    def test_init_archive_upload_uses_expected_request_shape(self) -> None:
+        self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
+
+        self.client.init_archive_upload("session-1", "archive-9", "md5-b64")
+
+        self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
+            "session-1",
+            action="InitArchiveUpload",
+            request={"archiveID": "archive-9", "md5": "md5-b64"},
+        )
+
+    def test_complete_archive_upload_uses_expected_request_shape(self) -> None:
+        self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
+
+        self.client.complete_archive_upload(
+            "session-1",
+            archive_id="archive-9",
+            upload_id="upload-1",
+            metadata="encrypted-meta",
+            parts=[{"PartNumber": 1, "ETag": '"etag"', "size": 12}],
+        )
+
+        self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
+            "session-1",
+            action="CompleteArchiveUpload",
+            request={
+                "archiveID": "archive-9",
+                "metadata": "encrypted-meta",
+                "uploadId": "upload-1",
+                "parts": [{"PartNumber": 1, "ETag": '"etag"', "size": 12}],
+            },
+        )
+
     def test_http_client_property_proxies_flow_client(self) -> None:
         self.flow_client.http_client = object()
 

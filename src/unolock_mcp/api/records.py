@@ -316,8 +316,10 @@ class _UnoLockRecordsBase:
             return False
         return not self._coerce_bool(auth_context.get("ro"))
 
-    def _space_allowed_operations(self, *, writable: bool) -> list[str]:
-        operations = ["list_records", "list_notes", "list_checklists"]
+    def _space_allowed_operations(self, *, writable: bool, can_upload_files: bool = False) -> list[str]:
+        operations = ["list_records", "list_notes", "list_checklists", "list_files"]
+        if can_upload_files:
+            operations.append("upload_file")
         if writable:
             operations.extend(["create_note", "create_checklist"])
         return operations
@@ -449,13 +451,12 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
                 "record_count": 0,
                 "note_count": 0,
                 "checklist_count": 0,
+                "cloud_file_count": 0,
                 "writable": False,
-                "allowed_operations": self._space_allowed_operations(writable=False),
+                "allowed_operations": self._space_allowed_operations(writable=False, can_upload_files=False),
             }
 
         for archive in archives:
-            if archive.get("t") != "Records":
-                continue
             sid = self._coerce_sid(archive.get("sid"))
             if sid is None:
                 continue
@@ -470,10 +471,19 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
                     "record_count": 0,
                     "note_count": 0,
                     "checklist_count": 0,
+                    "cloud_file_count": 0,
                     "writable": False,
-                    "allowed_operations": self._space_allowed_operations(writable=False),
+                    "allowed_operations": self._space_allowed_operations(writable=False, can_upload_files=False),
                 },
             )
+            if archive.get("t") == "Cloud":
+                summary["cloud_file_count"] = int(summary.get("cloud_file_count", 0) or 0) + 1
+                metadata = archive.get("m")
+                if isinstance(metadata, dict) and not summary.get("space_name"):
+                    summary["space_name"] = str(metadata.get("spaceName", "")).strip()
+                continue
+            if archive.get("t") != "Records":
+                continue
             summary["record_archive_id"] = archive.get("id")
             metadata = archive.get("m")
             if isinstance(metadata, dict):
@@ -496,7 +506,10 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
         for summary in summaries.values():
             writable = session_can_write and bool(summary.get("record_archive_id"))
             summary["writable"] = writable
-            summary["allowed_operations"] = self._space_allowed_operations(writable=writable)
+            summary["allowed_operations"] = self._space_allowed_operations(
+                writable=writable,
+                can_upload_files=session_can_write,
+            )
 
         ordered = sorted(summaries.values(), key=lambda item: item["space_id"])
         return {

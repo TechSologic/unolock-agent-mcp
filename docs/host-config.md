@@ -242,12 +242,16 @@ Relevant tools:
 * `unolock_set_agent_pin`
 * `unolock_bootstrap_agent`
 * `unolock_list_spaces`
+* `unolock_list_files`
 * `unolock_list_notes`
 * `unolock_list_checklists`
+* `unolock_get_file`
 * `unolock_get_record`
+* `unolock_download_file`
 * `unolock_create_note`
 * `unolock_update_note`
 * `unolock_append_note`
+* `unolock_upload_file`
 * `unolock_rename_record`
 * `unolock_create_checklist`
 * `unolock_set_checklist_item_done`
@@ -259,6 +263,8 @@ Write guidance:
 * Read the target Space or record first.
 * Use `writable` and `allowed_operations` before attempting a write.
 * Use `record_ref` and `version` when updating existing records.
+* Use `archive_id` from `unolock_list_files` when downloading a Cloud file.
+* Use `space_id` from `unolock_list_spaces` when uploading a Cloud file.
 * The MCP keeps archive snapshots in memory only and uses a 5-minute default freshness TTL.
 * On write conflict, the MCP rereads the archive, checks the record version, and tells the agent when a reread is required.
 

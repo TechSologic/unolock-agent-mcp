@@ -68,6 +68,20 @@ class HttpClientTest(unittest.TestCase):
         self.assertEqual(headers["ETag"], '"etag-1"')
 
     @patch("urllib.request.urlopen")
+    def test_get_bytes_with_headers_absolute_returns_body_and_headers(self, urlopen) -> None:
+        urlopen.return_value = _FakeResponse(b"\x00\x01payload", headers={"Content-Length": "9"})
+
+        body, headers = self.client.get_bytes_with_headers_absolute(
+            "https://download.example/file",
+            headers={"Range": "bytes=0-8"},
+        )
+
+        self.assertEqual(body, b"\x00\x01payload")
+        self.assertEqual(headers["Content-Length"], "9")
+        request = urlopen.call_args.args[0]
+        self.assertEqual(request.headers["Range"], "bytes=0-8")
+
+    @patch("urllib.request.urlopen")
     def test_head_absolute_uses_custom_headers(self, urlopen) -> None:
         urlopen.return_value = _FakeResponse(b"", status=200, headers={"ETag": '"etag-2"'})
 

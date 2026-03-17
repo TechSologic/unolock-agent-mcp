@@ -6,6 +6,7 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 
 from unolock_mcp.api.client import UnoLockApiClient
+from unolock_mcp.api.files import UnoLockReadonlyFilesClient, UnoLockWritableFilesClient
 from unolock_mcp.api.records import UnoLockReadonlyRecordsClient, UnoLockWritableRecordsClient
 from unolock_mcp.auth.agent_auth import AgentAuthClient
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
@@ -133,12 +134,15 @@ def _registration_status_payload(
         "unolock_bootstrap_agent",
         "unolock_list_spaces",
         "unolock_list_records",
+        "unolock_list_files",
         "unolock_get_record",
     ]
     write_tools = [
         "unolock_create_note",
         "unolock_update_note",
         "unolock_append_note",
+        "unolock_upload_file",
+        "unolock_download_file",
         "unolock_rename_record",
         "unolock_create_checklist",
         "unolock_set_checklist_item_done",
@@ -246,9 +250,9 @@ def create_mcp_server() -> FastMCP:
         instructions=(
             "Start with unolock_get_registration_status and follow its recommended_next_action. "
             "Prefer the primary workflow tools first: unolock_submit_agent_bootstrap, unolock_bootstrap_agent, "
-            "unolock_list_spaces, unolock_list_records, and unolock_get_record. Read records before writing so you "
-            "have current version and allowed_operations metadata. If registration is not configured, ask the user for "
-            "the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
+            "unolock_list_spaces, unolock_list_records, unolock_list_files, and unolock_get_record. Read records before "
+            "writing so you have current version and allowed_operations metadata. If registration is not configured, "
+            "ask the user for the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
             "then submit them with unolock_submit_agent_bootstrap. The Agent Key URL is for enrollment only. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for an Agent Key URL or PIN, "
             "or why host assurance matters, use the explanatory UnoLock resources instead of improvising."
@@ -278,6 +282,7 @@ def create_mcp_server() -> FastMCP:
                 "unolock_bootstrap_agent",
                 "unolock_list_spaces",
                 "unolock_list_records",
+                "unolock_list_files",
                 "unolock_get_record",
             ],
             "normal_flow_note": (
@@ -423,9 +428,10 @@ def create_mcp_server() -> FastMCP:
                     "Use UnoLock in this order: first call unolock_get_registration_status. "
                     "If registration is needed, ask the user for the one-time UnoLock Agent Key URL "
                     "and optional PIN together, then call unolock_submit_agent_bootstrap and unolock_bootstrap_agent. "
-                    "After authentication, prefer unolock_list_spaces, unolock_list_records, and unolock_get_record. "
-                    "Before writing, read the target record and use its writable, allowed_operations, record_ref, and "
-                    "version fields. Avoid low-level flow/api tools unless the primary workflow cannot complete the task."
+                    "After authentication, prefer unolock_list_spaces, unolock_list_records, unolock_list_files, and "
+                    "unolock_get_record. Before writing, read the target record and use its writable, "
+                    "allowed_operations, record_ref, and version fields. Avoid low-level flow/api tools unless the "
+                    "primary workflow cannot complete the task."
                 ),
             }
         ]
@@ -767,8 +773,8 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_list_spaces",
         description=(
-            "List UnoLock spaces with record counts and write capability metadata for an authenticated session. "
-            "Use writable and allowed_operations to decide whether note/checklist writes are allowed."
+            "List UnoLock spaces with record counts, Cloud file counts, and write capability metadata for an authenticated session. "
+            "Use writable and allowed_operations to decide whether note/checklist or file actions are allowed."
         ),
     )
     def list_spaces(session_id: str) -> dict[str, Any]:
@@ -863,6 +869,95 @@ def create_mcp_server() -> FastMCP:
                 label=label,
             )
         except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
+        name="unolock_list_files",
+        description=(
+            "List UnoLock Cloud files for an authenticated session. "
+            "Only Cloud archives are exposed by the MCP; Local and Msg archives are intentionally excluded."
+        ),
+    )
+    def list_files(session_id: str, space_id: int | None = None) -> dict[str, Any]:
+        try:
+            readonly_files = UnoLockReadonlyFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_files.list_files(session_id, space_id=space_id)
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
+        name="unolock_get_file",
+        description=(
+            "Get metadata for one UnoLock Cloud file by archive_id. "
+            "Use unolock_list_files first to discover archive_id values."
+        ),
+    )
+    def get_file(session_id: str, archive_id: str) -> dict[str, Any]:
+        try:
+            readonly_files = UnoLockReadonlyFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_files.get_file(session_id, archive_id)
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
+        name="unolock_download_file",
+        description=(
+            "Download one UnoLock Cloud file to a local filesystem path. "
+            "Only Cloud files are supported; Local and Msg archives are excluded."
+        ),
+    )
+    def download_file(session_id: str, archive_id: str, output_path: str, overwrite: bool = False) -> dict[str, Any]:
+        try:
+            readonly_files = UnoLockReadonlyFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            return readonly_files.download_file(
+                session_id,
+                archive_id=archive_id,
+                output_path=output_path,
+                overwrite=overwrite,
+            )
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
+        name="unolock_upload_file",
+        description=(
+            "Upload a local filesystem file into a UnoLock Cloud archive in the requested space. "
+            "Only Cloud files are supported; Local and Msg archives are excluded."
+        ),
+    )
+    def upload_file(
+        session_id: str,
+        space_id: int,
+        local_path: str,
+        name: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any]:
+        writable_files = UnoLockWritableFilesClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        try:
+            return writable_files.upload_file(
+                session_id,
+                space_id=space_id,
+                local_path=local_path,
+                name=name,
+                mime_type=mime_type,
+            )
+        except ValueError as exc:
             return _tool_error_response(exc)
 
     @server.tool(

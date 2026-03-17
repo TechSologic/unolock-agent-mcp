@@ -7,7 +7,7 @@ The recommended lifecycle is:
 1. Check registration and TPM readiness.
 2. Ask the user for a one-time-use UnoLock agent key connection URL and, if configured, the agent PIN if needed.
 3. Register or authenticate the agent.
-4. Use the primary space and record tools.
+4. Use the primary space, record, and Cloud file tools.
 5. Read a target record before updating it so the MCP has cached archive state and the current record version.
 
 If the user asks what UnoLock is, why the MCP needs a connection URL, why it may ask for a PIN, or why host assurance matters, use the explanatory resources:
@@ -23,6 +23,7 @@ Primary tools for first-time agent use:
 * `unolock_bootstrap_agent`
 * `unolock_list_spaces`
 * `unolock_list_records`
+* `unolock_list_files`
 * `unolock_get_record`
 
 Advanced/debug tools exist too, but agents should ignore them unless the primary workflow cannot complete the task.
@@ -78,6 +79,69 @@ Notes:
 * UnoLock Agent MCP should normally be updated by its wrapper or runner, not by the live MCP process replacing itself mid-session.
 * Prefer checking between tasks, not during an active registration, authentication, or sensitive write flow.
 * The preferred low-friction path is `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp@latest`.
+
+## Cloud File Tools
+
+### `unolock_list_files`
+
+Purpose:
+List UnoLock Cloud files visible to the authenticated Agent Key.
+
+Arguments:
+
+* `session_id: str`
+* `space_id: int | null`
+
+Notes:
+
+* Only `Cloud` archives are exposed.
+* `Local` and `Msg` archives are intentionally excluded.
+
+### `unolock_get_file`
+
+Purpose:
+Return metadata for one UnoLock Cloud file by `archive_id`.
+
+Arguments:
+
+* `session_id: str`
+* `archive_id: str`
+
+### `unolock_download_file`
+
+Purpose:
+Download one UnoLock Cloud file to a local filesystem path.
+
+Arguments:
+
+* `session_id: str`
+* `archive_id: str`
+* `output_path: str`
+* `overwrite: bool = False`
+
+Notes:
+
+* The MCP reconstructs multipart Cloud archives part by part before writing the plaintext file locally.
+* Only `Cloud` files are supported.
+
+### `unolock_upload_file`
+
+Purpose:
+Upload one local filesystem file into a UnoLock `Cloud` archive inside an allowed Space.
+
+Arguments:
+
+* `session_id: str`
+* `space_id: int`
+* `local_path: str`
+* `name: str | null`
+* `mime_type: str | null`
+
+Notes:
+
+* The MCP creates a `Cloud` archive and uploads encrypted multipart chunks like the web client path.
+* Only `Cloud` files are supported.
+* `Local` and `Msg` archive types are intentionally excluded from the MCP file surface.
 
 ## Explanatory Resources
 
