@@ -250,6 +250,19 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertEqual(result["reason"], "wrong_connection_url_type")
             self.assertIn("regular key registration URL", result["message"])
 
+    def test_submit_connection_url_explains_missing_agent_register_fragment(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = RegistrationStore(Path(tmpdir) / "registration.json")
+            client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+
+            result = client.submit_connection_url("https://safe.test.1two.be/")
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason"], "unsupported_connection_url")
+            self.assertIn("fragment was preserved", result["message"])
+            self.assertIn("quote the entire URL", result["message"])
+
     def test_disconnect_removes_local_registration_material(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir) / "tpm")

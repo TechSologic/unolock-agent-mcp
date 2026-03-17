@@ -690,6 +690,12 @@ class AgentAuthClient:
                 "access_id": parsed.access_id,
             }
         if parsed.flow != "agentRegister":
+            fragment_hint = (
+                " If you passed the URL through a shell or host config, make sure the full "
+                "#/agent-register/... fragment was preserved and quote the entire URL."
+                if parsed.raw_url and "#/" not in parsed.raw_url
+                else ""
+            )
             return {
                 "ok": False,
                 "blocked": True,
@@ -697,6 +703,7 @@ class AgentAuthClient:
                 "message": (
                     "The supplied UnoLock URL is not an agent registration URL. Ask the user for the "
                     "agent URL generated for an AI/agent key."
+                    f"{fragment_hint}"
                 ),
                 "received_flow": parsed.flow,
                 "received_action": parsed.action,
