@@ -68,7 +68,10 @@ class UnoLockFilesClientTest(unittest.TestCase):
         self.assertEqual(result["count"], 1)
         self.assertEqual(result["files"][0]["archive_id"], "cloud-1")
         self.assertEqual(result["files"][0]["name"], "report.pdf")
-        self.assertEqual(result["files"][0]["allowed_operations"], ["get_file", "download_file"])
+        self.assertEqual(
+            result["files"][0]["allowed_operations"],
+            ["get_file", "download_file", "rename_file", "replace_file", "delete_file"],
+        )
 
     def test_download_file_reassembles_and_decrypts_parts(self) -> None:
         archive_id = "cloud-1"
@@ -345,6 +348,225 @@ class UnoLockFilesClientTest(unittest.TestCase):
 
         self.api_client.abort_multipart_upload.assert_called_once()
         self.api_client.delete_archive.assert_called_once_with("session-1", archive_id)
+
+    def test_rename_file_updates_cloud_metadata(self) -> None:
+        archive_id = "cloud-1"
+        updated_archive = {
+            "id": archive_id,
+            "t": "Cloud",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata({"name": "renamed.txt", "type": "text/plain"}, 42),
+            "fs": 5,
+            "s": 16,
+            "p": [16],
+        }
+        self.api_client.get_spaces.side_effect = [
+            {"callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}}
+        ]
+        self.api_client.get_archives.side_effect = [
+            {
+                "callback": {
+                    "type": "GetArchives",
+                    "result": [
+                        {
+                            "id": archive_id,
+                            "t": "Cloud",
+                            "sid": 42,
+                            "l": "17",
+                            "m": self._encrypted_metadata({"name": "old.txt", "type": "text/plain"}, 42),
+                            "fs": 5,
+                            "s": 16,
+                            "p": [16],
+                        }
+                    ],
+                }
+            },
+            {"callback": {"type": "GetArchives", "result": [updated_archive]}},
+        ]
+        self.api_client.update_archive.return_value = {
+            "callback": {"type": "UpdateArchive", "result": {"id": archive_id}}
+        }
+
+        result = self.writable_client.rename_file("session-1", archive_id=archive_id, name="renamed.txt")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["file"]["name"], "renamed.txt")
+        update_request = self.api_client.update_archive.call_args.args[1]
+        self.assertEqual(update_request["m"]["name"], "renamed.txt")
+
+    def test_delete_file_removes_cloud_archive(self) -> None:
+        archive_id = "cloud-1"
+        archive = {
+            "id": archive_id,
+            "t": "Cloud",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata({"name": "trash.txt", "type": "text/plain"}, 42),
+            "fs": 5,
+            "s": 16,
+            "p": [16],
+        }
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {"type": "GetArchives", "result": [archive]}
+        }
+        self.api_client.delete_archive.return_value = {
+            "callback": {"type": "DeleteArchive", "result": {}}
+        }
+
+        result = self.writable_client.delete_file("session-1", archive_id=archive_id)
+
+        self.assertTrue(result["ok"])
+        self.assertTrue(result["deleted"])
+        self.assertEqual(result["file"]["archive_id"], archive_id)
+        self.api_client.delete_archive.assert_called_once_with("session-1", archive_id)
+
+    def test_replace_file_reuses_existing_cloud_archive(self) -> None:
+        archive_id = "cloud-1"
+        _, starting_kek = self.keyring.encrypt_bytes_with_kek(
+            b"seed",
+            archive_id=archive_id,
+            sid=42,
+            kek=None,
+        )
+        existing_archive = {
+            "id": archive_id,
+            "t": "Cloud",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata(
+                {"name": "payload.bin", "type": "application/octet-stream", "spaceName": "Main", "kek": starting_kek},
+                42,
+            ),
+            "fs": 8,
+            "s": 20,
+            "p": [20],
+        }
+
+        file_bytes = b"abcdefgh"
+        with patch.object(UnoLockWritableFilesClient, "CHUNK_SIZE", 4):
+            encrypted_one, next_kek = self.keyring.encrypt_bytes_with_kek(
+                file_bytes[:4],
+                archive_id=archive_id,
+                sid=42,
+                kek=starting_kek,
+            )
+            encrypted_two, next_kek = self.keyring.encrypt_bytes_with_kek(
+                file_bytes[4:],
+                archive_id=archive_id,
+                sid=42,
+                kek=next_kek,
+            )
+            refreshed_archive = {
+                "id": archive_id,
+                "t": "Cloud",
+                "sid": 42,
+                "l": "17",
+                "m": self._encrypted_metadata(
+                    {
+                        "name": "replacement.bin",
+                        "type": "application/octet-stream",
+                        "spaceName": "Main",
+                        "kek": next_kek,
+                    },
+                    42,
+                ),
+                "fs": len(file_bytes),
+                "s": len(encrypted_one) + len(encrypted_two),
+                "p": [len(encrypted_one), len(encrypted_two)],
+            }
+            self.api_client.get_spaces.return_value = {
+                "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+            }
+            self.api_client.get_archives.side_effect = [
+                {"callback": {"type": "GetArchives", "result": [existing_archive]}},
+                {"callback": {"type": "GetArchives", "result": [refreshed_archive]}},
+            ]
+            self.api_client.update_archive.return_value = {
+                "callback": {"type": "UpdateArchive", "result": {"id": archive_id}}
+            }
+            self.api_client.init_archive_upload.return_value = {
+                "callback": {
+                    "type": "InitArchiveUpload",
+                    "result": {"uploadId": "upload-1", "signedUrl": "https://upload.example/part-1"},
+                }
+            }
+            self.api_client.get_archive_upload_url.return_value = {
+                "callback": {"type": "GetArchiveUploadUrl", "result": "https://upload.example/part-2"}
+            }
+            self.api_client.complete_archive_upload.return_value = {
+                "callback": {"type": "CompleteArchiveUpload", "result": {"result": "SUCCESS", "safeExp": 123}}
+            }
+            self.api_client.http_client.put_bytes_absolute.side_effect = [
+                {"status": 200, "headers": {"ETag": '"etag-1"'}, "body": b""},
+                {"status": 200, "headers": {"ETag": '"etag-2"'}, "body": b""},
+            ]
+
+            with tempfile.TemporaryDirectory() as tmpdir:
+                source_path = Path(tmpdir) / "replacement.bin"
+                source_path.write_bytes(file_bytes)
+
+                result = self.writable_client.replace_file(
+                    "session-1",
+                    archive_id=archive_id,
+                    local_path=str(source_path),
+                    name="replacement.bin",
+                )
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(result["file"]["archive_id"], archive_id)
+        self.api_client.create_archive.assert_not_called()
+        self.api_client.delete_archive.assert_not_called()
+        update_request = self.api_client.update_archive.call_args.args[1]
+        self.assertEqual(update_request["id"], archive_id)
+        self.assertEqual(update_request["fs"], len(file_bytes))
+        self.assertEqual(update_request["m"]["name"], "replacement.bin")
+
+    def test_replace_file_failure_aborts_without_deleting_existing_archive(self) -> None:
+        archive_id = "cloud-1"
+        archive = {
+            "id": archive_id,
+            "t": "Cloud",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata({"name": "payload.bin", "type": "application/octet-stream"}, 42),
+            "fs": 8,
+            "s": 20,
+            "p": [20],
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {"type": "GetArchives", "result": [archive]}
+        }
+        self.api_client.update_archive.return_value = {
+            "callback": {"type": "UpdateArchive", "result": {"id": archive_id}}
+        }
+        self.api_client.init_archive_upload.return_value = {
+            "callback": {
+                "type": "InitArchiveUpload",
+                "result": {"uploadId": "upload-1", "signedUrl": "https://upload.example/part-1"},
+            }
+        }
+        self.api_client.http_client.put_bytes_absolute.side_effect = RuntimeError("network broke")
+        self.api_client.abort_multipart_upload.return_value = {
+            "callback": {"type": "AbortMultipartUpload", "result": {}}
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "replacement.bin"
+            source_path.write_bytes(b"abcdefgh")
+
+            with self.assertRaisesRegex(RuntimeError, "network broke"):
+                self.writable_client.replace_file(
+                    "session-1",
+                    archive_id=archive_id,
+                    local_path=str(source_path),
+                )
+
+        self.api_client.abort_multipart_upload.assert_called_once()
+        self.api_client.delete_archive.assert_not_called()
 
 
 if __name__ == "__main__":

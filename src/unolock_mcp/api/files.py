@@ -122,11 +122,14 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
             "encrypted_size": self._coerce_positive_int(archive.get("s")) or 0,
             "part_count": len(self._cloud_part_sizes(archive)),
             "writable": session_can_write,
-            "allowed_operations": self._file_allowed_operations(),
+            "allowed_operations": self._file_allowed_operations(writable=session_can_write),
         }
 
-    def _file_allowed_operations(self) -> list[str]:
-        return ["get_file", "download_file"]
+    def _file_allowed_operations(self, *, writable: bool) -> list[str]:
+        operations = ["get_file", "download_file"]
+        if writable:
+            operations.extend(["rename_file", "replace_file", "delete_file"])
+        return operations
 
     def _require_cloud_archive(
         self,
@@ -166,7 +169,105 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         mime_type: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_session_writable(session_id)
+        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        archives = self._load_archives(session_id, keyring)
+        location_id = self._resolve_cloud_upload_location(space_id, archives)
+        if not location_id:
+            raise ValueError("operation_not_allowed: No Cloud-capable location could be resolved for the requested space.")
+        return self._upload_cloud_file(
+            session_id,
+            space_id=space_id,
+            local_path=local_path,
+            location_id=location_id,
+            name=name,
+            mime_type=mime_type,
+            existing_archive=None,
+        )
 
+    def rename_file(
+        self,
+        session_id: str,
+        *,
+        archive_id: str,
+        name: str,
+    ) -> dict[str, Any]:
+        self._ensure_session_writable(session_id)
+        new_name = name.strip()
+        if not new_name:
+            raise ValueError("invalid_input: name must not be empty.")
+
+        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
+        metadata = dict(archive.get("m") if isinstance(archive.get("m"), dict) else {})
+        metadata["name"] = new_name
+
+        updated_archive = dict(archive)
+        updated_archive["m"] = metadata
+        self._extract_result(
+            self._api_client.update_archive(session_id, updated_archive),
+            expected_type="UpdateArchive",
+        )
+        return {
+            "ok": True,
+            "file": self.get_file(session_id, archive_id),
+        }
+
+    def delete_file(self, session_id: str, *, archive_id: str) -> dict[str, Any]:
+        self._ensure_session_writable(session_id)
+        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
+        spaces = self._load_spaces(session_id, keyring)
+        projected = self._project_cloud_file(archive, spaces, session_id=session_id)
+        self._extract_result(
+            self._api_client.delete_archive(session_id, archive_id),
+            expected_type="DeleteArchive",
+        )
+        return {
+            "ok": True,
+            "deleted": True,
+            "file": projected,
+        }
+
+    def replace_file(
+        self,
+        session_id: str,
+        *,
+        archive_id: str,
+        local_path: str,
+        name: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any]:
+        self._ensure_session_writable(session_id)
+        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
+        location_id = str(archive.get("l", "")).strip() or None
+        if not location_id or location_id == "Local":
+            archives = self._load_archives(session_id, keyring)
+            location_id = self._resolve_cloud_upload_location(self._coerce_sid(archive.get("sid")), archives)
+        if not location_id:
+            raise ValueError("operation_not_allowed: No Cloud-capable location could be resolved for the requested file.")
+        return self._upload_cloud_file(
+            session_id,
+            space_id=self._coerce_sid(archive.get("sid")),
+            local_path=local_path,
+            location_id=location_id,
+            name=name,
+            mime_type=mime_type,
+            existing_archive=archive,
+        )
+
+    def _upload_cloud_file(
+        self,
+        session_id: str,
+        *,
+        space_id: int,
+        local_path: str,
+        location_id: str,
+        name: str | None,
+        mime_type: str | None,
+        existing_archive: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        keyring = self._agent_auth.get_keyring_for_session(session_id)
         source_path = Path(local_path).expanduser()
         if not source_path.exists() or not source_path.is_file():
             raise ValueError("invalid_input: local_path must point to an existing file.")
@@ -174,42 +275,50 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         if file_size <= 0:
             raise ValueError("invalid_input: Empty files are not supported for Cloud upload yet.")
 
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
-        spaces = self._load_spaces(session_id, keyring)
-        archives = self._load_archives(session_id, keyring)
-        location_id = self._resolve_cloud_upload_location(space_id, archives)
-        if not location_id:
-            raise ValueError("operation_not_allowed: No Cloud-capable location could be resolved for the requested space.")
-
         file_name = name.strip() if isinstance(name, str) and name.strip() else source_path.name
         resolved_mime = mime_type.strip() if isinstance(mime_type, str) and mime_type.strip() else None
+        existing_metadata = dict(existing_archive.get("m") if existing_archive and isinstance(existing_archive.get("m"), dict) else {})
         if not resolved_mime:
-            resolved_mime = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+            resolved_mime = (
+                existing_metadata.get("type")
+                if isinstance(existing_metadata.get("type"), str) and existing_metadata.get("type")
+                else mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+            )
 
-        metadata = {"name": file_name, "type": resolved_mime}
-        archive_id = ""
+        archive_metadata = dict(existing_metadata)
+        archive_metadata["name"] = file_name
+        archive_metadata["type"] = resolved_mime
+        archive_id = str(existing_archive.get("id", "")) if existing_archive else ""
         upload_id = ""
         upload_completed = False
 
         try:
-            encrypted_metadata = keyring.encrypt_string(json.dumps(metadata, separators=(",", ":")), sid=space_id)
-            created_archive = self._extract_result(
-                self._api_client.create_archive(
-                    session_id,
-                    {
-                        "t": "Cloud",
-                        "m": encrypted_metadata,
-                        "l": location_id,
-                        "fs": file_size,
-                        "sid": space_id,
-                    },
-                ),
-                expected_type="CreateArchive",
-            )
-            if not isinstance(created_archive, dict) or not created_archive.get("id"):
-                raise ValueError("operation_failed: CreateArchive did not return a new Cloud archive.")
-            archive_id = str(created_archive["id"])
-            archive_metadata = dict(metadata)
+            if existing_archive is None:
+                encrypted_metadata = keyring.encrypt_string(json.dumps(archive_metadata, separators=(",", ":")), sid=space_id)
+                created_archive = self._extract_result(
+                    self._api_client.create_archive(
+                        session_id,
+                        {
+                            "t": "Cloud",
+                            "m": encrypted_metadata,
+                            "l": location_id,
+                            "fs": file_size,
+                            "sid": space_id,
+                        },
+                    ),
+                    expected_type="CreateArchive",
+                )
+                if not isinstance(created_archive, dict) or not created_archive.get("id"):
+                    raise ValueError("operation_failed: CreateArchive did not return a new Cloud archive.")
+                archive_id = str(created_archive["id"])
+            else:
+                updated_archive = dict(existing_archive)
+                updated_archive["fs"] = file_size
+                updated_archive["m"] = archive_metadata
+                self._extract_result(
+                    self._api_client.update_archive(session_id, updated_archive),
+                    expected_type="UpdateArchive",
+                )
             parts: list[dict[str, Any]] = []
 
             with source_path.open("rb") as handle:
@@ -295,7 +404,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                     )
                 except Exception:
                     pass
-            if archive_id and not upload_completed:
+            if archive_id and not upload_completed and existing_archive is None:
                 try:
                     self._extract_result(
                         self._api_client.delete_archive(session_id, archive_id),

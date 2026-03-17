@@ -958,6 +958,79 @@ def create_mcp_server() -> FastMCP:
             return _tool_error_response(exc)
 
     @server.tool(
+        name="unolock_rename_file",
+        description=(
+            "Rename one UnoLock Cloud file by archive_id. "
+            "Use unolock_get_file first to confirm writable=true and the current file metadata."
+        ),
+    )
+    def rename_file(session_id: str, archive_id: str, name: str) -> dict[str, Any]:
+        writable_files = UnoLockWritableFilesClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        try:
+            return writable_files.rename_file(
+                session_id,
+                archive_id=archive_id,
+                name=name,
+            )
+        except ValueError as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
+        name="unolock_replace_file",
+        description=(
+            "Replace the content of one existing UnoLock Cloud file from a local filesystem path. "
+            "Use unolock_get_file first to confirm writable=true and the target archive_id."
+        ),
+    )
+    def replace_file(
+        session_id: str,
+        archive_id: str,
+        local_path: str,
+        name: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, Any]:
+        writable_files = UnoLockWritableFilesClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        try:
+            return writable_files.replace_file(
+                session_id,
+                archive_id=archive_id,
+                local_path=local_path,
+                name=name,
+                mime_type=mime_type,
+            )
+        except ValueError as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
+        name="unolock_delete_file",
+        description=(
+            "Delete one UnoLock Cloud file by archive_id. "
+            "Use unolock_get_file first to confirm writable=true and the target archive_id."
+        ),
+    )
+    def delete_file(session_id: str, archive_id: str) -> dict[str, Any]:
+        writable_files = UnoLockWritableFilesClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        try:
+            return writable_files.delete_file(
+                session_id,
+                archive_id=archive_id,
+            )
+        except ValueError as exc:
+            return _tool_error_response(exc)
+
+    @server.tool(
         name="unolock_get_record",
         description=(
             "Get one read-only UnoLock note or checklist by record_ref. "
