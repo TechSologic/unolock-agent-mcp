@@ -250,6 +250,19 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertEqual(result["reason"], "wrong_connection_url_type")
             self.assertIn("regular key registration URL", result["message"])
 
+    def test_reduced_assurance_acknowledgement_persists_across_client_instances(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir) / "tpm")
+            store = RegistrationStore(Path(tmpdir) / "registration.json")
+
+            first = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+            first.acknowledge_reduced_assurance()
+
+            second = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
+
+            self.assertTrue(second.runtime_status()["reduced_assurance_acknowledged"])
+            self.assertTrue(store.load().reduced_assurance_acknowledged)
+
     def test_submit_connection_url_explains_missing_agent_register_fragment(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))

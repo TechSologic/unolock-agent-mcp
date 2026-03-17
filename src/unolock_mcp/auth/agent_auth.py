@@ -52,6 +52,8 @@ class AgentAuthClient:
 
     def acknowledge_reduced_assurance(self) -> dict[str, Any]:
         self._reduced_assurance_acknowledged = True
+        if self._registration_store is not None:
+            self._registration_store.set_reduced_assurance_acknowledged(True)
         return self.runtime_status()
 
     def disconnect(self) -> dict[str, Any]:
@@ -120,6 +122,7 @@ class AgentAuthClient:
         security_warning = self._insecure_provider_warning()
         tpm_provider = self._normalize_provider_name(self._get_tpm().provider_name())
         registered_tpm_provider = self._normalize_provider_name(registration.tpm_provider)
+        reduced_assurance_acknowledged = self._is_reduced_assurance_acknowledged()
         return {
             "has_agent_pin": self._agent_pin is not None,
             "pin_mode": "ephemeral_memory" if self._agent_pin is not None else "unset",
@@ -132,7 +135,7 @@ class AgentAuthClient:
             "tpm_provider_mismatch": provider_mismatch is not None,
             "tpm_provider_mismatch_detail": provider_mismatch,
             "security_warning": security_warning,
-            "reduced_assurance_acknowledged": self._reduced_assurance_acknowledged,
+            "reduced_assurance_acknowledged": reduced_assurance_acknowledged,
         }
 
     def tpm_diagnostics(self) -> dict[str, Any]:
@@ -217,6 +220,7 @@ class AgentAuthClient:
             }
 
         self._agent_pin = None
+        self._reduced_assurance_acknowledged = False
         self._session_store.clear()
         self._registration_store.reset()
         return None
@@ -933,7 +937,7 @@ class AgentAuthClient:
 
     def _reduced_assurance_acknowledgement_required(self) -> dict[str, Any] | None:
         warning = self._insecure_provider_warning()
-        if warning is None or self._reduced_assurance_acknowledged:
+        if warning is None or self._is_reduced_assurance_acknowledged():
             return None
         return {
             "ok": False,
@@ -945,6 +949,19 @@ class AgentAuthClient:
             ),
             "security_warning": warning,
         }
+
+    def _is_reduced_assurance_acknowledged(self) -> bool:
+        if self._reduced_assurance_acknowledged:
+            return True
+        if self._registration_store is None:
+            return False
+        try:
+            persisted = bool(self._registration_store.load().reduced_assurance_acknowledged)
+        except Exception:
+            return False
+        if persisted:
+            self._reduced_assurance_acknowledged = True
+        return persisted
 
     def _build_device_assurance_summary(self, key_id: str) -> dict[str, Any]:
         binding_info = self._get_tpm().get_binding_info(key_id)

@@ -149,6 +149,7 @@ class RegistrationState:
     transparency_origin: str | None = None
     app_version: str | None = None
     signing_public_key_b64: str | None = None
+    reduced_assurance_acknowledged: bool = False
 
     def summary(self) -> dict[str, Any]:
         tpm_provider = "software" if self.tpm_provider == "test" else self.tpm_provider
@@ -162,6 +163,7 @@ class RegistrationState:
             "session_id": self.session_id,
             "registered_at": self.registered_at,
             "tpm_provider": tpm_provider,
+            "reduced_assurance_acknowledged": self.reduced_assurance_acknowledged,
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
                 "If registration is needed, ask the user for the one-time-use UnoLock agent key connection URL and "
