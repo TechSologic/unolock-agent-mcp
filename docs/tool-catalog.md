@@ -143,6 +143,56 @@ Notes:
 * Only `Cloud` files are supported.
 * `Local` and `Msg` archive types are intentionally excluded from the MCP file surface.
 
+### `unolock_rename_file`
+
+Purpose:
+Rename one existing UnoLock Cloud file by `archive_id`.
+
+Arguments:
+
+* `session_id: str`
+* `archive_id: str`
+* `name: str`
+
+Notes:
+
+* This updates Cloud file metadata only.
+* Use `unolock_get_file` first to confirm `writable=true`.
+
+### `unolock_replace_file`
+
+Purpose:
+Replace the content of one existing UnoLock Cloud file from a local filesystem path.
+
+Arguments:
+
+* `session_id: str`
+* `archive_id: str`
+* `local_path: str`
+* `name: str | null`
+* `mime_type: str | null`
+
+Notes:
+
+* The MCP reuses the existing Cloud archive instead of creating a duplicate.
+* If `name` or `mime_type` is provided, the MCP updates that metadata while replacing the file.
+* Only `Cloud` files are supported.
+
+### `unolock_delete_file`
+
+Purpose:
+Delete one existing UnoLock Cloud file by `archive_id`.
+
+Arguments:
+
+* `session_id: str`
+* `archive_id: str`
+
+Notes:
+
+* Only `Cloud` files are supported.
+* Use `unolock_get_file` first to confirm `writable=true`.
+
 ## Explanatory Resources
 
 ### `unolock://usage/about`

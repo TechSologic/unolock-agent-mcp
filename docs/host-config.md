@@ -248,6 +248,9 @@ Relevant tools:
 * `unolock_get_file`
 * `unolock_get_record`
 * `unolock_download_file`
+* `unolock_rename_file`
+* `unolock_replace_file`
+* `unolock_delete_file`
 * `unolock_create_note`
 * `unolock_update_note`
 * `unolock_append_note`
@@ -265,6 +268,7 @@ Write guidance:
 * Use `record_ref` and `version` when updating existing records.
 * Use `archive_id` from `unolock_list_files` when downloading a Cloud file.
 * Use `space_id` from `unolock_list_spaces` when uploading a Cloud file.
+* Use `archive_id` from `unolock_list_files` or `unolock_get_file` when renaming, replacing, or deleting a Cloud file.
 * The MCP keeps archive snapshots in memory only and uses a 5-minute default freshness TTL.
 * On write conflict, the MCP rereads the archive, checks the record version, and tells the agent when a reread is required.
 

@@ -364,6 +364,9 @@ Current MCP tools:
 * `unolock_get_file`
 * `unolock_get_record`
 * `unolock_download_file`
+* `unolock_rename_file`
+* `unolock_replace_file`
+* `unolock_delete_file`
 * `unolock_create_note`
 * `unolock_update_note`
 * `unolock_append_note`
@@ -408,6 +411,9 @@ Read and write support:
 * write conflicts return stable structured reasons such as `write_conflict_requires_reread`
 * `unolock_upload_file` creates a `Cloud` archive and uploads encrypted multipart chunks like the web client path
 * `unolock_download_file` reconstructs multipart Cloud archives part by part before writing plaintext to the local filesystem
+* `unolock_rename_file` updates only Cloud file metadata and keeps the archive in place
+* `unolock_replace_file` reuses the existing Cloud archive ID while replacing file contents
+* `unolock_delete_file` removes the Cloud archive when the Agent Key is writable
 
 Current bootstrap limitation:
 
