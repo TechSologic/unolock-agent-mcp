@@ -20,7 +20,7 @@ For normal customer use, the preferred deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance, requires an explicit acknowledgment before use, and makes that tradeoff visible instead of pretending it met UnoLock’s preferred key-storage requirements.
+If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance and makes that tradeoff visible instead of pretending it met UnoLock’s preferred key-storage requirements.
 
 This is deliberate. The point of the Agent MCP is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
 
@@ -279,10 +279,10 @@ unolock_submit_agent_bootstrap
 unolock_bootstrap_agent
 ```
 
-If you are doing manual CLI recovery or local debugging and the MCP falls back to the software provider, you can acknowledge reduced-assurance mode explicitly with:
+If you are doing manual CLI recovery or local debugging and the MCP falls back to the software provider, the CLI bootstrap path is still:
 
 ```bash
-python3 -m unolock_mcp bootstrap --allow-reduced-assurance --connection-url '<unoLock connection url>' --pin 0123
+python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --pin 0123
 ```
 
 ## Option 2: Install From GitHub With `pip`

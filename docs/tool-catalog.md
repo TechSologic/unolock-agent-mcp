@@ -43,7 +43,6 @@ Important fields:
 * `recommended_next_action`
 * `guidance`
 * `has_agent_pin`
-* `reduced_assurance_acknowledged`
 * `current_space_id`
 * `current_space_name`
 * `explanation_resources`
@@ -82,7 +81,7 @@ Notes:
 
 * If the MCP is unregistered and already has a stored Agent Key URL, this enrolls the local MCP.
 * If the MCP is already registered, this authenticates it.
-* If the MCP needs a PIN or reduced-assurance acknowledgment, it will return a concrete blocker instead of making the agent guess.
+* If the MCP needs a PIN, it will return a concrete blocker instead of making the agent guess.
 
 ### `unolock_set_agent_pin`
 
@@ -98,15 +97,6 @@ Notes:
 * PINs are strings, not numbers.
 * Valid characters are `0-9` and `a-f`.
 * The MCP can resume pending auth or data work after the PIN is provided.
-
-### `unolock_acknowledge_reduced_assurance`
-
-Purpose:
-Acknowledge that the current host is using the software provider or another lower-assurance path.
-
-Notes:
-
-* This acknowledgment persists for the local MCP registration on that machine.
 
 ## Current Space tools
 

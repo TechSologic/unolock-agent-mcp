@@ -33,7 +33,6 @@ class AgentAuthClient:
         self._tpm = tpm_dao
         self._data_keyrings: dict[str, SafeKeyringManager] = {}
         self._agent_pin: str | None = None
-        self._reduced_assurance_acknowledged = False
         self._pending_server_keys: dict[str, str] = {}
         self._pending_client_data_keys: dict[str, bytes] = {}
 
@@ -67,12 +66,6 @@ class AgentAuthClient:
 
     def clear_agent_pin(self) -> dict[str, Any]:
         self._agent_pin = None
-        return self.runtime_status()
-
-    def acknowledge_reduced_assurance(self) -> dict[str, Any]:
-        self._reduced_assurance_acknowledged = True
-        if self._registration_store is not None:
-            self._registration_store.set_reduced_assurance_acknowledged(True)
         return self.runtime_status()
 
     def disconnect(self) -> dict[str, Any]:
@@ -116,7 +109,6 @@ class AgentAuthClient:
                 errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
 
         self._agent_pin = None
-        self._reduced_assurance_acknowledged = False
         self._session_store.clear()
         self._registration_store.reset()
 
@@ -141,7 +133,6 @@ class AgentAuthClient:
         security_warning = self._insecure_provider_warning()
         tpm_provider = self._normalize_provider_name(self._get_tpm().provider_name())
         registered_tpm_provider = self._normalize_provider_name(registration.tpm_provider)
-        reduced_assurance_acknowledged = self._is_reduced_assurance_acknowledged()
         return {
             "has_agent_pin": self._agent_pin is not None,
             "pin_mode": "ephemeral_memory" if self._agent_pin is not None else "unset",
@@ -154,7 +145,6 @@ class AgentAuthClient:
             "tpm_provider_mismatch": provider_mismatch is not None,
             "tpm_provider_mismatch_detail": provider_mismatch,
             "security_warning": security_warning,
-            "reduced_assurance_acknowledged": reduced_assurance_acknowledged,
         }
 
     def tpm_diagnostics(self) -> dict[str, Any]:
@@ -175,7 +165,6 @@ class AgentAuthClient:
             self._store_protected_bootstrap_secret(parsed.access_id, parsed.passphrase)
         self._store_registration_material(parsed)
         state = self._registration_store.set_connection_url(connection_url)
-        self._reduced_assurance_acknowledged = False
         summary = state.summary()
         warning = self._insecure_provider_warning()
         if warning is not None:
@@ -239,7 +228,6 @@ class AgentAuthClient:
             }
 
         self._agent_pin = None
-        self._reduced_assurance_acknowledged = False
         self._session_store.clear()
         self._registration_store.reset()
         return None
@@ -265,9 +253,6 @@ class AgentAuthClient:
     def start_registration_from_stored_url(self) -> dict[str, Any]:
         registration = self._load_registration()
         flow_client = self.require_flow_client()
-        acknowledgement_required = self._reduced_assurance_acknowledgement_required()
-        if acknowledgement_required is not None:
-            return acknowledgement_required
         self._protect_bootstrap_secret_if_needed(registration)
         registration = self._load_registration()
         if registration.connection_url is None:
@@ -289,9 +274,6 @@ class AgentAuthClient:
     def authenticate_registered_agent(self) -> dict[str, Any]:
         registration = self._load_registration()
         flow_client = self.require_flow_client()
-        acknowledgement_required = self._reduced_assurance_acknowledgement_required()
-        if acknowledgement_required is not None:
-            return acknowledgement_required
         provider_mismatch = self._get_provider_mismatch(registration)
         if provider_mismatch is not None:
             return provider_mismatch
@@ -951,34 +933,6 @@ class AgentAuthClient:
             "tpm_provider": provider_name,
             "tpm_diagnostics": diagnostics.to_dict(),
         }
-
-    def _reduced_assurance_acknowledgement_required(self) -> dict[str, Any] | None:
-        warning = self._insecure_provider_warning()
-        if warning is None or self._is_reduced_assurance_acknowledged():
-            return None
-        return {
-            "ok": False,
-            "blocked": True,
-            "reason": "reduced_assurance_acknowledgement_required",
-            "message": (
-                "This host is using the lower-assurance software provider. Ask the user whether they want to "
-                "continue in reduced-assurance mode, then acknowledge that decision before proceeding."
-            ),
-            "security_warning": warning,
-        }
-
-    def _is_reduced_assurance_acknowledged(self) -> bool:
-        if self._reduced_assurance_acknowledged:
-            return True
-        if self._registration_store is None:
-            return False
-        try:
-            persisted = bool(self._registration_store.load().reduced_assurance_acknowledged)
-        except Exception:
-            return False
-        if persisted:
-            self._reduced_assurance_acknowledged = True
-        return persisted
 
     def _build_device_assurance_summary(self, key_id: str) -> dict[str, Any]:
         binding_info = self._get_tpm().get_binding_info(key_id)

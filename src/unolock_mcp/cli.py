@@ -114,7 +114,6 @@ def build_parser() -> argparse.ArgumentParser:
     bootstrap_parser.add_argument("--connection-url", default=None)
     bootstrap_parser.add_argument("--pin", default=None)
     bootstrap_parser.add_argument("--list-records", action="store_true")
-    bootstrap_parser.add_argument("--allow-reduced-assurance", action="store_true")
 
     subparsers.add_parser(
         "disconnect",
@@ -197,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "mcp":
         try:
-            return proxy_stdio_to_daemon(auto_start=True, timeout=30.0)
+            return proxy_stdio_to_daemon(auto_start=True, timeout=None)
         except LocalHostError as exc:
             print(json.dumps({"ok": False, "reason": "daemon_proxy_failed", "message": str(exc)}, indent=2))
             return 1
@@ -373,8 +372,6 @@ def main(argv: list[str] | None = None) -> int:
                 return 1
         if args.pin:
             agent_auth.set_agent_pin(args.pin)
-        if args.allow_reduced_assurance:
-            agent_auth.acknowledge_reduced_assurance()
 
         registration = registration_store.load()
         resolved = resolve_unolock_config(

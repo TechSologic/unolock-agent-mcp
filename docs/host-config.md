@@ -22,7 +22,7 @@ For normal customer use, UnoLock Agent MCP works best with a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the current host does not provide one, the MCP can still fall back to the software provider. When that happens, it reports reduced assurance clearly, requires an explicit acknowledgment before use, and makes that reduced-assurance tradeoff visible.
+If the current host does not provide one, the MCP can still fall back to the software provider. When that happens, it reports reduced assurance clearly and makes that reduced-assurance tradeoff visible.
 
 That is the point of the product: keep AI agent access as device-bound as the host allows, without hiding when the host could not meet UnoLock's strongest storage requirements.
 
@@ -141,7 +141,6 @@ WSL2 note:
 
 Software fallback note:
 
-* the MCP now requires an explicit reduced-assurance acknowledgment before it will register or authenticate with the software provider
 * software mode is clearly reported as lower assurance and should be treated as a fallback, not equivalent to hardware-backed or platform-backed storage
 
 macOS note:

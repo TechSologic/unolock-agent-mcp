@@ -122,12 +122,13 @@ def _pid_is_running(pid: int) -> bool:
     return True
 
 
-def _request_daemon(state: LocalDaemonState, payload: dict[str, Any], timeout: float = 5.0) -> dict[str, Any]:
+def _request_daemon(state: LocalDaemonState, payload: dict[str, Any], timeout: float | None = 5.0) -> dict[str, Any]:
     request = dict(payload)
     request["token"] = state.token
     data = (json.dumps(request) + "\n").encode("utf8")
     with socket.create_connection(("127.0.0.1", state.port), timeout=timeout) as sock:
-        sock.settimeout(timeout)
+        if timeout is not None:
+            sock.settimeout(timeout)
         sock.sendall(data)
         file_obj = sock.makefile("r", encoding="utf8")
         line = file_obj.readline()
@@ -491,7 +492,7 @@ def call_tool(tool_name: str, arguments: dict[str, Any] | None = None, *, auto_s
     )
 
 
-def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float = 30.0) -> int:
+def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float | None = None) -> int:
     state = load_daemon_state()
     if state is None or not get_daemon_status().get("running"):
         if not auto_start:

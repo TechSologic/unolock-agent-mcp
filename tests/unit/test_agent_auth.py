@@ -114,7 +114,6 @@ class AgentAuthClientTest(unittest.TestCase):
                 tpm_provider="windows-tpm",
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
-            client.acknowledge_reduced_assurance()
             result = client.authenticate_registered_agent()
             self.assertEqual(result["reason"], "tpm_provider_mismatch")
             self.assertEqual(result["stored_tpm_provider"], "windows-tpm")
@@ -132,9 +131,10 @@ class AgentAuthClientTest(unittest.TestCase):
             )
             client = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
             result = client.authenticate_registered_agent()
-            self.assertEqual(result["reason"], "reduced_assurance_acknowledgement_required")
+            self.assertEqual(result["reason"], "manual_callback_required")
+            self.assertIn("security_warning", result)
 
-    def test_acknowledge_reduced_assurance_unblocks_software_mode(self) -> None:
+    def test_authenticate_registered_agent_continues_in_software_mode_without_ack(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             dao = TestTpmDao(Path(tmpdir))
             store = Mock(spec=RegistrationStore)
@@ -154,13 +154,11 @@ class AgentAuthClientTest(unittest.TestCase):
             )
             session_store = SessionStore()
             client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
-
-            client.acknowledge_reduced_assurance()
             result = client.authenticate_registered_agent()
-
             self.assertFalse(result["ok"])
             self.assertFalse(result["completed"])
             self.assertFalse(result["authorized"])
+            self.assertIn("security_warning", result)
             flow_client.start.assert_called_once()
             self.assertEqual(flow_client.start.call_args.kwargs, {"flow": "agentAccess"})
 
@@ -267,19 +265,6 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertFalse(result["ok"])
             self.assertEqual(result["reason"], "wrong_connection_url_type")
             self.assertIn("regular key registration URL", result["message"])
-
-    def test_reduced_assurance_acknowledgement_persists_across_client_instances(self) -> None:
-        with tempfile.TemporaryDirectory() as tmpdir:
-            dao = TestTpmDao(Path(tmpdir) / "tpm")
-            store = RegistrationStore(Path(tmpdir) / "registration.json")
-
-            first = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
-            first.acknowledge_reduced_assurance()
-
-            second = AgentAuthClient(Mock(), Mock(), store, tpm_dao=dao)
-
-            self.assertTrue(second.runtime_status()["reduced_assurance_acknowledged"])
-            self.assertTrue(store.load().reduced_assurance_acknowledged)
 
     def test_submit_connection_url_explains_missing_agent_register_fragment(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

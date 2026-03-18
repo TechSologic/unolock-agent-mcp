@@ -36,7 +36,6 @@ class RegistrationStore:
             transparency_origin=raw.get("transparency_origin"),
             app_version=raw.get("app_version"),
             signing_public_key_b64=raw.get("signing_public_key_b64"),
-            reduced_assurance_acknowledged=bool(raw.get("reduced_assurance_acknowledged", False)),
         )
 
     def save(self, state: RegistrationState) -> RegistrationState:
@@ -67,7 +66,6 @@ class RegistrationStore:
             transparency_origin=sanitized.site_origin or current.transparency_origin,
             app_version=current.app_version,
             signing_public_key_b64=current.signing_public_key_b64,
-            reduced_assurance_acknowledged=False,
         )
         return self.save(state)
 
@@ -87,7 +85,6 @@ class RegistrationStore:
             transparency_origin=current.transparency_origin,
             app_version=current.app_version,
             signing_public_key_b64=current.signing_public_key_b64,
-            reduced_assurance_acknowledged=current.reduced_assurance_acknowledged,
         )
         return self.save(state)
 
@@ -119,7 +116,6 @@ class RegistrationStore:
             transparency_origin=current.transparency_origin or (current.connection_url.site_origin if current.connection_url else None),
             app_version=current.app_version,
             signing_public_key_b64=current.signing_public_key_b64,
-            reduced_assurance_acknowledged=current.reduced_assurance_acknowledged,
         )
         return self.save(state)
 
@@ -146,27 +142,6 @@ class RegistrationStore:
             transparency_origin=transparency_origin or current.transparency_origin,
             app_version=app_version or current.app_version,
             signing_public_key_b64=signing_public_key_b64 or current.signing_public_key_b64,
-            reduced_assurance_acknowledged=current.reduced_assurance_acknowledged,
-        )
-        return self.save(state)
-
-    def set_reduced_assurance_acknowledged(self, acknowledged: bool) -> RegistrationState:
-        current = self.load()
-        state = RegistrationState(
-            registered=current.registered,
-            registration_mode=current.registration_mode,
-            connection_url=current.connection_url,
-            current_space_id=current.current_space_id,
-            registered_at=current.registered_at,
-            access_id=current.access_id,
-            key_id=current.key_id,
-            bootstrap_secret=current.bootstrap_secret,
-            tpm_provider=current.tpm_provider,
-            api_base_url=current.api_base_url,
-            transparency_origin=current.transparency_origin,
-            app_version=current.app_version,
-            signing_public_key_b64=current.signing_public_key_b64,
-            reduced_assurance_acknowledged=acknowledged,
         )
         return self.save(state)
 
@@ -186,7 +161,6 @@ class RegistrationStore:
             transparency_origin=current.transparency_origin,
             app_version=current.app_version,
             signing_public_key_b64=current.signing_public_key_b64,
-            reduced_assurance_acknowledged=current.reduced_assurance_acknowledged,
         )
         return self.save(state)
 

@@ -29,7 +29,6 @@ class _FakeAgentAuth:
             "bootstrap_secret_available": False,
             "tpm_provider_mismatch": False,
             "tpm_provider_mismatch_detail": None,
-            "reduced_assurance_acknowledged": True,
         }
 
     def tpm_diagnostics(self) -> dict[str, object]:
@@ -97,7 +96,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("unolock://usage/quickstart", payload["explanation_resources"])
             self.assertIn("Do not narrate raw internal MCP state names to the user.", payload["agent_behavior_rules"])
 
-    def test_unacknowledged_reduced_assurance_changes_next_action(self) -> None:
+    def test_reduced_assurance_warning_does_not_change_next_action(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             auth = _FakeAgentAuth(has_agent_pin=False)
             auth.runtime_status = lambda: {
@@ -110,7 +109,6 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
                 "bootstrap_secret_available": False,
                 "tpm_provider_mismatch": False,
                 "tpm_provider_mismatch_detail": None,
-                "reduced_assurance_acknowledged": False,
                 "security_warning": {"message": "reduced assurance"},
             }
             auth.tpm_diagnostics = lambda: {
@@ -129,7 +127,8 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
                 auth,
             )
 
-            self.assertEqual(payload["recommended_next_action"], "acknowledge_reduced_assurance")
+            self.assertEqual(payload["recommended_next_action"], "ask_for_connection_url")
+            self.assertIn("Warning: reduced assurance", payload["guidance"])
             self.assertIn("unolock_bootstrap_agent", payload["primary_tools"])
 
 
@@ -234,7 +233,6 @@ class _FakeAgentAuthForAutoSession:
             "bootstrap_secret_available": True,
             "tpm_provider_mismatch": False,
             "tpm_provider_mismatch_detail": None,
-            "reduced_assurance_acknowledged": True,
         }
 
     def tpm_diagnostics(self) -> dict[str, object]:
@@ -254,9 +252,6 @@ class _FakeAgentAuthForAutoSession:
 
     def clear_agent_pin(self) -> dict[str, object]:
         self._agent_pin = None
-        return self.runtime_status()
-
-    def acknowledge_reduced_assurance(self) -> dict[str, object]:
         return self.runtime_status()
 
     def submit_connection_url(self, connection_url: str) -> dict[str, object]:
@@ -324,7 +319,6 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                     transparency_origin="https://safe.test.1two.be",
                     app_version="0.20.21",
                     signing_public_key_b64="ZmFrZQ==",
-                    reduced_assurance_acknowledged=True,
                 )
             )
 

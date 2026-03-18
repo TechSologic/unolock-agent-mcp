@@ -96,12 +96,6 @@ def _registration_status_payload(
     if provider_mismatch:
         next_action = "resolve_tpm_provider_mismatch"
         guidance = str(provider_mismatch.get("message"))
-    elif security_warning and not runtime.get("reduced_assurance_acknowledged"):
-        next_action = "acknowledge_reduced_assurance"
-        guidance = (
-            "This host is using the lower-assurance software provider. Ask the user whether they want to continue "
-            "in reduced-assurance mode, then call unolock_acknowledge_reduced_assurance before registering or authenticating."
-        )
     elif pending_flow is not None:
         callback_type = pending_flow.get("current_callback_type")
         if callback_type == "GetPin" and not runtime.get("has_agent_pin"):
@@ -366,11 +360,6 @@ def create_mcp_server() -> FastMCP:
             suggested_action = (
                 "Ask the user for the UnoLock agent PIN, call unolock_set_agent_pin, and the MCP will retry "
                 "the original request automatically."
-            )
-        elif reason == "reduced_assurance_acknowledgement_required":
-            suggested_action = (
-                "Ask the user whether to continue in reduced-assurance mode, call "
-                "unolock_acknowledge_reduced_assurance, and the MCP will retry the original request automatically."
             )
         elif reason == "missing_connection_url":
             suggested_action = (
@@ -785,23 +774,6 @@ def create_mcp_server() -> FastMCP:
     )
     def clear_agent_pin() -> dict[str, Any]:
         return agent_auth.clear_agent_pin()
-
-    @server.tool(
-        name="unolock_acknowledge_reduced_assurance",
-        description=(
-            "Record that the user understands this host is using the lower-assurance software provider and still "
-            "wants to continue."
-        ),
-    )
-    def acknowledge_reduced_assurance() -> dict[str, Any]:
-        status = agent_auth.acknowledge_reduced_assurance()
-        resumed = _resume_pending_operation("unolock_acknowledge_reduced_assurance")
-        if resumed is None:
-            return status
-        return {
-            **status,
-            "resumed_operation": resumed,
-        }
 
     @server.tool(
         name="unolock_get_tpm_diagnostics",

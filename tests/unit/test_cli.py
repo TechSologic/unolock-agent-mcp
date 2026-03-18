@@ -15,7 +15,7 @@ class CliEntryPointTest(unittest.TestCase):
             result = cli.main([])
 
         self.assertEqual(result, 0)
-        proxy_mock.assert_called_once_with(auto_start=True, timeout=30.0)
+        proxy_mock.assert_called_once_with(auto_start=True, timeout=None)
 
     def test_mcp_main_passes_top_level_version_through(self) -> None:
         with patch.object(cli, "main", return_value=0) as main_mock:

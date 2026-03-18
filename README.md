@@ -37,7 +37,7 @@ For normal customer use, the strongest deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the host cannot provide one of those, the MCP can still fall back to a lower-assurance software provider. When that happens, the MCP reports the reduced assurance clearly, requires an explicit acknowledgment before use, and makes the reduced-assurance tradeoff visible instead of pretending it met UnoLock's preferred key-storage requirements.
+If the host cannot provide one of those, the MCP can still fall back to a lower-assurance software provider. When that happens, the MCP reports the reduced assurance clearly and makes the reduced-assurance tradeoff visible instead of pretending it met UnoLock's preferred key-storage requirements.
 
 That tradeoff is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model without pretending every host can satisfy the same storage guarantees.
 
@@ -367,7 +367,6 @@ Current MCP tools:
 * `unolock_get_update_status`
 * `unolock_set_agent_pin`
 * `unolock_clear_agent_pin`
-* `unolock_acknowledge_reduced_assurance`
 * `unolock_submit_agent_bootstrap`
 * `unolock_clear_connection_url`
 * `unolock_disconnect_agent`

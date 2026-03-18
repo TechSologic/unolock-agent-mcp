@@ -148,7 +148,6 @@ class RegistrationState:
     transparency_origin: str | None = None
     app_version: str | None = None
     signing_public_key_b64: str | None = None
-    reduced_assurance_acknowledged: bool = False
 
     def summary(self) -> dict[str, Any]:
         tpm_provider = "software" if self.tpm_provider == "test" else self.tpm_provider
@@ -161,7 +160,6 @@ class RegistrationState:
             "has_bootstrap_secret": bool(self.bootstrap_secret),
             "registered_at": self.registered_at,
             "tpm_provider": tpm_provider,
-            "reduced_assurance_acknowledged": self.reduced_assurance_acknowledged,
             "current_space_id": self.current_space_id,
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
