@@ -167,7 +167,10 @@ class _FakeReadonlyRecordsClient:
         return {
             "ok": True,
             "internal_session_id": session_id,
-            "spaces": [{"space_id": 1773, "name": "Agent Space", "writable": True, "allowed_operations": ["create_note"]}],
+            "spaces": [
+                {"space_id": 1773, "name": "Agent Space", "writable": True, "allowed_operations": ["create_note"]},
+                {"space_id": 1888, "name": "Second Space", "writable": True, "allowed_operations": ["create_note"]},
+            ],
         }
 
     def list_records(
@@ -392,6 +395,22 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertTrue(current["selected"])
             self.assertEqual(current["current_space_id"], 1773)
 
+    def test_list_spaces_selects_first_space_by_default(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_list_spaces"].fn()
+                current = server._tool_manager._tools["unolock_get_current_space"].fn()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["current_space_id"], 1773)
+            self.assertTrue(result["spaces"][0]["current"])
+            self.assertFalse(result["spaces"][1]["current"])
+            self.assertTrue(current["selected"])
+            self.assertEqual(current["current_space_id"], 1773)
+
     def test_list_records_defaults_to_current_space(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with ExitStack() as stack:
@@ -402,7 +421,22 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                 result = server._tool_manager._tools["unolock_list_records"].fn()
 
             self.assertTrue(result["ok"])
+            self.assertEqual(result["space_id"], 1773)
             self.assertEqual(result["space_id_filter"], 1773)
+
+    def test_list_records_auto_selects_first_space_when_none_selected(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_list_records"].fn()
+                current = server._tool_manager._tools["unolock_get_current_space"].fn()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["space_id"], 1773)
+            self.assertEqual(result["space_id_filter"], 1773)
+            self.assertEqual(current["current_space_id"], 1773)
 
 
 if __name__ == "__main__":
