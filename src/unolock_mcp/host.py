@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+import anyio
+
 from unolock_mcp import __version__ as MCP_VERSION
 from unolock_mcp.config import default_config_path
 from unolock_mcp.mcp.server import create_mcp_server
@@ -22,6 +24,15 @@ from unolock_mcp.mcp.server import create_mcp_server
 
 class LocalHostError(RuntimeError):
     pass
+
+
+SUPPORTED_MCP_PROTOCOL_VERSION = "2025-03-26"
+MCP_CAPABILITIES = {
+    "experimental": {},
+    "prompts": {"listChanged": False},
+    "resources": {"subscribe": False, "listChanged": False},
+    "tools": {"listChanged": False},
+}
 
 
 @dataclass
@@ -183,6 +194,140 @@ class ToolHostController:
         bound = signature.bind_partial(**kwargs)
         return tool.fn(*bound.args, **bound.kwargs)
 
+    def _run_async(self, fn, *args):
+        async def runner():
+            return await fn(*args)
+
+        return anyio.run(runner)
+
+    @staticmethod
+    def _to_jsonable(value: Any) -> Any:
+        if hasattr(value, "model_dump"):
+            return value.model_dump(mode="json", by_alias=True, exclude_none=True)
+        if isinstance(value, list):
+            return [ToolHostController._to_jsonable(item) for item in value]
+        if isinstance(value, tuple):
+            return [ToolHostController._to_jsonable(item) for item in value]
+        if isinstance(value, dict):
+            return {
+                key: ToolHostController._to_jsonable(item)
+                for key, item in value.items()
+            }
+        return value
+
+    def _initialize_result(self, requested_version: str | None) -> dict[str, Any]:
+        protocol_version = requested_version or SUPPORTED_MCP_PROTOCOL_VERSION
+        return {
+            "protocolVersion": protocol_version,
+            "capabilities": MCP_CAPABILITIES,
+            "serverInfo": {
+                "name": "UnoLock Agent MCP",
+                "version": MCP_VERSION,
+            },
+            "instructions": str(getattr(self._server, "instructions", "") or ""),
+        }
+
+    def _normalize_tool_result(self, result: Any) -> dict[str, Any]:
+        if isinstance(result, dict) and ("content" in result or "structuredContent" in result):
+            payload = dict(result)
+            payload.setdefault("isError", False)
+            return self._to_jsonable(payload)
+        if isinstance(result, tuple) and len(result) == 2:
+            content, structured = result
+            return {
+                "content": self._to_jsonable(list(content)),
+                "structuredContent": self._to_jsonable(structured),
+                "isError": False,
+            }
+        if isinstance(result, list):
+            return {
+                "content": self._to_jsonable(result),
+                "isError": False,
+            }
+        if isinstance(result, dict):
+            return {
+                "content": [{"type": "text", "text": json.dumps(result)}],
+                "structuredContent": self._to_jsonable(result),
+                "isError": False,
+            }
+        return {
+            "content": [{"type": "text", "text": str(result)}],
+            "isError": False,
+        }
+
+    def _jsonrpc_success(self, request_id: Any, result: Any) -> dict[str, Any]:
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": self._to_jsonable(result),
+        }
+
+    def _jsonrpc_error(self, request_id: Any, code: int, message: str) -> dict[str, Any]:
+        return {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {
+                "code": code,
+                "message": message,
+            },
+        }
+
+    def handle_mcp_request(self, request: dict[str, Any]) -> dict[str, Any] | None:
+        if not isinstance(request, dict):
+            return self._jsonrpc_error(None, -32600, "Request must be a JSON object.")
+        method = request.get("method")
+        request_id = request.get("id")
+        params = request.get("params")
+        if method == "notifications/initialized":
+            return None
+        if isinstance(method, str) and method.startswith("notifications/"):
+            return None
+        if not isinstance(method, str) or not method:
+            return self._jsonrpc_error(request_id, -32600, "Missing JSON-RPC method.")
+        if params is not None and not isinstance(params, dict):
+            return self._jsonrpc_error(request_id, -32602, "MCP params must be a JSON object.")
+        payload = params or {}
+        try:
+            if method == "initialize":
+                return self._jsonrpc_success(request_id, self._initialize_result(payload.get("protocolVersion")))
+            if method == "ping":
+                return self._jsonrpc_success(request_id, {})
+            if method == "tools/list":
+                return self._jsonrpc_success(request_id, {"tools": self._run_async(self._server.list_tools)})
+            if method == "tools/call":
+                tool_name = payload.get("name")
+                if not isinstance(tool_name, str) or not tool_name.strip():
+                    return self._jsonrpc_error(request_id, -32602, "tools/call requires a tool name.")
+                arguments = payload.get("arguments") or {}
+                if not isinstance(arguments, dict):
+                    return self._jsonrpc_error(request_id, -32602, "tools/call arguments must be a JSON object.")
+                return self._jsonrpc_success(request_id, self._normalize_tool_result(self.call_tool(tool_name, arguments)))
+            if method == "resources/list":
+                return self._jsonrpc_success(request_id, {"resources": self._run_async(self._server.list_resources)})
+            if method == "resources/templates/list":
+                return self._jsonrpc_success(
+                    request_id,
+                    {"resourceTemplates": self._run_async(self._server.list_resource_templates)},
+                )
+            if method == "resources/read":
+                uri = payload.get("uri")
+                if not isinstance(uri, str) or not uri.strip():
+                    return self._jsonrpc_error(request_id, -32602, "resources/read requires a resource URI.")
+                return self._jsonrpc_success(request_id, {"contents": self._run_async(self._server.read_resource, uri)})
+            if method == "prompts/list":
+                return self._jsonrpc_success(request_id, {"prompts": self._run_async(self._server.list_prompts)})
+            if method == "prompts/get":
+                name = payload.get("name")
+                if not isinstance(name, str) or not name.strip():
+                    return self._jsonrpc_error(request_id, -32602, "prompts/get requires a prompt name.")
+                arguments = payload.get("arguments") or None
+                if arguments is not None and not isinstance(arguments, dict):
+                    return self._jsonrpc_error(request_id, -32602, "prompts/get arguments must be a JSON object.")
+                return self._jsonrpc_success(request_id, self._run_async(self._server.get_prompt, name, arguments))
+            return self._jsonrpc_error(request_id, -32601, f"Method not found: {method}")
+        except Exception as exc:
+            return self._jsonrpc_error(request_id, -32603, str(exc).strip() or exc.__class__.__name__)
+
 
 class _ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
@@ -214,6 +359,10 @@ class _ControlRequestHandler(socketserver.StreamRequestHandler):
                     raise LocalHostError("Tool name is required.")
                 result = self.server.controller.call_tool(tool_name, request.get("arguments"))
                 self._write({"ok": True, "result": result})
+                return
+            if command == "rpc":
+                response = self.server.controller.handle_mcp_request(request.get("message") or {})
+                self._write({"ok": True, "has_response": response is not None, "response": response})
                 return
             if command == "shutdown":
                 self._write({"ok": True, "result": {"stopping": True}})
@@ -340,3 +489,36 @@ def call_tool(tool_name: str, arguments: dict[str, Any] | None = None, *, auto_s
         {"command": "call", "tool": tool_name, "arguments": arguments or {}},
         timeout=timeout,
     )
+
+
+def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float = 30.0) -> int:
+    state = load_daemon_state()
+    if state is None or not get_daemon_status().get("running"):
+        if not auto_start:
+            raise LocalHostError("UnoLock local daemon is not running.")
+        ensure_daemon_running()
+        state = load_daemon_state()
+    if state is None:
+        raise LocalHostError("UnoLock local daemon state is unavailable after startup.")
+
+    for raw_line in sys.stdin:
+        line = raw_line.strip()
+        if not line:
+            continue
+        try:
+            message = json.loads(line)
+        except json.JSONDecodeError as exc:
+            response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {
+                    "code": -32700,
+                    "message": f"Parse error: {exc}",
+                },
+            }
+            print(json.dumps(response), flush=True)
+            continue
+        daemon_response = _request_daemon(state, {"command": "rpc", "message": message}, timeout=timeout)
+        if daemon_response.get("has_response") and daemon_response.get("response") is not None:
+            print(json.dumps(daemon_response["response"]), flush=True)
+    return 0

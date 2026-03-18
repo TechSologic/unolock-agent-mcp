@@ -11,13 +11,11 @@ from unolock_mcp.domain.models import ConnectionUrlInfo, RegistrationState
 
 class CliEntryPointTest(unittest.TestCase):
     def test_main_defaults_to_stdio_mcp_without_subcommand(self) -> None:
-        server = SimpleNamespace(run=lambda transport: None)
-        with patch.object(cli, "create_mcp_server", return_value=server):
-            with patch.object(server, "run") as run_mock:
-                result = cli.main([])
+        with patch.object(cli, "proxy_stdio_to_daemon", return_value=0) as proxy_mock:
+            result = cli.main([])
 
         self.assertEqual(result, 0)
-        run_mock.assert_called_once_with("stdio")
+        proxy_mock.assert_called_once_with(auto_start=True, timeout=30.0)
 
     def test_mcp_main_passes_top_level_version_through(self) -> None:
         with patch.object(cli, "main", return_value=0) as main_mock:

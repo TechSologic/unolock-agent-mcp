@@ -19,11 +19,11 @@ from unolock_mcp.host import (
     call_tool as call_daemon_tool,
     ensure_daemon_running,
     list_tools as list_daemon_tools,
+    proxy_stdio_to_daemon,
     serve_local_daemon_forever,
     stop_daemon,
     get_daemon_status,
 )
-from unolock_mcp.mcp.server import create_mcp_server
 from unolock_mcp.update import get_update_status
 
 
@@ -196,9 +196,11 @@ def main(argv: list[str] | None = None) -> int:
     command = args.command or "mcp"
 
     if command == "mcp":
-        server = create_mcp_server()
-        server.run("stdio")
-        return 0
+        try:
+            return proxy_stdio_to_daemon(auto_start=True, timeout=30.0)
+        except LocalHostError as exc:
+            print(json.dumps({"ok": False, "reason": "daemon_proxy_failed", "message": str(exc)}, indent=2))
+            return 1
 
     if command == "_daemon":
         return serve_local_daemon_forever()
