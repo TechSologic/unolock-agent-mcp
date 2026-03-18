@@ -297,7 +297,6 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                 encrypted_metadata = keyring.encrypt_string(json.dumps(archive_metadata, separators=(",", ":")), sid=space_id)
                 created_archive = self._extract_result(
                     self._api_client.create_archive(
-                        session_id,
                         {
                             "t": "Cloud",
                             "m": encrypted_metadata,

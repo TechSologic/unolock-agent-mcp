@@ -314,6 +314,9 @@ class UnoLockFilesClientTest(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["file"]["archive_id"], archive_id)
+        create_request = self.api_client.create_archive.call_args.args[0]
+        self.assertEqual(create_request["t"], "Cloud")
+        self.assertEqual(create_request["sid"], 42)
         self.assertEqual(self.api_client.http_client.put_bytes_absolute.call_count, 2)
         complete_kwargs = self.api_client.complete_archive_upload.call_args.kwargs
         self.assertEqual(complete_kwargs["archive_id"], archive_id)
