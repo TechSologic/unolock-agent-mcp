@@ -77,7 +77,6 @@ Recommended customer install source:
 
 * UnoLock's built-in local daemon/CLI with a GitHub Release binary when available
 * `npx @techsologic/unolock-agent-mcp@latest` as the Node/npm wrapper path
-* `mcporter` only when the surrounding host already expects an MCP runner
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -126,31 +125,37 @@ For real MCP hosts, see:
 * [macOS Quick Start](docs/macos.md)
 * [Supported Environments](docs/supported-environments.md)
 * [MCP Host Config](docs/host-config.md)
-* [mcporter keep-alive setup](docs/mcporter.md)
 * [Support Matrix](docs/support-matrix.md)
 * [Tool Catalog](docs/tool-catalog.md)
 * [Claude Desktop example](examples/claude-desktop-config.json)
 * [Cursor example](examples/cursor-mcp.json)
-* [mcporter example](examples/mcporter.json)
 * [Config file example](examples/unolock-agent-config.json)
 
-The preferred local path is UnoLock's own built-in daemon/CLI. It keeps the UnoLock MCP alive inside one long-running local process, so the user PIN can remain in process memory, the current Space stays selected, and the agent does not need to reason about a separate third-party runner.
+The preferred path is one executable with one normal MCP-facing behavior:
 
-The normal first-party local flow is:
+* MCP hosts launch `unolock-agent-mcp` with no UnoLock-specific arguments.
+* The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
+* The first running copy becomes the local UnoLock daemon automatically.
+* Later launches proxy through that daemon automatically.
+
+That keeps the user PIN in process memory, keeps the current Space selected, and hides daemon ownership details from the agent.
+
+Useful support commands still exist for humans and debugging:
 
 ```bash
 unolock-agent-mcp start
 unolock-agent-mcp tools
-unolock-agent-mcp call unolock_get_registration_status
+unolock-agent-mcp call unolock_list_spaces
 ```
 
 The `call` and `tools` commands automatically start the local UnoLock daemon if it is not already running.
 
-`mcporter` is still supported when a surrounding host already expects it, but it is no longer the primary UnoLock onboarding path.
+Once the local stdio MCP is running, the normal flow is:
 
-Once the local stdio MCP is running, the normal flow is that the MCP guides the agent through any registration or authentication step that is actually required. Start with `unolock_get_registration_status` and follow its `recommended_next_action` instead of inventing a manual bootstrap sequence.
-
-If you are using `mcporter`, keep interacting with UnoLock through `mcporter`. Treat `mcporter` as the active MCP host and control surface for starting the server, calling tools, and restarting it between tasks.
+* call normal UnoLock tools
+* provide the one-time Agent Key URL only if the MCP says enrollment is needed
+* provide the PIN only if the MCP says that Agent Key uses one
+* let the MCP keep and use the current Space by default for normal work
 
 If you prefer manual install from source:
 
@@ -225,27 +230,7 @@ With no arguments, the npm wrapper starts the MCP server by default:
 npx @techsologic/unolock-agent-mcp@latest
 ```
 
-Preferred first-party local example:
-
-```bash
-unolock-agent-mcp start
-unolock-agent-mcp call unolock_get_registration_status
-```
-
-Compatibility example with `mcporter`:
-
-```json
-{
-  "mcpServers": {
-    "unolock-agent": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["@techsologic/unolock-agent-mcp@latest"],
-      "lifecycle": "keep-alive"
-    }
-  }
-}
-```
+That is the preferred host-facing launch shape.
 
 ## Update Policy
 
@@ -269,7 +254,7 @@ Or, through the MCP itself, call:
 
 Preferred channel behavior:
 
-* `mcporter` + `npx @techsologic/unolock-agent-mcp@latest`
+* built-in daemon + `npx @techsologic/unolock-agent-mcp@latest`
   * preferred low-friction path
   * on restart, the npm wrapper checks GitHub Releases and can fetch the latest stable binary
   * npm publishing is only needed when the wrapper itself changes

@@ -8,15 +8,43 @@ from unolock_mcp.host import LocalHostError, ToolHostController
 
 
 class ToolHostControllerTest(unittest.TestCase):
-    def test_list_tools_and_call_tool(self) -> None:
-        fake_server = SimpleNamespace(
+    def _fake_server(self):
+        async def fake_list_tools():
+            return []
+
+        async def fake_list_resources():
+            return [{"uri": "unolock://usage/quickstart", "name": "Quickstart"}]
+
+        async def fake_list_resource_templates():
+            return []
+
+        async def fake_read_resource(uri: str):
+            return [{"uri": uri, "text": "hello"}]
+
+        async def fake_list_prompts():
+            return [{"name": "uno"}]
+
+        async def fake_get_prompt(name: str, arguments=None):
+            return {"name": name, "arguments": arguments or {}}
+
+        return SimpleNamespace(
             _tool_manager=SimpleNamespace(
                 _tools={
                     "echo": SimpleNamespace(fn=lambda text="": {"ok": True, "text": text}),
                     "ping": SimpleNamespace(fn=lambda: {"ok": True, "pong": True}),
                 }
-            )
+            ),
+            instructions="uno instructions",
+            list_tools=fake_list_tools,
+            list_resources=fake_list_resources,
+            list_resource_templates=fake_list_resource_templates,
+            read_resource=fake_read_resource,
+            list_prompts=fake_list_prompts,
+            get_prompt=fake_get_prompt,
         )
+
+    def test_list_tools_and_call_tool(self) -> None:
+        fake_server = self._fake_server()
         with patch("unolock_mcp.host.create_mcp_server", return_value=fake_server):
             controller = ToolHostController()
 
@@ -51,10 +79,7 @@ class ToolHostControllerTest(unittest.TestCase):
             controller.call_tool("ping", ["bad"])
 
     def test_handle_mcp_request_initialize_returns_capabilities(self) -> None:
-        fake_server = SimpleNamespace(
-            _tool_manager=SimpleNamespace(_tools={}),
-            instructions="uno instructions",
-        )
+        fake_server = self._fake_server()
         with patch("unolock_mcp.host.create_mcp_server", return_value=fake_server):
             controller = ToolHostController()
 
@@ -74,16 +99,7 @@ class ToolHostControllerTest(unittest.TestCase):
         self.assertIn("tools", response["result"]["capabilities"])
 
     def test_handle_mcp_request_tools_call_wraps_result(self) -> None:
-        async def fake_list_tools():
-            return []
-
-        fake_server = SimpleNamespace(
-            _tool_manager=SimpleNamespace(
-                _tools={"echo": SimpleNamespace(fn=lambda text="": {"ok": True, "text": text})}
-            ),
-            instructions="uno instructions",
-            list_tools=fake_list_tools,
-        )
+        fake_server = self._fake_server()
         with patch("unolock_mcp.host.create_mcp_server", return_value=fake_server):
             controller = ToolHostController()
 
@@ -100,6 +116,45 @@ class ToolHostControllerTest(unittest.TestCase):
         self.assertEqual(response["id"], 2)
         self.assertFalse(response["result"]["isError"])
         self.assertEqual(response["result"]["structuredContent"], {"ok": True, "text": "hello"})
+
+    def test_handle_mcp_request_supports_standard_notification_and_ping(self) -> None:
+        fake_server = self._fake_server()
+        with patch("unolock_mcp.host.create_mcp_server", return_value=fake_server):
+            controller = ToolHostController()
+
+        self.assertIsNone(
+            controller.handle_mcp_request({"jsonrpc": "2.0", "method": "notifications/initialized"})
+        )
+        ping_response = controller.handle_mcp_request({"jsonrpc": "2.0", "id": 3, "method": "ping"})
+        self.assertEqual(ping_response["result"], {})
+
+    def test_handle_mcp_request_supports_resources_and_prompts(self) -> None:
+        fake_server = self._fake_server()
+        with patch("unolock_mcp.host.create_mcp_server", return_value=fake_server):
+            controller = ToolHostController()
+
+        resources = controller.handle_mcp_request({"jsonrpc": "2.0", "id": 4, "method": "resources/list"})
+        templates = controller.handle_mcp_request(
+            {"jsonrpc": "2.0", "id": 5, "method": "resources/templates/list"}
+        )
+        read = controller.handle_mcp_request(
+            {
+                "jsonrpc": "2.0",
+                "id": 6,
+                "method": "resources/read",
+                "params": {"uri": "unolock://usage/quickstart"},
+            }
+        )
+        prompts = controller.handle_mcp_request({"jsonrpc": "2.0", "id": 7, "method": "prompts/list"})
+        prompt = controller.handle_mcp_request(
+            {"jsonrpc": "2.0", "id": 8, "method": "prompts/get", "params": {"name": "uno"}}
+        )
+
+        self.assertEqual(resources["result"]["resources"][0]["uri"], "unolock://usage/quickstart")
+        self.assertEqual(templates["result"]["resourceTemplates"], [])
+        self.assertEqual(read["result"]["contents"][0]["uri"], "unolock://usage/quickstart")
+        self.assertEqual(prompts["result"]["prompts"][0]["name"], "uno")
+        self.assertEqual(prompt["result"]["name"], "uno")
 
 
 if __name__ == "__main__":

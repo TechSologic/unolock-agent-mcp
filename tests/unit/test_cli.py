@@ -226,28 +226,6 @@ class CliEntryPointTest(unittest.TestCase):
         )
         records_client_cls.return_value.list_records.assert_called_once_with(cli.SessionStore.ACTIVE_SESSION_ID)
 
-    def test_mcporter_config_defaults_to_npm_keep_alive(self) -> None:
-        with patch("builtins.print") as print_mock:
-            result = cli.main(["mcporter-config"])
-
-        self.assertEqual(result, 0)
-        payload = json.loads(print_mock.call_args.args[0])
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["type"], "stdio")
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["command"], "npx")
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["args"], ["@techsologic/unolock-agent-mcp@latest"])
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["lifecycle"], "keep-alive")
-
-    def test_mcporter_config_binary_mode_uses_binary_path(self) -> None:
-        with patch("builtins.print") as print_mock:
-            result = cli.main(["mcporter-config", "--mode", "binary", "--binary-path", "/opt/unolock-agent-mcp"])
-
-        self.assertEqual(result, 0)
-        payload = json.loads(print_mock.call_args.args[0])
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["type"], "stdio")
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["command"], "/opt/unolock-agent-mcp")
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["args"], [])
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["lifecycle"], "keep-alive")
-
     def test_check_update_json_uses_update_status_helper(self) -> None:
         with patch.object(cli, "get_update_status", return_value={"ok": True, "update_available": False}) as update_mock:
             with patch("builtins.print") as print_mock:

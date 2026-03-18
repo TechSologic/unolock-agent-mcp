@@ -151,26 +151,6 @@ def build_parser() -> argparse.ArgumentParser:
     )
     self_test_parser.add_argument("--json", action="store_true", help="Print the self-test result as JSON.")
 
-    mcporter_parser = subparsers.add_parser(
-        "mcporter-config",
-        help="Print a ready-to-paste mcporter keep-alive server config.",
-        description=(
-            "Print a named mcporter server entry for UnoLock Agent MCP. "
-            "Use this when you want mcporter to keep the MCP alive between interactions."
-        ),
-    )
-    mcporter_parser.add_argument(
-        "--mode",
-        choices=["npm", "binary"],
-        default="npm",
-        help="Choose whether mcporter should launch the npm wrapper or a direct binary path.",
-    )
-    mcporter_parser.add_argument(
-        "--binary-path",
-        default="unolock-agent-mcp",
-        help="Binary path to use when --mode=binary.",
-    )
-
     update_parser = subparsers.add_parser(
         "check-update",
         help="Check whether a newer UnoLock Agent MCP release is available.",
@@ -314,32 +294,6 @@ def main(argv: list[str] | None = None) -> int:
             status = "OK" if payload["ok"] else "NOT_READY"
             print(f"{status}: {payload['summary']}")
         return 0 if payload["ok"] else 1
-
-    if command == "mcporter-config":
-        if args.mode == "binary":
-            payload = {
-                "mcpServers": {
-                    "unolock-agent": {
-                        "type": "stdio",
-                        "command": args.binary_path,
-                        "args": [],
-                        "lifecycle": "keep-alive",
-                    }
-                }
-            }
-        else:
-            payload = {
-                "mcpServers": {
-                    "unolock-agent": {
-                        "type": "stdio",
-                        "command": "npx",
-                        "args": ["@techsologic/unolock-agent-mcp@latest"],
-                        "lifecycle": "keep-alive",
-                    }
-                }
-            }
-        print(json.dumps(payload, indent=2))
-        return 0
 
     if command == "check-update":
         payload = get_update_status()

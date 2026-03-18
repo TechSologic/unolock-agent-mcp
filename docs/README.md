@@ -30,7 +30,6 @@ Current docs:
 * [supported-environments.md](supported-environments.md)
 * [support-matrix.md](support-matrix.md)
 * [host-config.md](host-config.md)
-* [mcporter.md](mcporter.md)
 * [tool-catalog.md](tool-catalog.md)
 * [testing-with-local-safe.md](testing-with-local-safe.md)
 * [release.md](release.md)

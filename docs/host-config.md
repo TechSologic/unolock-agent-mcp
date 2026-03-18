@@ -37,9 +37,9 @@ Checked against the official host docs on 2026-03-08:
 
 The preferred mode is:
 
-* use the built-in UnoLock local daemon/CLI for direct agent use
-* launch the MCP through `npx @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
-* keep the UnoLock daemon alive so the user PIN can remain in MCP process memory instead of being persisted by the agent
+* let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
+* use `npx @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
+* let UnoLock keep its own local daemon alive internally so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
 
@@ -55,22 +55,15 @@ This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock M
 
 It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
 
-For the first-party local daemon flow, prefer:
+For a host-managed stdio launch, prefer:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest start
-npx @techsologic/unolock-agent-mcp@latest call unolock_get_registration_status
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 Project home:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
-
-If you need an external MCP runner for compatibility, see:
-
-* [mcporter keep-alive setup](mcporter.md)
-
-The built-in UnoLock daemon already provides this keep-alive behavior. Use `mcporter` only when a surrounding host specifically expects a third-party MCP runner.
 
 For updates, the preferred pattern is:
 
@@ -80,12 +73,6 @@ For updates, the preferred pattern is:
 * let the npm wrapper or replacement binary apply the update between tasks
 
 Do not expect the live MCP process to replace itself in place.
-
-You can print a ready-to-paste `mcporter` config with:
-
-```bash
-python3 -m unolock_mcp mcporter-config
-```
 
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
@@ -157,7 +144,7 @@ For direct local agent use without a separate MCP host, the preferred commands a
 ```bash
 unolock-agent-mcp start
 unolock-agent-mcp tools
-unolock-agent-mcp call unolock_get_registration_status
+unolock-agent-mcp call unolock_list_spaces
 ```
 
 `unolock-agent-mcp call ...` automatically starts the local daemon if it is not already running.
@@ -231,12 +218,11 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 
 Once the host can launch the MCP:
 
-1. Ask the MCP for registration status.
-2. If it says an Agent Key URL is needed, ask the user for the one-time UnoLock Agent Key URL and, if they configured one, the agent PIN at the same time.
-   Treat that URL as enrollment-only, not as a reusable credential.
+1. Launch the local stdio MCP.
+2. Ask the user for the one-time UnoLock Agent Key URL and, if they configured one, the agent PIN only when the MCP says enrollment is needed.
 3. Submit them to the MCP with `unolock_submit_agent_bootstrap`.
 4. If the PIN was not collected up front and the Safe later asks for it, set it in MCP memory.
-5. Call the one-shot bootstrap/auth flow.
+5. Let the MCP continue registration or authentication automatically.
 6. Start using read and write tools as permitted by the Agent Key.
 
 After the MCP process restarts:

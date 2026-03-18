@@ -49,9 +49,9 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 The preferred path is:
 
-1. run UnoLock through its built-in local daemon/CLI
+1. let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
 2. use a GitHub Release binary or `npx @techsologic/unolock-agent-mcp@latest`
-3. let the UnoLock CLI keep the MCP warm between interactions so the user PIN can stay in MCP process memory instead of being stored persistently
+3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
 
 If you need the public-facing explanation of this path, see:
 
@@ -89,47 +89,34 @@ Use it as a command that OpenClaw can launch, for example:
 npx @techsologic/unolock-agent-mcp@latest
 ```
 
-For the first-party local daemon flow, use:
+For a host-managed stdio launch, use:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest start
-npx @techsologic/unolock-agent-mcp@latest call unolock_get_registration_status
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
-Compatibility example if you still want `mcporter`:
-
-```json
-{
-  "mcpServers": {
-    "unolock-agent": {
-      "type": "stdio",
-      "command": "npx",
-      "args": ["@techsologic/unolock-agent-mcp@latest"],
-      "lifecycle": "keep-alive"
-    }
-  }
-}
-```
+The first running copy becomes the local UnoLock daemon automatically. Later launches proxy through that daemon, so the agent does not need to understand daemon mode.
 
 ## Built-in local daemon
 
-The UnoLock executable now includes its own local daemon. That is the preferred path when you want a long-running local UnoLock process without asking the agent to manage `mcporter`.
+The UnoLock executable now includes its own local daemon. That is the preferred persistence model and it is normally internal to the executable rather than something the agent needs to manage directly.
 
-Useful commands:
+Useful support commands:
 
 ```bash
 unolock-agent-mcp start
 unolock-agent-mcp status
 unolock-agent-mcp tools
-unolock-agent-mcp call unolock_get_registration_status
+unolock-agent-mcp call unolock_list_spaces
 unolock-agent-mcp stop
 ```
 
 Notes:
 
+* MCP hosts usually do not need these commands at all; they just launch `unolock-agent-mcp` and speak stdio JSON-RPC.
 * `start` starts the local daemon only if it is not already running.
 * `tools` and `call` auto-start the daemon if needed.
-* the current Space, auth state, and PIN-in-memory behavior now belong to the UnoLock daemon itself
+* the current Space, auth state, and PIN-in-memory behavior belong to the UnoLock daemon itself
 
 ## Updates
 
@@ -157,9 +144,6 @@ Preferred behavior by channel:
 * built-in local daemon + `npx @techsologic/unolock-agent-mcp@latest`
   * preferred path
   * daemon restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
-* `mcporter` + `npx @techsologic/unolock-agent-mcp@latest`
-  * compatibility path when the surrounding MCP host expects it
-  * runner restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
 * direct GitHub Release binary
   * download the latest binary, replace the current executable, restart the runner
 * source/Python install
@@ -170,12 +154,6 @@ Do not update in the middle of:
 * active registration/authentication
 * a sensitive write flow
 * a task that depends on the current in-memory PIN remaining available
-
-If you already have a Python/source install and still want a generated `mcporter` helper output:
-
-```bash
-python3 -m unolock_mcp mcporter-config
-```
 
 Expected artifact names:
 
@@ -272,11 +250,13 @@ python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
 ```
 
-For normal installs, do not drive the CLI `bootstrap` command directly. Prefer the built-in local daemon/CLI, then use the MCP tools:
+For normal installs, do not drive the CLI `bootstrap` command directly. Prefer the normal MCP flow:
 
 ```text
-unolock_submit_agent_bootstrap
-unolock_bootstrap_agent
+run the MCP
+provide the Agent Key URL only if needed
+provide the PIN only if needed
+let the MCP continue
 ```
 
 If you are doing manual CLI recovery or local debugging and the MCP falls back to the software provider, the CLI bootstrap path is still:
