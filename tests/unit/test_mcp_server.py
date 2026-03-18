@@ -68,7 +68,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertFalse(payload["needs_connection_url"])
             self.assertEqual(payload["registration_state"], "registered")
             self.assertNotIn("registration_mode", payload)
-            self.assertIn("unolock_get_registration_status", payload["primary_tools"])
+            self.assertIn("unolock_link_agent_key", payload["primary_tools"])
             self.assertIn("unolock_list_records", payload["primary_tools"])
             self.assertIn("unolock_list_files", payload["primary_tools"])
             self.assertEqual(payload["advanced_tools"], [])
@@ -92,7 +92,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertIn("agent PIN", payload["guidance"])
             self.assertEqual(payload["registration_state"], "waiting_for_connection_url")
             self.assertNotIn("registration_mode", payload)
-            self.assertIn("Check registration status first.", payload["workflow_summary"])
+            self.assertIn("Call the normal data tools directly and let the MCP authenticate automatically when needed.", payload["workflow_summary"])
             self.assertIn("unolock://usage/quickstart", payload["explanation_resources"])
             self.assertIn("Do not narrate raw internal MCP state names to the user.", payload["agent_behavior_rules"])
 
@@ -129,7 +129,41 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
 
             self.assertEqual(payload["recommended_next_action"], "ask_for_connection_url")
             self.assertIn("Warning: reduced assurance", payload["guidance"])
-            self.assertIn("unolock_bootstrap_agent", payload["primary_tools"])
+            self.assertIn("unolock_link_agent_key", payload["primary_tools"])
+
+    def test_pending_getpin_guidance_prefers_retrying_original_request(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            registration_store = RegistrationStore(Path(tmpdir) / "registration.json")
+            registration_store.save(
+                RegistrationState(
+                    registered=True,
+                    registration_mode="registered",
+                    access_id="access-123",
+                    key_id="agent-access-123",
+                    tpm_provider="windows-tpm",
+                )
+            )
+            session_store = SessionStore()
+            session_store.put(
+                FlowSession(
+                    session_id="pending-1",
+                    flow="agentAccess",
+                    state="state",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="GetPin", result={}),
+                    authorized=False,
+                )
+            )
+
+            payload = _registration_status_payload(
+                registration_store,
+                session_store,
+                _FakeAgentAuth(has_agent_pin=False),
+            )
+
+            self.assertEqual(payload["recommended_next_action"], "ask_for_agent_pin_then_continue")
+            self.assertIn("retry the original UnoLock request", payload["guidance"])
+            self.assertNotIn("unolock_continue_agent_session", payload["guidance"])
 
 
 class ToolErrorResponseTest(unittest.TestCase):
@@ -498,6 +532,73 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertEqual(result["space_id"], 1773)
             self.assertEqual(result["file"]["name"], "agent-upload.txt")
+
+    def test_replace_file_accepts_title_alias_for_name(self) -> None:
+        class _FakeReplaceFilesClient(_FakeWritableFilesClient):
+            def replace_file(
+                self,
+                session_id: str,
+                *,
+                archive_id: str,
+                local_path: str,
+                name: str | None = None,
+                mime_type: str | None = None,
+            ) -> dict[str, object]:
+                return {
+                    "ok": True,
+                    "file": {
+                        "archive_id": archive_id,
+                        "space_id": 1773,
+                        "name": name,
+                        "local_path": local_path,
+                        "mime_type": mime_type or "application/octet-stream",
+                    },
+                    "internal_session_id": session_id,
+                }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                self._seed_registered_state(tmpdir)
+                stack.enter_context(patch.dict(os.environ, {"HOME": tmpdir}, clear=False))
+                stack.enter_context(patch("unolock_mcp.mcp.server.AgentAuthClient", _FakeAgentAuthForAutoSession))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockReadonlyRecordsClient",
+                        _FakeReadonlyRecordsClient,
+                    )
+                )
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockWritableFilesClient",
+                        _FakeReplaceFilesClient,
+                    )
+                )
+                stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.resolve_unolock_config",
+                        return_value=UnoLockResolvedConfig(
+                            base_url="https://api.safe.test.1two.be",
+                            transparency_origin="https://safe.test.1two.be",
+                            app_version="0.20.21",
+                            signing_public_key_b64="ZmFrZQ==",
+                            sources={},
+                        ),
+                    )
+                )
+                server = create_mcp_server()
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_replace_file"].fn(
+                    "archive-1",
+                    "/tmp/example.txt",
+                    "agent-replace.txt",
+                    None,
+                    None,
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["file"]["name"], "agent-replace.txt")
 
     def test_list_spaces_returns_clear_error_when_agent_has_no_spaces(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

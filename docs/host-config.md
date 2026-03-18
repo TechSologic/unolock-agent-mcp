@@ -202,7 +202,7 @@ Once the host can launch the MCP:
 
 1. Launch the local stdio MCP.
 2. Ask the user for the one-time UnoLock Agent Key URL and, if they configured one, the agent PIN only when the MCP says enrollment is needed.
-3. Submit them to the MCP with `unolock_submit_agent_bootstrap`.
+3. Submit them to the MCP with `unolock_link_agent_key`.
 4. If the PIN was not collected up front and the Safe later asks for it, set it in MCP memory.
 5. Let the MCP continue registration or authentication automatically.
 6. Start using read and write tools as permitted by the Agent Key.
@@ -218,7 +218,7 @@ Relevant tools:
 
 * `unolock_get_registration_status`
 * `unolock_get_tpm_diagnostics`
-* `unolock_submit_agent_bootstrap`
+* `unolock_link_agent_key`
 * `unolock_set_agent_pin`
 * `unolock_bootstrap_agent`
 * `unolock_list_spaces`

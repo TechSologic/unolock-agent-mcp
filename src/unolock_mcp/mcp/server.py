@@ -43,7 +43,7 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
         "invalid_input": "Correct the input payload and retry the write operation.",
         "no_accessible_spaces": "Ask the user to share or create a UnoLock Space for this Agent Key, or issue a different Agent Key with Space access.",
         "missing_current_space": "List spaces or get the current UnoLock space so the MCP can select an accessible default space.",
-        "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_submit_agent_bootstrap.",
+        "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_link_agent_key.",
         "wrong_connection_url_type": "Ask the user for a UnoLock Agent Key URL in the #/agent-register/... format.",
         "session_not_found": "Authenticate again or restart the UnoLock bootstrap flow, then retry the request.",
         "runtime_metadata_missing": "Submit a UnoLock Agent Key URL from the target Safe first. If this is a non-standard deployment, confirm that deployment metadata is published correctly.",
@@ -102,13 +102,12 @@ def _registration_status_payload(
             next_action = "ask_for_agent_pin_then_continue"
             guidance = (
                 "A UnoLock flow is waiting at GetPin. Ask the user for the agent PIN, call "
-                "unolock_set_agent_pin, then call unolock_bootstrap_agent or unolock_continue_agent_session."
+                "unolock_set_agent_pin, then retry the original UnoLock request."
             )
         else:
             next_action = "continue_pending_flow"
             guidance = (
-                "A UnoLock flow is already in progress. Continue it with unolock_bootstrap_agent or "
-                "unolock_continue_agent_session instead of starting over."
+                "A UnoLock flow is already in progress. Retry the original UnoLock request."
             )
     elif registration.get("registered"):
         if not runtime.get("has_agent_pin"):
@@ -133,8 +132,7 @@ def _registration_status_payload(
     else:
         next_action = "start_registration"
         guidance = (
-            "The Agent Key URL is already stored. Continue registration now with "
-            "unolock_start_registration_from_connection_url or unolock_bootstrap_agent. Do not speculate about menu "
+            "The Agent Key URL is already stored. Continue the normal UnoLock flow. Do not speculate about menu "
             "labels, URL expiry, or deployment internals unless the MCP reports a concrete blocker."
         )
 
@@ -146,9 +144,7 @@ def _registration_status_payload(
     )
 
     primary_tools = [
-        "unolock_get_registration_status",
-        "unolock_submit_agent_bootstrap",
-        "unolock_bootstrap_agent",
+        "unolock_link_agent_key",
         "unolock_list_spaces",
         "unolock_set_current_space",
         "unolock_list_records",
@@ -213,10 +209,9 @@ def _registration_status_payload(
             "unolock://usage/updates",
         ],
         "workflow_summary": [
-            "Check registration status first.",
             "Allow extra time on the first start on a fresh host, because local cryptographic code may need to be compiled or prepared.",
             "If needed, ask the user for the one-time Agent Key URL and optional PIN together.",
-            "If registration is already configured, call the normal data tools directly and let the MCP authenticate automatically when needed.",
+            "Call the normal data tools directly and let the MCP authenticate automatically when needed.",
             "After authentication, set the current space once and let normal record/file tools use it by default.",
             "Read a space or record before writing so you have current version and allowed_operations metadata.",
             "If a write reports conflict, reread the target record and retry with the latest version.",
@@ -224,7 +219,7 @@ def _registration_status_payload(
         "agent_behavior_rules": [
             "Do not narrate raw internal MCP state names to the user.",
             "Do not guess UnoLock UI menu labels or screen paths.",
-            "Do not guess that a URL expired unless the MCP reports a concrete enrollment failure.",
+            "Do not guess that a URL expired unless the MCP reports a concrete failure.",
             "If progress stops, report one concrete blocker and ask for one concrete next input.",
         ],
     })
@@ -369,14 +364,14 @@ def create_mcp_server() -> FastMCP:
         elif reason == "missing_connection_url":
             suggested_action = (
                 "Ask the user for the one-time UnoLock Agent Key URL, submit it with "
-                "unolock_submit_agent_bootstrap, and retry the original request."
+                "unolock_link_agent_key, and retry the original request."
             )
         elif reason == "agent_key_invalid_or_consumed":
             suggested_action = "Ask the user for a fresh UnoLock Agent Key URL, then retry the original request."
         elif reason == "manual_callback_required":
             suggested_action = (
-                "Continue the pending UnoLock session with unolock_bootstrap_agent or "
-                "unolock_continue_agent_session, then retry the original request."
+                "Retry the original UnoLock request. If you are using advanced support/debug flow tools, "
+                "you can continue the pending flow explicitly, but normal agents should not need to."
             )
         elif suggested_action is None:
             suggested_action = "Resolve the reported UnoLock blocker, then retry the original request."
@@ -439,7 +434,7 @@ def create_mcp_server() -> FastMCP:
                         {
                             "ok": False,
                             "reason": "missing_connection_url",
-                            "message": "UnoLock is not enrolled on this machine yet. The MCP needs the one-time Agent Key URL first.",
+                            "message": "UnoLock is not registered on this machine yet. The MCP needs the one-time Agent Key URL first.",
                         },
                         resume,
                     )
@@ -481,17 +476,16 @@ def create_mcp_server() -> FastMCP:
     server = FastMCP(
         name="UnoLock Agent MCP",
         instructions=(
-            "Start with unolock_get_registration_status and follow its recommended_next_action. "
-            "Prefer the primary workflow tools first: unolock_submit_agent_bootstrap, unolock_bootstrap_agent, "
-            "unolock_list_spaces, unolock_set_current_space, unolock_list_records, unolock_list_files, and "
-            "unolock_get_record. Read records before writing so you have current version and allowed_operations metadata. "
+            "Call the normal UnoLock data tools directly. If the MCP needs the one-time Agent Key URL or the PIN, it "
+            "will ask for that concrete input. Prefer unolock_link_agent_key, unolock_list_spaces, "
+            "unolock_set_current_space, unolock_list_records, unolock_list_files, and unolock_get_record. Read "
+            "records before writing so you have current version and allowed_operations metadata. "
             "On a fresh host, the first MCP start can take longer because local cryptographic code may need to be "
             "compiled or prepared. "
-            "If registration is not configured, "
-            "ask the user for the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
-            "then submit them with unolock_submit_agent_bootstrap. The Agent Key URL is for enrollment only. "
-            "For normal use, call the data tools directly; they can authenticate automatically and resume after a PIN "
-            "is supplied. After authentication, select a current space and let normal record/file tools use it by default. "
+            "If registration is not configured, ask the user for the one-time UnoLock Agent Key URL and, if needed, "
+            "the PIN, then submit them with unolock_link_agent_key. The Agent Key URL is only for the one-time setup step. "
+            "Normal data tools can authenticate automatically and resume after a PIN is supplied. After authentication, "
+            "select a current space and let normal record/file tools use it by default. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for an Agent Key URL or PIN, "
             "or why host assurance matters, use the explanatory UnoLock resources instead of improvising. "
             "If the host is operating at reduced assurance, treat that as warning-only information; there is no separate acknowledgment step."
@@ -516,9 +510,7 @@ def create_mcp_server() -> FastMCP:
     def quickstart_resource() -> dict[str, Any]:
         return {
             "primary_tools": [
-                "unolock_get_registration_status",
-                "unolock_submit_agent_bootstrap",
-                "unolock_bootstrap_agent",
+                "unolock_link_agent_key",
                 "unolock_list_spaces",
                 "unolock_set_current_space",
                 "unolock_list_records",
@@ -526,10 +518,8 @@ def create_mcp_server() -> FastMCP:
                 "unolock_get_record",
             ],
             "normal_flow_note": (
-                "After the local stdio MCP is running, it should guide the agent through whatever registration or "
-                "authentication step is actually required. Start with unolock_get_registration_status and follow "
-                "its recommended_next_action instead of inventing a manual bootstrap sequence. For normal use, "
-                "call the data tools directly and let the MCP authenticate automatically when needed."
+                "After the local stdio MCP is running, call the normal UnoLock tools directly and follow the MCP's "
+                "directions. Do not invent a separate manual bootstrap sequence."
             ),
             "startup_note": (
                 "On a fresh host, the first MCP start can take longer because local cryptographic code may need to "
@@ -562,8 +552,9 @@ def create_mcp_server() -> FastMCP:
                 "UnoLock keeps sensitive data inside a Safe controlled by the user.",
                 "An Agent Key is a dedicated access key for an AI agent, not a full admin credential.",
                 "The agent only gets the Spaces and permissions granted to that Agent Key.",
-                "The one-time Agent Key URL is only used to enroll the local UnoLock MCP on this machine.",
-                "After enrollment, ongoing access uses the registered agent key plus normal UnoLock authentication, not the URL itself.",
+                "The user manages the Agent Key in the UnoLock Safe web app.",
+                "The one-time Agent Key URL is used once to set up the Agent Key on this device.",
+                "After that, ongoing access uses the registered local Agent Key plus normal UnoLock authentication, not the URL itself.",
             ],
             "how_to_ask": [
                 "If the user does not already have an Agent Key URL, ask them to open the Safe web app at https://safe.unolock.com/ and create one.",
@@ -594,9 +585,9 @@ def create_mcp_server() -> FastMCP:
                 "zero-knowledge model."
             ),
             "why_the_agent_asks_for_an_agent_key_url": [
-                "The Agent Key URL is a one-time enrollment URL created by the Safe admin.",
-                "It tells the MCP how to register the local host for that Agent Key.",
-                "It is not the ongoing access credential and should be treated as enrollment-only.",
+                "The Agent Key URL is a one-time URL created by the Safe admin for that Agent Key.",
+                "It lets the MCP set up that Agent Key on this device.",
+                "It is not the ongoing access credential and should be treated as one-time setup input only.",
                 "After registration, the MCP uses the registered local agent credential and short-lived authenticated sessions."
             ],
             "why_the_agent_may_ask_for_a_pin": [
@@ -657,13 +648,13 @@ def create_mcp_server() -> FastMCP:
             {
                 "role": "user",
                 "content": (
-                "If UnoLock registration is not configured, ask the user to provide the UnoLock "
+                    "If UnoLock registration is not configured, ask the user to provide the UnoLock "
                     "Agent Key URL for AI/agent registration and, if they configured one, the UnoLock "
-                    "agent PIN at the same time. The Agent Key URL is one-time-use and only registers the local "
-                    "UnoLock MCP on this machine. Once registration succeeds, ongoing access uses the registered "
+                    "agent PIN at the same time. The Agent Key URL is one-time-use and is only for setting up the "
+                    "Agent Key on this device. Once registration succeeds, ongoing access uses the registered "
                     "agent key and normal authentication, not the URL itself. Once "
                     "the user gives you those values, call "
-                    "unolock_submit_agent_bootstrap."
+                    "unolock_link_agent_key."
                 ),
             }
         ]
@@ -678,13 +669,12 @@ def create_mcp_server() -> FastMCP:
             {
                 "role": "user",
                 "content": (
-                    "Use UnoLock in this order: first call unolock_get_registration_status. "
-                    "If registration is needed, ask the user for the one-time UnoLock Agent Key URL "
-                    "and optional PIN together, then call unolock_submit_agent_bootstrap and unolock_bootstrap_agent. "
-                    "Treat the Agent Key URL only as the one-time enrollment input for the local MCP on this machine, "
-                    "not as the ongoing access credential. "
-                    "After registration, prefer unolock_list_spaces, unolock_list_records, unolock_list_files, and "
-                    "unolock_get_record. Call the normal data tools directly; the MCP can authenticate automatically and "
+                    "Use UnoLock in this order: call the normal data tools directly. If registration is needed, ask the "
+                    "user for the one-time UnoLock Agent Key URL and optional PIN together, then call "
+                    "unolock_link_agent_key. Treat the Agent Key URL only as the one-time input used to set up "
+                    "the Agent Key on this device, not as the ongoing access credential. After registration, prefer "
+                    "unolock_list_spaces, unolock_list_records, unolock_list_files, and unolock_get_record. The MCP can "
+                    "authenticate automatically and "
                     "resume the original request after the PIN is supplied. Before writing, read the target record and use its writable, "
                     "allowed_operations, record_ref, and version fields. Avoid low-level flow/api tools unless the "
                     "primary workflow cannot complete the task."
@@ -704,7 +694,7 @@ def create_mcp_server() -> FastMCP:
                 "content": (
                     "When a user asks why UnoLock Agent MCP needs an Agent Key URL, PIN, or a stronger host key store, "
                     "explain it plainly: UnoLock uses an Agent Key instead of a reusable API key. The one-time "
-                    "Agent Key URL is only for enrolling the local MCP on this machine. After registration, the agent "
+                    "Agent Key URL is used once to set up that Agent Key on this device. After registration, the agent "
                     "uses the registered local credential and normal authentication. The PIN may be required to "
                     "re-authenticate the agent. TPM, "
                     "Secure Enclave, or other platform-backed key storage is preferred because it helps keep the agent's "
@@ -737,29 +727,6 @@ def create_mcp_server() -> FastMCP:
             return probe.run(flow=flow)
 
     @server.tool(
-        name="unolock_get_registration_status",
-        description=(
-            "Return whether this MCP is already registered. If not registered, the response will say "
-            "that the agent should ask the user for the one-time UnoLock Agent Key URL."
-        ),
-    )
-    def get_registration_status() -> dict[str, Any]:
-        return _registration_status_payload(registration_store, session_store, agent_auth)
-
-    @server.tool(
-        name="unolock_get_update_status",
-        description=(
-            "Check the installed UnoLock Agent MCP version against the latest GitHub Release and return "
-            "runner-specific update guidance. Prefer checking between tasks, not during an active flow."
-        ),
-    )
-    def get_update_status_tool() -> dict[str, Any]:
-        try:
-            return get_update_status()
-        except Exception as exc:
-            return _tool_error_response(exc)
-
-    @server.tool(
         name="unolock_set_agent_pin",
         description=(
             "Store an optional UnoLock agent PIN in MCP process memory only. The MCP will hash it with the "
@@ -781,43 +748,14 @@ def create_mcp_server() -> FastMCP:
         }
 
     @server.tool(
-        name="unolock_clear_agent_pin",
-        description="Clear the in-memory UnoLock agent PIN from the running MCP process.",
-    )
-    def clear_agent_pin() -> dict[str, Any]:
-        return agent_auth.clear_agent_pin()
-
-    @server.tool(
-        name="unolock_get_tpm_diagnostics",
-        description=(
-            "Diagnose the active UnoLock TPM/vTPM provider and the host TPM/vTPM signals. "
-            "Returns production-readiness and advice if the host does not have a working TPM/vTPM."
-        ),
-    )
-    def get_tpm_diagnostics() -> dict[str, Any]:
-        return agent_auth.tpm_diagnostics()
-
-    @server.tool(
-        name="unolock_submit_connection_url",
-        description=(
-            "Accept a one-time UnoLock Agent Key URL from the user and store it locally for MCP-guided enrollment."
-        ),
-    )
-    def submit_connection_url(connection_url: str) -> dict[str, Any]:
-        try:
-            return agent_auth.submit_connection_url(connection_url)
-        except ValueError as exc:
-            return _tool_error_response(exc)
-
-    @server.tool(
-        name="unolock_submit_agent_bootstrap",
+        name="unolock_link_agent_key",
         description=(
             "Accept the one-time UnoLock Agent Key URL and an optional agent PIN together. "
             "This is the preferred cold-start bootstrap tool. If a PIN is provided, pass it as a string "
             "using only characters 0-9 and a-f."
         ),
     )
-    def submit_agent_bootstrap(connection_url: str, pin: str | None = None) -> dict[str, Any]:
+    def link_agent_key(connection_url: str, pin: str | None = None) -> dict[str, Any]:
         status = agent_auth.submit_connection_url(connection_url)
         if status.get("ok") is False or status.get("blocked"):
             return _strip_session_ids(status)
@@ -834,13 +772,6 @@ def create_mcp_server() -> FastMCP:
                 "UnoLock Agent Key URL was accepted. Continue with MCP-guided registration next."
             ),
         })
-
-    @server.tool(
-        name="unolock_clear_connection_url",
-        description="Clear the locally stored UnoLock Agent Key URL.",
-    )
-    def clear_connection_url() -> dict[str, Any]:
-        return registration_store.clear_connection_url().summary()
 
     @server.tool(
         name="unolock_get_current_space",
@@ -908,99 +839,145 @@ def create_mcp_server() -> FastMCP:
             operation,
         )
 
-    @server.tool(
-        name="unolock_clear_current_space",
-        description="Clear the current UnoLock space selection so list operations span all accessible spaces again.",
-    )
-    def clear_current_space() -> dict[str, Any]:
-        registration_store.set_current_space(None)
-        return _current_space_payload()
+    if _advanced_tools_enabled():
+        @server.tool(
+            name="unolock_get_registration_status",
+            description=(
+                "Support/debug: return whether this MCP is already registered and what the next step would be."
+            ),
+        )
+        def get_registration_status() -> dict[str, Any]:
+            return _registration_status_payload(registration_store, session_store, agent_auth)
 
-    @server.tool(
-        name="unolock_disconnect_agent",
-        description=(
-            "Permanently disconnect this local MCP host from its current UnoLock agent registration by "
-            "deleting local TPM keys, protected secrets, registration state, sessions, and in-memory PINs. "
-            "This does not delete the server-side access record."
-        ),
-    )
-    def disconnect_agent() -> dict[str, Any]:
-        return agent_auth.disconnect()
+        @server.tool(
+            name="unolock_get_update_status",
+            description=(
+                "Support/debug: check the installed UnoLock Agent MCP version against the latest GitHub Release "
+                "and return update guidance."
+            ),
+        )
+        def get_update_status_tool() -> dict[str, Any]:
+            try:
+                return get_update_status()
+            except Exception as exc:
+                return _tool_error_response(exc)
 
-    @server.tool(
-        name="unolock_start_registration_from_connection_url",
-        description=(
-            "Start UnoLock registration from the stored one-time Agent Key URL."
-        ),
-    )
-    def start_registration_from_connection_url() -> dict[str, Any]:
-        try:
-            ensure_flow_client()
-            return _strip_session_ids(agent_auth.start_registration_from_stored_url())
-        except ValueError as exc:
-            return _tool_error_response(exc)
+        @server.tool(
+            name="unolock_clear_agent_pin",
+            description="Support/debug: clear the in-memory UnoLock agent PIN from the running MCP process.",
+        )
+        def clear_agent_pin() -> dict[str, Any]:
+            return agent_auth.clear_agent_pin()
 
-    @server.tool(
-        name="unolock_continue_agent_session",
-        description=(
-            "Automatically continue a stored UnoLock agent session through known agent callbacks such as "
-            "AgentRegistrationCode, AgentKeyRegistration, AgentChallenge, GetSafeAccessID, DecodeKey, and ClientDataKey."
-        ),
-    )
-    def continue_agent_session() -> dict[str, Any]:
-        try:
-            ensure_flow_client()
-            return _strip_session_ids(agent_auth.advance_active_flow())
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+        @server.tool(
+            name="unolock_get_tpm_diagnostics",
+            description=(
+                "Support/debug: diagnose the active UnoLock TPM/vTPM provider and the host TPM/vTPM signals."
+            ),
+        )
+        def get_tpm_diagnostics() -> dict[str, Any]:
+            return agent_auth.tpm_diagnostics()
 
-    @server.tool(
-        name="unolock_authenticate_agent",
-        description=(
-            "Start UnoLock agentAccess and automatically progress the agent flow with the locally stored "
-            "agent credential and bootstrap material."
-        ),
-    )
-    def authenticate_agent() -> dict[str, Any]:
-        try:
-            ensure_flow_client()
-            return _strip_session_ids(agent_auth.authenticate_registered_agent())
-        except ValueError as exc:
-            return _tool_error_response(exc)
+        @server.tool(
+            name="unolock_submit_connection_url",
+            description=(
+                "Support/debug: accept a one-time UnoLock Agent Key URL and store it locally without the PIN helper."
+            ),
+        )
+        def submit_connection_url(connection_url: str) -> dict[str, Any]:
+            try:
+                return agent_auth.submit_connection_url(connection_url)
+            except ValueError as exc:
+                return _tool_error_response(exc)
 
-    @server.tool(
-        name="unolock_bootstrap_agent",
-        description=(
-            "One-shot UnoLock bootstrap helper. If not registered, it starts registration from the "
-            "stored Agent Key URL. If already registered, it authenticates the agent."
-        ),
-    )
-    def bootstrap_agent() -> dict[str, Any]:
-        try:
-            status = _registration_status_payload(registration_store, session_store, agent_auth)
-            ensure_flow_client()
-            if not status.get("has_connection_url"):
-                return {
-                    "ok": False,
-                    "reason": "missing_connection_url",
-                    "status": status,
-                    "suggested_action": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_submit_agent_bootstrap.",
-                }
-            if not status.get("registered"):
+        @server.tool(
+            name="unolock_clear_connection_url",
+            description="Support/debug: clear the locally stored UnoLock Agent Key URL.",
+        )
+        def clear_connection_url() -> dict[str, Any]:
+            return registration_store.clear_connection_url().summary()
+
+        @server.tool(
+            name="unolock_clear_current_space",
+            description="Support/debug: clear the current UnoLock space selection.",
+        )
+        def clear_current_space() -> dict[str, Any]:
+            registration_store.set_current_space(None)
+            return _current_space_payload()
+
+        @server.tool(
+            name="unolock_disconnect_agent",
+            description=(
+                "Support/debug: permanently disconnect this local MCP host from its current UnoLock agent registration."
+            ),
+        )
+        def disconnect_agent() -> dict[str, Any]:
+            return agent_auth.disconnect()
+
+        @server.tool(
+            name="unolock_start_registration_from_connection_url",
+            description="Support/debug: start UnoLock registration from the stored one-time Agent Key URL.",
+        )
+        def start_registration_from_connection_url() -> dict[str, Any]:
+            try:
+                ensure_flow_client()
+                return _strip_session_ids(agent_auth.start_registration_from_stored_url())
+            except ValueError as exc:
+                return _tool_error_response(exc)
+
+        @server.tool(
+            name="unolock_continue_agent_session",
+            description="Support/debug: continue a stored UnoLock flow explicitly.",
+        )
+        def continue_agent_session() -> dict[str, Any]:
+            try:
+                ensure_flow_client()
+                return _strip_session_ids(agent_auth.advance_active_flow())
+            except (ValueError, KeyError) as exc:
+                return _tool_error_response(exc)
+
+        @server.tool(
+            name="unolock_authenticate_agent",
+            description="Support/debug: explicitly start UnoLock authentication instead of relying on auto-auth.",
+        )
+        def authenticate_agent() -> dict[str, Any]:
+            try:
+                ensure_flow_client()
+                return _strip_session_ids(agent_auth.authenticate_registered_agent())
+            except ValueError as exc:
+                return _tool_error_response(exc)
+
+        @server.tool(
+            name="unolock_bootstrap_agent",
+            description=(
+                "Support/debug: explicitly run the one-shot UnoLock registration/authentication helper."
+            ),
+        )
+        def bootstrap_agent() -> dict[str, Any]:
+            try:
+                status = _registration_status_payload(registration_store, session_store, agent_auth)
+                ensure_flow_client()
+                if not status.get("has_connection_url"):
+                    return {
+                        "ok": False,
+                        "reason": "missing_connection_url",
+                        "status": status,
+                        "suggested_action": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_link_agent_key.",
+                    }
+                if not status.get("registered"):
+                    return _strip_session_ids({
+                        "ok": True,
+                        "status": status,
+                        "result": agent_auth.start_registration_from_stored_url(),
+                    })
                 return _strip_session_ids({
                     "ok": True,
                     "status": status,
-                    "result": agent_auth.start_registration_from_stored_url(),
+                    "result": agent_auth.authenticate_registered_agent(),
                 })
-            return _strip_session_ids({
-                "ok": True,
-                "status": status,
-                "result": agent_auth.authenticate_registered_agent(),
-            })
-        except ValueError as exc:
-            return _tool_error_response(exc)
+            except ValueError as exc:
+                return _tool_error_response(exc)
 
-    if _advanced_tools_enabled():
         @server.tool(
             name="unolock_start_flow",
             description=(
@@ -1443,15 +1420,19 @@ def create_mcp_server() -> FastMCP:
         name="unolock_replace_file",
         description=(
             "Replace the content of one existing UnoLock Cloud file from a local filesystem path. "
-            "Use unolock_get_file first to confirm writable=true and the target archive_id."
+            "Use unolock_get_file first to confirm writable=true and the target archive_id. "
+            "Use title for the file name in normal agent flows; name is accepted as a compatibility alias."
         ),
     )
     def replace_file(
         archive_id: str = "",
         local_path: str = "",
+        title: str | None = None,
         name: str | None = None,
         mime_type: str | None = None,
     ) -> dict[str, Any]:
+        effective_name = title if isinstance(title, str) and title.strip() else name
+
         def operation(resolved_session_id: str) -> dict[str, Any]:
             writable_files = UnoLockWritableFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1462,7 +1443,7 @@ def create_mcp_server() -> FastMCP:
                 resolved_session_id,
                 archive_id=archive_id,
                 local_path=local_path,
-                name=name,
+                name=effective_name,
                 mime_type=mime_type,
             )
 
@@ -1471,7 +1452,8 @@ def create_mcp_server() -> FastMCP:
             {
                 "archive_id": archive_id,
                 "local_path": local_path,
-                "name": name,
+                "title": title,
+                "name": effective_name,
                 "mime_type": mime_type,
             },
             None,

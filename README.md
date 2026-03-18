@@ -142,19 +142,11 @@ That keeps the user PIN in process memory, keeps the current Space selected, and
 
 Useful support commands still exist for humans and debugging:
 
-```bash
-unolock-agent-mcp start
-unolock-agent-mcp tools
-unolock-agent-mcp call unolock_list_spaces
-```
-
-The `call` and `tools` commands automatically start the local UnoLock daemon if it is not already running.
-
 Once the local stdio MCP is running, the normal flow is:
 
 * call normal UnoLock tools
-* provide the one-time Agent Key URL only if the MCP says enrollment is needed
-* provide the PIN only if the MCP says that Agent Key uses one
+* provide the one-time Agent Key URL only if the MCP asks for it
+* provide the PIN only if the MCP asks for it
 * let the MCP keep and use the current Space by default for normal work
 
 If you prefer manual install from source:
@@ -172,13 +164,7 @@ python3 -m unolock_mcp config-check
 ```
 
 For normal customer and agent onboarding, do not drive the CLI `bootstrap` command directly.
-Prefer:
-
-* the built-in local daemon/CLI
-* `unolock_submit_agent_bootstrap`
-* `unolock_bootstrap_agent`
-
-The direct CLI `bootstrap` command is an advanced/manual path for debugging, recovery, or local testing.
+Let the MCP guide the normal flow.
 
 macOS support is still alpha. The MCP now prefers Secure Enclave when it works cleanly and otherwise falls back to a non-exportable macOS Keychain key for broader compatibility. If you are evaluating it on Apple Silicon, start with:
 
@@ -263,7 +249,7 @@ Preferred channel behavior:
 * Python package install
   * upgrade the package in that environment, then restart the UnoLock MCP
 
-For the best user experience, do updates between tasks, not while an enrollment flow, authentication flow, or sensitive write flow is active.
+For the best user experience, do updates between tasks, not while a setup flow, authentication flow, or sensitive write flow is active.
 
 ## Standalone config
 
@@ -341,22 +327,11 @@ Installed commands:
 
 Current MCP tools:
 
-* `unolock_get_registration_status`
-* `unolock_get_tpm_diagnostics`
-* `unolock_get_update_status`
 * `unolock_set_agent_pin`
-* `unolock_clear_agent_pin`
-* `unolock_submit_agent_bootstrap`
-* `unolock_clear_connection_url`
-* `unolock_disconnect_agent`
-* `unolock_start_registration_from_connection_url`
-* `unolock_continue_agent_session`
-* `unolock_authenticate_agent`
-* `unolock_bootstrap_agent`
+* `unolock_link_agent_key`
 * `unolock_list_spaces`
 * `unolock_get_current_space`
 * `unolock_set_current_space`
-* `unolock_clear_current_space`
 * `unolock_list_records`
 * `unolock_list_files`
 * `unolock_list_notes`
@@ -378,21 +353,6 @@ Current MCP tools:
 * `unolock_remove_checklist_item`
 
 Low-level flow and raw API debug tools are hidden by default. Enable them only for debugging with `UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1`.
-
-Registration discovery support:
-
-* the MCP can report whether it is registered
-* if not registered, it tells the agent to ask the user for the UnoLock Agent Key URL
-* that URL is explicitly treated as one-time-use and enrollment-only
-* the URL is only used to enroll the local UnoLock MCP on that machine
-* after enrollment, the MCP uses the registered local agent key and normal authentication instead of the URL itself
-* in the cold-start path, the MCP now prefers that the agent ask for the Agent Key URL and the optional PIN together
-* the Agent Key URL can be submitted and stored locally
-* `unolock_submit_agent_bootstrap` can submit the Agent Key URL and optional PIN in one step
-* the optional agent PIN is held only in MCP process memory and cleared on restart or via `unolock_clear_agent_pin`
-* the MCP can now auto-drive `agentRegister` and `agentAccess` through known callbacks using the active TPM DAO
-* the Windows TPM helper provider is now usable from WSL2 when `powershell.exe` can reach the Windows Platform Crypto Provider
-* the Windows CNG non-exportable fallback provider is now also usable from Windows/WSL when TPM-backed creation is unavailable
 * the software provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * the MCP can now create notes and checklists and perform version-aware note/checklist updates, note appends, and checklist updates within the agent's allowed Spaces

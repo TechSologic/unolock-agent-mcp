@@ -8,9 +8,9 @@ The normal agent workflow is:
 
 1. Launch the UnoLock executable as a local `stdio` MCP.
 2. Allow extra time on the very first start on a fresh host, because local cryptographic code may need to be compiled or prepared.
-3. Ask for the one-time UnoLock Agent Key URL only if the MCP says registration is needed.
-4. Ask for the PIN only if the MCP says the key uses one.
-5. Follow the MCP's directions for registration or authentication.
+3. Ask for the one-time UnoLock Agent Key URL only if the MCP asks for it.
+4. Ask for the PIN only if the MCP asks for it.
+5. Follow the MCP's directions.
 6. Use the current Space for normal read, write, and file work.
 
 The normal agent workflow should not require:
@@ -21,41 +21,9 @@ The normal agent workflow should not require:
 * signing keys
 * app versions
 
-The MCP now keeps one current Space. If no current Space was selected yet, it will auto-select the first accessible Space and use that as the default.
+The MCP now keeps one current Space. If no current Space was selected yet, it auto-selects the first accessible Space and uses that as the default.
 
-## Support tool
-
-### `unolock_get_registration_status`
-
-Purpose:
-Return the MCP's current state and the next thing the agent should do.
-
-Notes:
-
-* This is mainly a support/debug tool.
-* Normal agents should usually call ordinary UnoLock tools directly and let the MCP stop only for one concrete missing input.
-
-Important fields:
-
-* `registration_state`
-* `registered`
-* `recommended_next_action`
-* `guidance`
-* `has_agent_pin`
-* `current_space_id`
-* `current_space_name`
-* `explanation_resources`
-
-Typical next actions:
-
-* `ask_for_agent_key_url`
-* `start_registration`
-* `ask_for_agent_pin`
-* `authenticate_agent`
-* `choose_current_space`
-* `ready`
-
-### `unolock_submit_agent_bootstrap`
+### `unolock_link_agent_key`
 
 Purpose:
 Store the one-time Agent Key URL and an optional PIN together.
@@ -68,19 +36,10 @@ Arguments:
 Notes:
 
 * The input is the one-time `#/agent-register/...` Agent Key URL.
-* The Agent Key URL is for local enrollment only, not ongoing access.
+* The user manages the Agent Key in the UnoLock Safe web app.
+* The Agent Key URL is the one-time setup input for that Agent Key on this device.
+* After that, ongoing access uses the registered local Agent Key, not the URL itself.
 * If the key does not use a PIN, omit it.
-
-### `unolock_bootstrap_agent`
-
-Purpose:
-Run the normal one-shot registration/authentication path.
-
-Notes:
-
-* If the MCP is unregistered and already has a stored Agent Key URL, this enrolls the local MCP.
-* If the MCP is already registered, this authenticates it.
-* If the MCP needs a PIN, it will return a concrete blocker instead of making the agent guess.
 
 ### `unolock_set_agent_pin`
 
@@ -95,7 +54,7 @@ Notes:
 
 * PINs are strings, not numbers.
 * Valid characters are `0-9` and `a-f`.
-* The MCP can resume pending auth or data work after the PIN is provided.
+* After the PIN is provided, retry the original UnoLock request.
 
 ## Current Space tools
 
@@ -284,11 +243,14 @@ Arguments:
 Arguments:
 
 * `local_path: str`
+* `title: str | null = None`
 * `name: str | null = None`
 * `mime_type: str | null = None`
 
 Notes:
 
+* Normal agent flows should use `title` for the uploaded file name.
+* `name` is accepted as a compatibility alias.
 * Upload uses the current Space automatically.
 * Only `Cloud` files are supported.
 
@@ -305,8 +267,14 @@ Arguments:
 
 * `archive_id: str`
 * `local_path: str`
+* `title: str | null = None`
 * `name: str | null = None`
 * `mime_type: str | null = None`
+
+Notes:
+
+* Normal agent flows should use `title` for the replacement file name.
+* `name` is accepted as a compatibility alias.
 
 ### `unolock_delete_file`
 
@@ -339,6 +307,8 @@ Return the active host key-storage provider and assurance guidance.
 
 These are not the preferred normal workflow:
 
+* `unolock_get_registration_status`
+* `unolock_bootstrap_agent`
 * `unolock_submit_connection_url`
 * `unolock_clear_connection_url`
 * `unolock_start_registration_from_connection_url`
