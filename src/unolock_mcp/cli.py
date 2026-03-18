@@ -15,6 +15,9 @@ from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.config import default_config_path, load_unolock_config, resolve_unolock_config
 from unolock_mcp.domain.models import UnoLockConfig
 from unolock_mcp.host import (
+    DEFAULT_DAEMON_CALL_TIMEOUT,
+    DEFAULT_DAEMON_START_TIMEOUT,
+    DEFAULT_DAEMON_STOP_TIMEOUT,
     LocalHostError,
     call_tool as call_daemon_tool,
     ensure_daemon_running,
@@ -58,6 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     host_start_parser.add_argument("--timeout", type=float, default=15.0)
+    host_start_parser.set_defaults(timeout=DEFAULT_DAEMON_START_TIMEOUT)
 
     subparsers.add_parser(
         "status",
@@ -71,6 +75,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="Ask the first-party UnoLock local daemon to stop.",
     )
     host_stop_parser.add_argument("--timeout", type=float, default=5.0)
+    host_stop_parser.set_defaults(timeout=DEFAULT_DAEMON_STOP_TIMEOUT)
 
     host_tools_parser = subparsers.add_parser(
         "tools",
@@ -95,6 +100,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     host_call_parser.add_argument("--no-auto-start", action="store_true")
     host_call_parser.add_argument("--timeout", type=float, default=30.0)
+    host_call_parser.set_defaults(timeout=DEFAULT_DAEMON_CALL_TIMEOUT)
 
     subparsers.add_parser(
         "_daemon",
@@ -186,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "start":
         try:
-            payload = ensure_daemon_running(timeout=getattr(args, "timeout", 15.0))
+            payload = ensure_daemon_running(timeout=getattr(args, "timeout", DEFAULT_DAEMON_START_TIMEOUT))
         except LocalHostError as exc:
             print(json.dumps({"ok": False, "reason": "daemon_start_failed", "message": str(exc)}, indent=2))
             return 1
@@ -200,7 +206,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "stop":
         try:
-            payload = stop_daemon(timeout=getattr(args, "timeout", 5.0))
+            payload = stop_daemon(timeout=getattr(args, "timeout", DEFAULT_DAEMON_STOP_TIMEOUT))
         except LocalHostError as exc:
             print(json.dumps({"ok": False, "reason": "daemon_stop_failed", "message": str(exc)}, indent=2))
             return 1
@@ -230,7 +236,7 @@ def main(argv: list[str] | None = None) -> int:
                 args.tool,
                 tool_args,
                 auto_start=not getattr(args, "no_auto_start", False),
-                timeout=getattr(args, "timeout", 30.0),
+                timeout=getattr(args, "timeout", DEFAULT_DAEMON_CALL_TIMEOUT),
             )
         except LocalHostError as exc:
             print(json.dumps({"ok": False, "reason": "daemon_call_failed", "message": str(exc)}, indent=2))

@@ -89,7 +89,7 @@ Use explicit config only when you need overrides or you are connecting to a cust
 You can also place them in:
 
 ```text
-~/.config/unolock-agent-mcp/config.json
+the user's UnoLock config directory (for example ~/.config/unolock-agent-mcp/config.json on Linux)
 ```
 
 and verify the resolved values with:

@@ -137,6 +137,7 @@ The preferred path is one executable with one normal MCP-facing behavior:
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
 * The first running copy becomes the local UnoLock daemon automatically.
 * Later launches proxy through that daemon automatically.
+* On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
 
 That keeps the user PIN in process memory, keeps the current Space selected, and hides daemon ownership details from the agent.
 
@@ -184,7 +185,7 @@ macOS support is still alpha. The MCP now prefers Secure Enclave when it works c
 
 * [macOS Quick Start](docs/macos.md)
 
-The first `liboqs-python` run may build or locate `liboqs` under your home directory. That can take a few minutes.
+The first `liboqs-python` run may build or locate `liboqs` under your home directory. That can take a few minutes, so agents should not assume the first startup is hung just because it is slower than later launches.
 
 For the best customer experience, prefer GitHub Release binaries over source installs. Source installs still depend on the local `liboqs-python` / `liboqs` environment.
 
@@ -272,7 +273,7 @@ Normal setup should not require this section. When the MCP runs outside the main
 Default config file location:
 
 ```text
-~/.config/unolock-agent-mcp/config.json
+the user's UnoLock config directory (for example ~/.config/unolock-agent-mcp/config.json on Linux)
 ```
 
 Advanced override example:

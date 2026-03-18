@@ -7,10 +7,11 @@ This document describes the current normal UnoLock Agent MCP surface.
 The normal agent workflow is:
 
 1. Launch the UnoLock executable as a local `stdio` MCP.
-2. Ask for the one-time UnoLock Agent Key URL only if the MCP says registration is needed.
-3. Ask for the PIN only if the MCP says the key uses one.
-4. Follow the MCP's directions for registration or authentication.
-5. Use the current Space for normal read, write, and file work.
+2. Allow extra time on the very first start on a fresh host, because local cryptographic code may need to be compiled or prepared.
+3. Ask for the one-time UnoLock Agent Key URL only if the MCP says registration is needed.
+4. Ask for the PIN only if the MCP says the key uses one.
+5. Follow the MCP's directions for registration or authentication.
+6. Use the current Space for normal read, write, and file work.
 
 The normal agent workflow should not require:
 

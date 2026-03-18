@@ -7,6 +7,8 @@ from pathlib import Path
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives.serialization import load_der_public_key
 
+from unolock_mcp.config import default_state_dir
+
 from .base import CreatedKey, KeyBindingInfo, TpmDao, TpmDiagnostics
 from .host_diagnostics import detect_host_tpm_state
 
@@ -22,7 +24,7 @@ class LinuxTpmDao(TpmDao):
     """
 
     def __init__(self, path: Path | None = None) -> None:
-        self._path = path or (Path.home() / ".config" / "unolock-agent-mcp" / "linux-tpm")
+        self._path = path or (default_state_dir() / "linux-tpm")
         self._path.mkdir(parents=True, exist_ok=True)
 
     def provider_name(self) -> str:

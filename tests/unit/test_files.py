@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import tempfile
 import unittest
 from pathlib import Path
@@ -153,6 +154,60 @@ class UnoLockFilesClientTest(unittest.TestCase):
             self.assertTrue(output_path.exists())
             self.assertEqual(output_path.read_bytes(), chunk_one + chunk_two)
             self.assertEqual(result["bytes_written"], len(chunk_one) + len(chunk_two))
+            self.assertEqual(result["file"]["mime_type"], "text/plain")
+
+    def test_download_file_uses_stored_name_when_output_path_empty(self) -> None:
+        archive_id = "cloud-1"
+        payload = b"named download"
+        encrypted_chunk, kek = self.keyring.encrypt_bytes_with_kek(
+            payload,
+            archive_id=archive_id,
+            sid=42,
+            kek=None,
+        )
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {
+                "type": "GetArchives",
+                "result": [
+                    {
+                        "id": archive_id,
+                        "t": "Cloud",
+                        "sid": 42,
+                        "m": self._encrypted_metadata(
+                            {"name": "stored-name.txt", "type": "text/plain", "spaceName": "Main", "kek": kek},
+                            42,
+                        ),
+                        "fs": len(payload),
+                        "s": len(encrypted_chunk),
+                        "p": [len(encrypted_chunk)],
+                    }
+                ],
+            }
+        }
+        self.api_client.get_download_url.return_value = {
+            "callback": {"type": "GetDownloadUrl", "result": "https://download.example/file"}
+        }
+        self.api_client.http_client.get_bytes_absolute.return_value = encrypted_chunk
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            previous_cwd = Path.cwd()
+            os.chdir(tmpdir)
+            try:
+                result = self.readonly_client.download_file(
+                    "session-1",
+                    archive_id=archive_id,
+                    output_path="",
+                )
+            finally:
+                os.chdir(previous_cwd)
+
+            output_path = Path(tmpdir) / "stored-name.txt"
+            self.assertTrue(output_path.exists())
+            self.assertEqual(output_path.read_bytes(), payload)
+            self.assertEqual(result["output_path"], str(output_path))
 
     def test_download_file_rejects_existing_path_without_overwrite(self) -> None:
         self.api_client.get_spaces.return_value = {
@@ -185,6 +240,56 @@ class UnoLockFilesClientTest(unittest.TestCase):
                     archive_id="cloud-1",
                     output_path=str(output_path),
                 )
+
+    def test_download_file_writes_best_effort_xattrs(self) -> None:
+        archive_id = "cloud-1"
+        payload = b"xattr payload"
+        encrypted_chunk, kek = self.keyring.encrypt_bytes_with_kek(
+            payload,
+            archive_id=archive_id,
+            sid=42,
+            kek=None,
+        )
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.return_value = {
+            "callback": {
+                "type": "GetArchives",
+                "result": [
+                    {
+                        "id": archive_id,
+                        "t": "Cloud",
+                        "sid": 42,
+                        "m": self._encrypted_metadata(
+                            {"name": "meta.txt", "type": "text/plain", "spaceName": "Main", "kek": kek},
+                            42,
+                        ),
+                        "fs": len(payload),
+                        "s": len(encrypted_chunk),
+                        "p": [len(encrypted_chunk)],
+                    }
+                ],
+            }
+        }
+        self.api_client.get_download_url.return_value = {
+            "callback": {"type": "GetDownloadUrl", "result": "https://download.example/file"}
+        }
+        self.api_client.http_client.get_bytes_absolute.return_value = encrypted_chunk
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            output_path = Path(tmpdir) / "meta.txt"
+            with patch("unolock_mcp.api.files.os.setxattr") as setxattr:
+                self.readonly_client.download_file(
+                    "session-1",
+                    archive_id=archive_id,
+                    output_path=str(output_path),
+                )
+
+        keys = [call.args[1] for call in setxattr.call_args_list]
+        self.assertIn("user.mime_type", keys)
+        self.assertIn("user.unolock.mime_type", keys)
+        self.assertIn("user.unolock.name", keys)
 
     def test_get_file_rejects_non_cloud_archive(self) -> None:
         self.api_client.get_spaces.return_value = {

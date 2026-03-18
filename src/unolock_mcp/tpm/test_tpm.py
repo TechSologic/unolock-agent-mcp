@@ -9,6 +9,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat, PrivateFormat, NoEncryption
 
+from unolock_mcp.config import default_state_dir
+
 from .base import CreatedKey, KeyBindingInfo, TpmDao, TpmDiagnostics
 from .host_diagnostics import detect_host_tpm_state
 
@@ -30,7 +32,7 @@ class TestTpmDao(TpmDao):
 
     def __init__(self, path: Path | None = None) -> None:
         self._keys: dict[str, _StoredKey] = {}
-        self._path = path or (Path.home() / ".config" / "unolock-agent-mcp" / "test-tpm")
+        self._path = path or (default_state_dir() / "test-tpm")
         self._path.mkdir(parents=True, exist_ok=True)
         self._chmod_best_effort(self._path, 0o700)
 

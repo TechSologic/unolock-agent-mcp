@@ -53,6 +53,8 @@ The preferred path is:
 2. use a GitHub Release binary or `npx @techsologic/unolock-agent-mcp@latest`
 3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
 
+On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating the MCP as hung.
+
 If you need the public-facing explanation of this path, see:
 
 * `https://unolock.ai/install-mcp.html`
@@ -95,7 +97,7 @@ For a host-managed stdio launch, use:
 npx @techsologic/unolock-agent-mcp@latest
 ```
 
-The first running copy becomes the local UnoLock daemon automatically. Later launches proxy through that daemon, so the agent does not need to understand daemon mode.
+The first running copy becomes the local UnoLock daemon automatically. Later launches proxy through that daemon, so the agent does not need to understand daemon mode. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
 
 ## Built-in local daemon
 
@@ -333,7 +335,7 @@ Common advanced environment variables:
 Instead of environment variables, you can also create a config file at:
 
 ```text
-~/.config/unolock-agent-mcp/config.json
+the user's UnoLock config directory (for example ~/.config/unolock-agent-mcp/config.json on Linux)
 ```
 
 Advanced override example:

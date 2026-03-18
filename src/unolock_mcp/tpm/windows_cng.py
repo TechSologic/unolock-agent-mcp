@@ -13,6 +13,8 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.asymmetric.utils import decode_dss_signature
 
+from unolock_mcp.config import default_state_dir
+
 from .base import CreatedKey, KeyBindingInfo, TpmDao, TpmDiagnostics
 from .host_diagnostics import AGENTIC_SAFE_ACCESS_DOC, CONNECTING_AGENT_DOC, detect_host_environment
 
@@ -359,7 +361,7 @@ class WindowsCngDao(TpmDao):
     @staticmethod
     def _secret_path(secret_id: str) -> Path:
         safe_name = "".join(ch if ch.isalnum() or ch in {"-", "_"} else "_" for ch in secret_id)
-        path = Path.home() / ".config" / "unolock-agent-mcp" / "windows-cng"
+        path = default_state_dir() / "windows-cng"
         path.mkdir(parents=True, exist_ok=True)
         return path / f"{safe_name}.secret"
 

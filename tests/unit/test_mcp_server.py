@@ -210,6 +210,32 @@ class _FakeReadonlyRecordsNoSpacesClient(_FakeReadonlyRecordsClient):
         }
 
 
+class _FakeWritableFilesClient:
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def upload_file(
+        self,
+        session_id: str,
+        *,
+        space_id: int,
+        local_path: str,
+        name: str | None = None,
+        mime_type: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "ok": True,
+            "file": {
+                "archive_id": "archive-1",
+                "space_id": space_id,
+                "name": name,
+                "local_path": local_path,
+                "mime_type": mime_type or "application/octet-stream",
+            },
+            "internal_session_id": session_id,
+        }
+
+
 class _FakeAgentAuthForAutoSession:
     instances: list["_FakeAgentAuthForAutoSession"] = []
 
@@ -332,6 +358,12 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                 _FakeReadonlyRecordsClient,
             )
         )
+        stack.enter_context(
+            patch(
+                "unolock_mcp.mcp.server.UnoLockWritableFilesClient",
+                _FakeWritableFilesClient,
+            )
+        )
         stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
         stack.enter_context(
             patch(
@@ -449,6 +481,23 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(result["space_id"], 1773)
             self.assertEqual(result["space_id_filter"], 1773)
             self.assertEqual(current["current_space_id"], 1773)
+
+    def test_upload_file_accepts_title_alias_for_name(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                server._tool_manager._tools["unolock_set_current_space"].fn(1773)
+                result = server._tool_manager._tools["unolock_upload_file"].fn(
+                    "/tmp/example.txt",
+                    "agent-upload.txt",
+                    None,
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["space_id"], 1773)
+            self.assertEqual(result["file"]["name"], "agent-upload.txt")
 
     def test_list_spaces_returns_clear_error_when_agent_has_no_spaces(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

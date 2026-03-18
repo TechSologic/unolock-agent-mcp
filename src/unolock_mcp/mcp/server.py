@@ -140,6 +140,10 @@ def _registration_status_payload(
 
     if security_warning:
         guidance = f"{guidance} Warning: {security_warning.get('message')}"
+    guidance = (
+        f"{guidance} On a fresh host, the first MCP start can take longer because local cryptographic code may need "
+        "to be compiled or prepared."
+    )
 
     primary_tools = [
         "unolock_get_registration_status",
@@ -210,6 +214,7 @@ def _registration_status_payload(
         ],
         "workflow_summary": [
             "Check registration status first.",
+            "Allow extra time on the first start on a fresh host, because local cryptographic code may need to be compiled or prepared.",
             "If needed, ask the user for the one-time Agent Key URL and optional PIN together.",
             "If registration is already configured, call the normal data tools directly and let the MCP authenticate automatically when needed.",
             "After authentication, set the current space once and let normal record/file tools use it by default.",
@@ -480,6 +485,8 @@ def create_mcp_server() -> FastMCP:
             "Prefer the primary workflow tools first: unolock_submit_agent_bootstrap, unolock_bootstrap_agent, "
             "unolock_list_spaces, unolock_set_current_space, unolock_list_records, unolock_list_files, and "
             "unolock_get_record. Read records before writing so you have current version and allowed_operations metadata. "
+            "On a fresh host, the first MCP start can take longer because local cryptographic code may need to be "
+            "compiled or prepared. "
             "If registration is not configured, "
             "ask the user for the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
             "then submit them with unolock_submit_agent_bootstrap. The Agent Key URL is for enrollment only. "
@@ -522,6 +529,10 @@ def create_mcp_server() -> FastMCP:
                 "authentication step is actually required. Start with unolock_get_registration_status and follow "
                 "its recommended_next_action instead of inventing a manual bootstrap sequence. For normal use, "
                 "call the data tools directly and let the MCP authenticate automatically when needed."
+            ),
+            "startup_note": (
+                "On a fresh host, the first MCP start can take longer because local cryptographic code may need to "
+                "be compiled or prepared."
             ),
             "space_rule": (
                 "After authentication, list spaces and set the current space. Normal record and file tools operate "
@@ -1348,14 +1359,19 @@ def create_mcp_server() -> FastMCP:
         name="unolock_upload_file",
         description=(
             "Upload a local filesystem file into a UnoLock Cloud archive in the current space. "
-            "Only Cloud files are supported; Local and Msg archives are excluded. The response includes the space_id used."
+            "Only Cloud files are supported; Local and Msg archives are excluded. "
+            "Use title for the uploaded file name in normal agent flows; name is accepted as a compatibility alias. "
+            "The response includes the space_id used."
         ),
     )
     def upload_file(
         local_path: str = "",
+        title: str | None = None,
         name: str | None = None,
         mime_type: str | None = None,
     ) -> dict[str, Any]:
+        effective_name = title if isinstance(title, str) and title.strip() else name
+
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1377,7 +1393,7 @@ def create_mcp_server() -> FastMCP:
                     resolved_session_id,
                     space_id=effective_space_id,
                     local_path=local_path,
-                    name=name,
+                    name=effective_name,
                     mime_type=mime_type,
                 ),
                 effective_space_id,
@@ -1387,7 +1403,8 @@ def create_mcp_server() -> FastMCP:
             "unolock_upload_file",
             {
                 "local_path": local_path,
-                "name": name,
+                "title": title,
+                "name": effective_name,
                 "mime_type": mime_type,
             },
             None,

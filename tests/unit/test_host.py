@@ -1,10 +1,22 @@
 from __future__ import annotations
 
+import json
+import os
+import tempfile
 import unittest
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
-from unolock_mcp.host import LocalHostError, ToolHostController
+from unolock_mcp.host import (
+    LocalDaemonState,
+    LocalHostError,
+    ToolHostController,
+    _ensure_state_dir,
+    _write_daemon_state,
+    daemon_state_path,
+    load_daemon_state,
+)
 
 
 class ToolHostControllerTest(unittest.TestCase):
@@ -155,6 +167,59 @@ class ToolHostControllerTest(unittest.TestCase):
         self.assertEqual(read["result"]["contents"][0]["uri"], "unolock://usage/quickstart")
         self.assertEqual(prompts["result"]["prompts"][0]["name"], "uno")
         self.assertEqual(prompt["result"]["name"], "uno")
+
+
+class DaemonStateFilesystemTest(unittest.TestCase):
+    def test_state_dir_is_private_on_posix(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "cfg" / "config.json"
+            with patch("unolock_mcp.host.default_config_path", return_value=config_path):
+                _ensure_state_dir()
+                state_dir = config_path.parent
+                self.assertTrue(state_dir.exists())
+                if os.name != "nt":
+                    self.assertEqual(oct(state_dir.stat().st_mode & 0o777), "0o700")
+
+    def test_write_and_load_daemon_state_preserves_socket_path(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "cfg" / "config.json"
+            with patch("unolock_mcp.host.default_config_path", return_value=config_path):
+                state = LocalDaemonState(
+                    pid=123,
+                    token="secret",
+                    version="0.1.0",
+                    started_at=1.0,
+                    socket_path=str(config_path.parent / "daemon.sock"),
+                )
+                _write_daemon_state(state)
+                loaded = load_daemon_state()
+                self.assertEqual(loaded.socket_path, state.socket_path)
+                self.assertIsNone(loaded.port)
+                raw = json.loads(daemon_state_path().read_text(encoding="utf8"))
+                self.assertEqual(raw["socket_path"], state.socket_path)
+                if os.name != "nt":
+                    self.assertEqual(oct(daemon_state_path().stat().st_mode & 0o777), "0o600")
+
+    def test_load_daemon_state_accepts_legacy_port_only_state(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            config_path = Path(tmp) / "cfg" / "config.json"
+            with patch("unolock_mcp.host.default_config_path", return_value=config_path):
+                config_path.parent.mkdir(parents=True, exist_ok=True)
+                daemon_state_path().write_text(
+                    json.dumps(
+                        {
+                            "pid": 123,
+                            "port": 4000,
+                            "token": "secret",
+                            "version": "0.1.0",
+                            "started_at": 1.0,
+                        }
+                    ),
+                    encoding="utf8",
+                )
+                loaded = load_daemon_state()
+                self.assertEqual(loaded.port, 4000)
+                self.assertIsNone(loaded.socket_path)
 
 
 if __name__ == "__main__":

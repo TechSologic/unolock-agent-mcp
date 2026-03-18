@@ -7,6 +7,10 @@ from types import SimpleNamespace
 
 from unolock_mcp import cli
 from unolock_mcp.domain.models import ConnectionUrlInfo, RegistrationState
+from unolock_mcp.host import (
+    DEFAULT_DAEMON_CALL_TIMEOUT,
+    DEFAULT_DAEMON_START_TIMEOUT,
+)
 
 
 class CliEntryPointTest(unittest.TestCase):
@@ -253,7 +257,7 @@ class CliEntryPointTest(unittest.TestCase):
                 result = cli.main(["start"])
 
         self.assertEqual(result, 0)
-        start_mock.assert_called_once_with(timeout=15.0)
+        start_mock.assert_called_once_with(timeout=DEFAULT_DAEMON_START_TIMEOUT)
         self.assertIn('"running": true', print_mock.call_args.args[0])
 
     def test_tools_uses_local_daemon_helper(self) -> None:
@@ -275,7 +279,7 @@ class CliEntryPointTest(unittest.TestCase):
             "unolock_set_agent_pin",
             {"pin": "1"},
             auto_start=True,
-            timeout=30.0,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
         self.assertIn('"ok": true', print_mock.call_args.args[0])
 

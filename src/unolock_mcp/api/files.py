@@ -4,6 +4,7 @@ import base64
 import hashlib
 import json
 import mimetypes
+import os
 from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError
@@ -52,11 +53,11 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
         archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
         projected = self._project_cloud_file(archive, spaces, session_id=session_id)
 
-        destination = Path(output_path).expanduser()
+        destination = self._resolve_download_destination(output_path, projected)
+        if destination.exists() and destination.is_dir():
+            destination = destination / self._safe_download_name(projected)
         if destination.exists() and not overwrite:
             raise ValueError("invalid_input: output_path already exists. Set overwrite=true or choose a different path.")
-        if destination.exists() and destination.is_dir():
-            raise ValueError("invalid_input: output_path must point to a file, not a directory.")
         if not destination.parent.exists():
             raise ValueError("invalid_input: output_path parent directory does not exist.")
 
@@ -87,6 +88,7 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
                     handle.write(plaintext_chunk)
                     bytes_written += len(plaintext_chunk)
                     offset += encrypted_size
+            self._apply_download_metadata(destination, projected)
         except Exception:
             try:
                 destination.unlink(missing_ok=True)
@@ -100,6 +102,40 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
             "output_path": str(destination),
             "bytes_written": bytes_written,
         }
+
+    def _resolve_download_destination(self, output_path: str, projected: dict[str, Any]) -> Path:
+        raw_path = output_path.strip() if isinstance(output_path, str) else ""
+        if raw_path:
+            return Path(raw_path).expanduser()
+        return Path.cwd() / self._safe_download_name(projected)
+
+    def _safe_download_name(self, projected: dict[str, Any]) -> str:
+        candidate = str(projected.get("name", "")).strip()
+        if candidate:
+            return Path(candidate).name
+        archive_id = str(projected.get("archive_id", "")).strip() or "unolock-download"
+        return archive_id
+
+    def _apply_download_metadata(self, destination: Path, projected: dict[str, Any]) -> None:
+        mime_type = str(projected.get("mime_type", "")).strip()
+        file_name = str(projected.get("name", "")).strip()
+        if not hasattr(os, "setxattr"):
+            return
+        attrs = []
+        if mime_type:
+            attrs.extend(
+                [
+                    ("user.mime_type", mime_type),
+                    ("user.unolock.mime_type", mime_type),
+                ]
+            )
+        if file_name:
+            attrs.append(("user.unolock.name", file_name))
+        for key, value in attrs:
+            try:
+                os.setxattr(destination, key, value.encode("utf-8"))
+            except OSError:
+                continue
 
     def _project_cloud_file(
         self,

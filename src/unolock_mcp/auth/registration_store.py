@@ -2,19 +2,20 @@ from __future__ import annotations
 
 import base64
 import json
+import os
 from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from unolock_mcp.config import derive_api_base_url
+from unolock_mcp.config import default_state_dir, derive_api_base_url
 from unolock_mcp.domain.models import ConnectionUrlInfo, RegistrationState
 
 
 class RegistrationStore:
     def __init__(self, path: Path | None = None) -> None:
-        self._path = path or (Path.home() / ".config" / "unolock-agent-mcp" / "registration.json")
+        self._path = path or (default_state_dir() / "registration.json")
 
     def load(self) -> RegistrationState:
         if not self._path.exists():
@@ -46,6 +47,8 @@ class RegistrationStore:
         payload["bootstrap_secret"] = None
         payload["access_id"] = None
         self._path.write_text(json.dumps(payload, indent=2), encoding="utf8")
+        if os.name != "nt":
+            self._path.chmod(0o600)
         return state
 
     def set_connection_url(self, connection_url: str) -> RegistrationState:

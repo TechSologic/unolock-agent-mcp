@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urljoin, urlparse
 from urllib.request import urlopen
@@ -19,8 +20,28 @@ def repo_root() -> Path:
     return Path(__file__).resolve().parents[3]
 
 
+def default_state_dir() -> Path:
+    override = os.environ.get("UNOLOCK_CONFIG_DIR")
+    if override:
+        return Path(override).expanduser()
+    if os.name == "nt":
+        base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
+        if base:
+            return Path(base) / "unolock-agent-mcp"
+        return Path.home() / "AppData" / "Local" / "unolock-agent-mcp"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / "unolock-agent-mcp"
+    xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
+    if xdg_config_home:
+        return Path(xdg_config_home).expanduser() / "unolock-agent-mcp"
+    return Path.home() / ".config" / "unolock-agent-mcp"
+
+
 def default_config_path() -> Path:
-    return Path(os.environ.get("UNOLOCK_CONFIG_FILE", "~/.config/unolock-agent-mcp/config.json")).expanduser()
+    override = os.environ.get("UNOLOCK_CONFIG_FILE")
+    if override:
+        return Path(override).expanduser()
+    return default_state_dir() / "config.json"
 
 
 def repo_auto_discovery_enabled() -> bool:

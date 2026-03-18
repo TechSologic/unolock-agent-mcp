@@ -4,13 +4,41 @@ import json
 import os
 import tempfile
 import unittest
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from unittest.mock import patch
 
-from unolock_mcp.config import derive_transparency_origin, load_config_file, load_unolock_config, resolve_unolock_config
+from unolock_mcp.config import default_config_path, default_state_dir, derive_transparency_origin, load_config_file, load_unolock_config, resolve_unolock_config
 
 
 class UnoLockConfigTest(unittest.TestCase):
+    def test_default_state_dir_uses_unolock_config_dir_override(self) -> None:
+        with patch.dict(os.environ, {"UNOLOCK_CONFIG_DIR": "/tmp/unolock-config-dir"}, clear=False):
+            self.assertEqual(default_state_dir(), Path("/tmp/unolock-config-dir"))
+
+    def test_default_state_dir_defaults_to_windows_localappdata(self) -> None:
+        with patch("unolock_mcp.config.os.name", "nt"):
+            with patch("unolock_mcp.config.sys.platform", "win32"):
+                with patch.dict(os.environ, {"LOCALAPPDATA": r"C:\Users\mike\AppData\Local"}, clear=True):
+                    with patch("unolock_mcp.config.Path", PureWindowsPath):
+                        self.assertEqual(
+                            default_state_dir(),
+                            PureWindowsPath(r"C:\Users\mike\AppData\Local") / "unolock-agent-mcp",
+                        )
+
+    def test_default_state_dir_defaults_to_macos_application_support(self) -> None:
+        with patch("unolock_mcp.config.os.name", "posix"):
+            with patch("unolock_mcp.config.sys.platform", "darwin"):
+                with patch.dict(os.environ, {}, clear=True):
+                    with patch("pathlib.Path.home", return_value=Path("/Users/mike")):
+                        self.assertEqual(
+                            default_state_dir(),
+                            Path("/Users/mike/Library/Application Support/unolock-agent-mcp"),
+                        )
+
+    def test_default_config_path_uses_platform_state_dir(self) -> None:
+        with patch("unolock_mcp.config.default_state_dir", return_value=Path("/tmp/unolock-state")):
+            self.assertEqual(default_config_path(), Path("/tmp/unolock-state/config.json"))
+
     def test_load_config_file_reads_json_values(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             config_path = Path(tmpdir) / "config.json"

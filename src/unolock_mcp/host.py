@@ -33,33 +33,44 @@ MCP_CAPABILITIES = {
     "resources": {"subscribe": False, "listChanged": False},
     "tools": {"listChanged": False},
 }
+DEFAULT_DAEMON_STATUS_TIMEOUT = 5.0
+DEFAULT_DAEMON_START_TIMEOUT = 300.0
+DEFAULT_DAEMON_STOP_TIMEOUT = 15.0
+DEFAULT_DAEMON_LIST_TIMEOUT = 60.0
+DEFAULT_DAEMON_CALL_TIMEOUT = 300.0
 
 
 @dataclass
 class LocalDaemonState:
     pid: int
-    port: int
     token: str
     version: str
     started_at: float
+    port: int | None = None
+    socket_path: str | None = None
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        payload = {
             "pid": self.pid,
-            "port": self.port,
             "token": self.token,
             "version": self.version,
             "started_at": self.started_at,
         }
+        if self.port is not None:
+            payload["port"] = self.port
+        if self.socket_path:
+            payload["socket_path"] = self.socket_path
+        return payload
 
     @classmethod
     def from_json(cls, raw: dict[str, Any]) -> "LocalDaemonState":
         return cls(
             pid=int(raw["pid"]),
-            port=int(raw["port"]),
             token=str(raw["token"]),
             version=str(raw.get("version") or MCP_VERSION),
             started_at=float(raw.get("started_at") or 0.0),
+            port=int(raw["port"]) if raw.get("port") is not None else None,
+            socket_path=str(raw["socket_path"]) if raw.get("socket_path") else None,
         )
 
 
@@ -75,8 +86,30 @@ def daemon_log_path() -> Path:
     return _state_dir() / "daemon.log"
 
 
+def daemon_socket_path() -> Path:
+    return _state_dir() / "daemon.sock"
+
+
+def _supports_local_unix_socket() -> bool:
+    return hasattr(socket, "AF_UNIX") and hasattr(socketserver, "UnixStreamServer")
+
+
+def _chmod_if_supported(path: Path, mode: int) -> None:
+    if os.name == "nt":
+        return
+    path.chmod(mode)
+
+
 def _ensure_state_dir() -> None:
-    _state_dir().mkdir(parents=True, exist_ok=True)
+    state_dir = _state_dir()
+    state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    _chmod_if_supported(state_dir, 0o700)
+
+
+def _unlink_socket_file() -> None:
+    socket_path = daemon_socket_path()
+    if socket_path.exists() or socket_path.is_socket():
+        socket_path.unlink()
 
 
 def _write_daemon_state(state: LocalDaemonState) -> None:
@@ -84,13 +117,17 @@ def _write_daemon_state(state: LocalDaemonState) -> None:
     path = daemon_state_path()
     temp_path = path.with_suffix(".tmp")
     temp_path.write_text(json.dumps(state.to_json(), indent=2), encoding="utf8")
+    _chmod_if_supported(temp_path, 0o600)
     temp_path.replace(path)
+    _chmod_if_supported(path, 0o600)
 
 
 def _clear_daemon_state() -> None:
     path = daemon_state_path()
     if path.exists():
         path.unlink()
+    if _supports_local_unix_socket():
+        _unlink_socket_file()
 
 
 def load_daemon_state() -> LocalDaemonState | None:
@@ -122,13 +159,26 @@ def _pid_is_running(pid: int) -> bool:
     return True
 
 
-def _request_daemon(state: LocalDaemonState, payload: dict[str, Any], timeout: float | None = 5.0) -> dict[str, Any]:
+def _request_daemon(
+    state: LocalDaemonState,
+    payload: dict[str, Any],
+    timeout: float | None = DEFAULT_DAEMON_CALL_TIMEOUT,
+) -> dict[str, Any]:
     request = dict(payload)
     request["token"] = state.token
     data = (json.dumps(request) + "\n").encode("utf8")
-    with socket.create_connection(("127.0.0.1", state.port), timeout=timeout) as sock:
+    if state.socket_path and _supports_local_unix_socket():
+        sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         if timeout is not None:
             sock.settimeout(timeout)
+        sock.connect(state.socket_path)
+    else:
+        if state.port is None:
+            raise LocalHostError("Local UnoLock daemon state is missing a reachable transport.")
+        sock = socket.create_connection(("127.0.0.1", state.port), timeout=timeout)
+        if timeout is not None:
+            sock.settimeout(timeout)
+    with sock:
         sock.sendall(data)
         file_obj = sock.makefile("r", encoding="utf8")
         line = file_obj.readline()
@@ -140,7 +190,7 @@ def _request_daemon(state: LocalDaemonState, payload: dict[str, Any], timeout: f
     return response
 
 
-def get_daemon_status(timeout: float = 2.0) -> dict[str, Any]:
+def get_daemon_status(timeout: float = DEFAULT_DAEMON_STATUS_TIMEOUT) -> dict[str, Any]:
     state = load_daemon_state()
     if state is None:
         return {"ok": True, "running": False}
@@ -157,7 +207,10 @@ def get_daemon_status(timeout: float = 2.0) -> dict[str, Any]:
             "ok": False,
             "running": False,
             "reason": "daemon_unreachable",
-            "message": "UnoLock local daemon state exists but the daemon did not respond.",
+            "message": (
+                "UnoLock local daemon state exists but the daemon did not respond. On a fresh host, the first start "
+                "can take longer because local cryptographic code may need to be compiled or prepared."
+            ),
         }
     status = dict(response.get("result") or {})
     status["ok"] = bool(response.get("ok", True))
@@ -335,6 +388,10 @@ class _ThreadingTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     daemon_threads = True
 
 
+class _ThreadingUnixServer(socketserver.ThreadingMixIn, socketserver.UnixStreamServer):
+    daemon_threads = True
+
+
 class _ControlRequestHandler(socketserver.StreamRequestHandler):
     def handle(self) -> None:
         raw = self.rfile.readline()
@@ -384,19 +441,34 @@ class _ControlRequestHandler(socketserver.StreamRequestHandler):
 def serve_local_daemon_forever() -> int:
     controller = ToolHostController()
     auth_token = secrets.token_urlsafe(32)
+    _ensure_state_dir()
 
-    class _Server(_ThreadingTCPServer):
-        pass
+    if _supports_local_unix_socket():
+        _unlink_socket_file()
 
-    with _Server(("127.0.0.1", 0), _ControlRequestHandler) as server:
+        class _Server(_ThreadingUnixServer):
+            pass
+
+        server = _Server(str(daemon_socket_path()), _ControlRequestHandler)
+        _chmod_if_supported(daemon_socket_path(), 0o600)
+        transport = {"socket_path": str(daemon_socket_path()), "port": None}
+    else:
+        class _Server(_ThreadingTCPServer):
+            pass
+
+        server = _Server(("127.0.0.1", 0), _ControlRequestHandler)
+        transport = {"socket_path": None, "port": int(server.server_address[1])}
+
+    with server:
         server.controller = controller
         server.auth_token = auth_token
         state = LocalDaemonState(
             pid=os.getpid(),
-            port=int(server.server_address[1]),
             token=auth_token,
             version=MCP_VERSION,
             started_at=time.time(),
+            port=transport["port"],
+            socket_path=transport["socket_path"],
         )
         _write_daemon_state(state)
         atexit.register(_clear_daemon_state)
@@ -407,13 +479,14 @@ def serve_local_daemon_forever() -> int:
     return 0
 
 
-def ensure_daemon_running(timeout: float = 15.0) -> dict[str, Any]:
+def ensure_daemon_running(timeout: float = DEFAULT_DAEMON_START_TIMEOUT) -> dict[str, Any]:
     status = get_daemon_status()
     if status.get("running"):
         return status
 
     _ensure_state_dir()
     log_file = daemon_log_path().open("a", encoding="utf8")
+    _chmod_if_supported(daemon_log_path(), 0o600)
     if getattr(sys, "frozen", False):
         argv = [sys.executable, "_daemon"]
     else:
@@ -436,15 +509,19 @@ def ensure_daemon_running(timeout: float = 15.0) -> dict[str, Any]:
             return status
         if process.poll() is not None:
             raise LocalHostError(
-                f"UnoLock local daemon exited during startup. See {daemon_log_path()} for details."
+                f"UnoLock local daemon exited during startup. On a fresh host, the first start can take longer "
+                f"because local cryptographic code may need to be compiled or prepared. See {daemon_log_path()} "
+                f"for details."
             )
         time.sleep(0.1)
     raise LocalHostError(
-        f"UnoLock local daemon did not become ready within {timeout:.0f}s. See {daemon_log_path()} for details."
+        f"UnoLock local daemon did not become ready within {timeout:.0f}s. On a fresh host, the first start can "
+        f"take longer because local cryptographic code may need to be compiled or prepared. See "
+        f"{daemon_log_path()} for details."
     )
 
 
-def stop_daemon(timeout: float = 5.0) -> dict[str, Any]:
+def stop_daemon(timeout: float = DEFAULT_DAEMON_STOP_TIMEOUT) -> dict[str, Any]:
     state = load_daemon_state()
     if state is None:
         return {"ok": True, "running": False, "stopped": False}
@@ -464,7 +541,7 @@ def stop_daemon(timeout: float = 5.0) -> dict[str, Any]:
     }
 
 
-def list_tools(auto_start: bool = True, timeout: float = 5.0) -> dict[str, Any]:
+def list_tools(auto_start: bool = True, timeout: float = DEFAULT_DAEMON_LIST_TIMEOUT) -> dict[str, Any]:
     state = load_daemon_state()
     if state is None or not get_daemon_status().get("running"):
         if not auto_start:
@@ -476,7 +553,13 @@ def list_tools(auto_start: bool = True, timeout: float = 5.0) -> dict[str, Any]:
     return _request_daemon(state, {"command": "list_tools"}, timeout=timeout)
 
 
-def call_tool(tool_name: str, arguments: dict[str, Any] | None = None, *, auto_start: bool = True, timeout: float = 30.0) -> dict[str, Any]:
+def call_tool(
+    tool_name: str,
+    arguments: dict[str, Any] | None = None,
+    *,
+    auto_start: bool = True,
+    timeout: float = DEFAULT_DAEMON_CALL_TIMEOUT,
+) -> dict[str, Any]:
     state = load_daemon_state()
     if state is None or not get_daemon_status().get("running"):
         if not auto_start:
