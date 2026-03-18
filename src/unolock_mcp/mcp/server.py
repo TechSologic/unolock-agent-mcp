@@ -54,6 +54,18 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
     }
 
 
+def _strip_session_ids(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {
+            key: _strip_session_ids(item)
+            for key, item in value.items()
+            if key != "session_id"
+        }
+    if isinstance(value, list):
+        return [_strip_session_ids(item) for item in value]
+    return value
+
+
 def _registration_status_payload(
     registration_store: RegistrationStore,
     session_store: SessionStore,
@@ -73,7 +85,7 @@ def _registration_status_payload(
     session_id = registration.get("session_id")
     if session_id:
         try:
-            pending_session = session_store.get(str(session_id)).summary()
+            pending_session = _strip_session_ids(session_store.get(str(session_id)).summary())
         except KeyError:
             pending_session = None
 
@@ -173,7 +185,7 @@ def _registration_status_payload(
     public_registration = {
         key: value
         for key, value in registration.items()
-        if key != "registration_mode"
+        if key not in {"registration_mode", "session_id"}
     }
     public_registration["registration_state"] = (
         "registered"
@@ -183,7 +195,7 @@ def _registration_status_payload(
         else "ready_to_register"
     )
 
-    return {
+    return _strip_session_ids({
         **public_registration,
         **runtime,
         "tpm_diagnostics": tpm,
@@ -203,7 +215,7 @@ def _registration_status_payload(
         "workflow_summary": [
             "Check registration status first.",
             "If needed, ask the user for the one-time Agent Key URL and optional PIN together.",
-            "If registration is already configured, the normal data tools can authenticate automatically when session_id is omitted.",
+            "If registration is already configured, call the normal data tools directly and let the MCP authenticate automatically when needed.",
             "Read a space or record before writing so you have current version and allowed_operations metadata.",
             "If a write reports conflict, reread the target record and retry with the latest version.",
         ],
@@ -213,7 +225,7 @@ def _registration_status_payload(
             "Do not guess that a URL expired unless the MCP reports a concrete enrollment failure.",
             "If progress stops, report one concrete blocker and ask for one concrete next input.",
         ],
-    }
+    })
 
 
 def create_mcp_server() -> FastMCP:
@@ -319,7 +331,7 @@ def create_mcp_server() -> FastMCP:
             "message": message,
             "suggested_action": suggested_action,
             "pending_operation": _pending_operation_payload(),
-            "auth": auth_result,
+            "auth": _strip_session_ids(auth_result),
         }
 
     def _resume_pending_operation(trigger: str) -> dict[str, Any] | None:
@@ -335,7 +347,7 @@ def create_mcp_server() -> FastMCP:
             "trigger": trigger,
             "tool": operation["tool"],
             "arguments": dict(operation["arguments"]),
-            "result": result,
+            "result": _strip_session_ids(result),
         }
 
     def _resolve_authorized_session_id(requested_session_id: str | None) -> str | None:
@@ -453,8 +465,8 @@ def create_mcp_server() -> FastMCP:
             "writing so you have current version and allowed_operations metadata. If registration is not configured, "
             "ask the user for the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
             "then submit them with unolock_submit_agent_bootstrap. The Agent Key URL is for enrollment only. "
-            "For normal use, omit session_id unless you are intentionally reusing a specific session; the data tools "
-            "can authenticate automatically and resume after a PIN is supplied. "
+            "For normal use, call the data tools directly; they can authenticate automatically and resume after a PIN "
+            "is supplied. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for an Agent Key URL or PIN, "
             "or why host assurance matters, use the explanatory UnoLock resources instead of improvising."
         ),
@@ -490,7 +502,7 @@ def create_mcp_server() -> FastMCP:
                 "After the local stdio MCP is running, it should guide the agent through whatever registration or "
                 "authentication step is actually required. Start with unolock_get_registration_status and follow "
                 "its recommended_next_action instead of inventing a manual bootstrap sequence. For normal use, "
-                "the data tools can authenticate automatically if session_id is omitted."
+                "call the data tools directly and let the MCP authenticate automatically when needed."
             ),
             "agent_behavior_note": (
                 "Ask only for the Agent Key URL and, if needed, the PIN. Do not invent menu paths, expiry behavior, "
@@ -637,8 +649,8 @@ def create_mcp_server() -> FastMCP:
                     "Treat the Agent Key URL only as the one-time enrollment input for the local MCP on this machine, "
                     "not as the ongoing access credential. "
                     "After registration, prefer unolock_list_spaces, unolock_list_records, unolock_list_files, and "
-                    "unolock_get_record. Omit session_id unless you are intentionally reusing a specific session; the MCP "
-                    "can authenticate automatically and resume the original request after the PIN is supplied. Before writing, read the target record and use its writable, "
+                    "unolock_get_record. Call the normal data tools directly; the MCP can authenticate automatically and "
+                    "resume the original request after the PIN is supplied. Before writing, read the target record and use its writable, "
                     "allowed_operations, record_ref, and version fields. Avoid low-level flow/api tools unless the "
                     "primary workflow cannot complete the task."
                 ),
@@ -790,20 +802,20 @@ def create_mcp_server() -> FastMCP:
     def submit_agent_bootstrap(connection_url: str, pin: str | None = None) -> dict[str, Any]:
         status = agent_auth.submit_connection_url(connection_url)
         if status.get("ok") is False or status.get("blocked"):
-            return status
+            return _strip_session_ids(status)
         if pin:
             try:
                 status = agent_auth.set_agent_pin(pin)
             except ValueError as exc:
                 return _tool_error_response(exc)
-        return {
+        return _strip_session_ids({
             "ok": True,
             "registration": registration_store.load().summary(),
             "runtime": agent_auth.runtime_status(),
             "message": (
                 "UnoLock Agent Key URL was accepted. Continue with MCP-guided registration next."
             ),
-        }
+        })
 
     @server.tool(
         name="unolock_clear_connection_url",
@@ -832,7 +844,7 @@ def create_mcp_server() -> FastMCP:
     def start_registration_from_connection_url() -> dict[str, Any]:
         try:
             ensure_flow_client()
-            return agent_auth.start_registration_from_stored_url()
+            return _strip_session_ids(agent_auth.start_registration_from_stored_url())
         except ValueError as exc:
             return _tool_error_response(exc)
 
@@ -846,7 +858,7 @@ def create_mcp_server() -> FastMCP:
     def continue_agent_session(session_id: str) -> dict[str, Any]:
         try:
             ensure_flow_client()
-            return agent_auth.advance_session(session_id)
+            return _strip_session_ids(agent_auth.advance_session(session_id))
         except (ValueError, KeyError) as exc:
             return _tool_error_response(exc)
 
@@ -860,7 +872,7 @@ def create_mcp_server() -> FastMCP:
     def authenticate_agent() -> dict[str, Any]:
         try:
             ensure_flow_client()
-            return agent_auth.authenticate_registered_agent()
+            return _strip_session_ids(agent_auth.authenticate_registered_agent())
         except ValueError as exc:
             return _tool_error_response(exc)
 
@@ -883,16 +895,16 @@ def create_mcp_server() -> FastMCP:
                     "suggested_action": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_submit_agent_bootstrap.",
                 }
             if not status.get("registered"):
-                return {
+                return _strip_session_ids({
                     "ok": True,
                     "status": status,
                     "result": agent_auth.start_registration_from_stored_url(),
-                }
-            return {
+                })
+            return _strip_session_ids({
                 "ok": True,
                 "status": status,
                 "result": agent_auth.authenticate_registered_agent(),
-            }
+            })
         except ValueError as exc:
             return _tool_error_response(exc)
 
@@ -1004,11 +1016,11 @@ def create_mcp_server() -> FastMCP:
         name="unolock_list_spaces",
         description=(
             "List UnoLock spaces with record counts, Cloud file counts, and write capability metadata. "
-            "If session_id is omitted, the MCP will authenticate automatically and only stop for one concrete missing input such as the PIN. "
+            "The MCP will authenticate automatically when needed and only stop for one concrete missing input such as the PIN. "
             "Use writable and allowed_operations to decide whether note/checklist or file actions are allowed."
         ),
     )
-    def list_spaces(session_id: str | None = None) -> dict[str, Any]:
+    def list_spaces() -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1019,8 +1031,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_list_spaces",
-            {"session_id": session_id},
-            session_id,
+            {},
+            None,
             operation,
         )
 
@@ -1028,13 +1040,12 @@ def create_mcp_server() -> FastMCP:
         name="unolock_list_records",
         description=(
             "List read-only UnoLock notes and checklists. "
-            "If session_id is omitted, the MCP will authenticate automatically and only stop for one concrete missing input such as the PIN. "
+            "The MCP will authenticate automatically when needed and only stop for one concrete missing input such as the PIN. "
             "Records are projected into agent-friendly plain text and checklist items, and include version, "
             "writable, locked, and allowed_operations metadata."
         ),
     )
     def list_records(
-        session_id: str | None = None,
         kind: str = "all",
         space_id: int | None = None,
         pinned: bool | None = None,
@@ -1057,13 +1068,12 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_list_records",
             {
-                "session_id": session_id,
                 "kind": kind,
                 "space_id": space_id,
                 "pinned": pinned,
                 "label": label,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1071,11 +1081,10 @@ def create_mcp_server() -> FastMCP:
         name="unolock_list_notes",
         description=(
             "List read-only UnoLock notes with version and writable metadata. "
-            "If session_id is omitted, the MCP will authenticate automatically."
+            "The MCP will authenticate automatically when needed."
         ),
     )
     def list_notes(
-        session_id: str | None = None,
         space_id: int | None = None,
         pinned: bool | None = None,
         label: str | None = None,
@@ -1097,12 +1106,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_list_notes",
             {
-                "session_id": session_id,
                 "space_id": space_id,
                 "pinned": pinned,
                 "label": label,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1110,11 +1118,10 @@ def create_mcp_server() -> FastMCP:
         name="unolock_list_checklists",
         description=(
             "List read-only UnoLock checklists with version and writable metadata. "
-            "If session_id is omitted, the MCP will authenticate automatically."
+            "The MCP will authenticate automatically when needed."
         ),
     )
     def list_checklists(
-        session_id: str | None = None,
         space_id: int | None = None,
         pinned: bool | None = None,
         label: str | None = None,
@@ -1136,12 +1143,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_list_checklists",
             {
-                "session_id": session_id,
                 "space_id": space_id,
                 "pinned": pinned,
                 "label": label,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1149,11 +1155,11 @@ def create_mcp_server() -> FastMCP:
         name="unolock_list_files",
         description=(
             "List UnoLock Cloud files. "
-            "If session_id is omitted, the MCP will authenticate automatically and only stop for one concrete missing input such as the PIN. "
+            "The MCP will authenticate automatically when needed and only stop for one concrete missing input such as the PIN. "
             "Only Cloud archives are exposed by the MCP; Local and Msg archives are intentionally excluded."
         ),
     )
-    def list_files(session_id: str | None = None, space_id: int | None = None) -> dict[str, Any]:
+    def list_files(space_id: int | None = None) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_files = UnoLockReadonlyFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1164,8 +1170,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_list_files",
-            {"session_id": session_id, "space_id": space_id},
-            session_id,
+            {"space_id": space_id},
+            None,
             operation,
         )
 
@@ -1176,7 +1182,7 @@ def create_mcp_server() -> FastMCP:
             "Use unolock_list_files first to discover archive_id values."
         ),
     )
-    def get_file(session_id: str | None = None, archive_id: str = "") -> dict[str, Any]:
+    def get_file(archive_id: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_files = UnoLockReadonlyFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1187,8 +1193,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_get_file",
-            {"session_id": session_id, "archive_id": archive_id},
-            session_id,
+            {"archive_id": archive_id},
+            None,
             operation,
         )
 
@@ -1200,7 +1206,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def download_file(
-        session_id: str | None = None,
         archive_id: str = "",
         output_path: str = "",
         overwrite: bool = False,
@@ -1221,12 +1226,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_download_file",
             {
-                "session_id": session_id,
                 "archive_id": archive_id,
                 "output_path": output_path,
                 "overwrite": overwrite,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1238,7 +1242,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def upload_file(
-        session_id: str | None = None,
         space_id: int = 0,
         local_path: str = "",
         name: str | None = None,
@@ -1261,13 +1264,12 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_upload_file",
             {
-                "session_id": session_id,
                 "space_id": space_id,
                 "local_path": local_path,
                 "name": name,
                 "mime_type": mime_type,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1278,7 +1280,7 @@ def create_mcp_server() -> FastMCP:
             "Use unolock_get_file first to confirm writable=true and the current file metadata."
         ),
     )
-    def rename_file(session_id: str | None = None, archive_id: str = "", name: str = "") -> dict[str, Any]:
+    def rename_file(archive_id: str = "", name: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             writable_files = UnoLockWritableFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1293,8 +1295,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_rename_file",
-            {"session_id": session_id, "archive_id": archive_id, "name": name},
-            session_id,
+            {"archive_id": archive_id, "name": name},
+            None,
             operation,
         )
 
@@ -1306,7 +1308,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def replace_file(
-        session_id: str | None = None,
         archive_id: str = "",
         local_path: str = "",
         name: str | None = None,
@@ -1329,13 +1330,12 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_replace_file",
             {
-                "session_id": session_id,
                 "archive_id": archive_id,
                 "local_path": local_path,
                 "name": name,
                 "mime_type": mime_type,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1346,7 +1346,7 @@ def create_mcp_server() -> FastMCP:
             "Use unolock_get_file first to confirm writable=true and the target archive_id."
         ),
     )
-    def delete_file(session_id: str | None = None, archive_id: str = "") -> dict[str, Any]:
+    def delete_file(archive_id: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             writable_files = UnoLockWritableFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1360,8 +1360,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_delete_file",
-            {"session_id": session_id, "archive_id": archive_id},
-            session_id,
+            {"archive_id": archive_id},
+            None,
             operation,
         )
 
@@ -1369,11 +1369,11 @@ def create_mcp_server() -> FastMCP:
         name="unolock_get_record",
         description=(
             "Get one read-only UnoLock note or checklist by record_ref. "
-            "If session_id is omitted, the MCP will authenticate automatically. "
+            "The MCP will authenticate automatically when needed. "
             "Use unolock_list_records first to discover record_ref values and current version metadata before writing."
         ),
     )
-    def get_record(session_id: str | None = None, record_ref: str = "") -> dict[str, Any]:
+    def get_record(record_ref: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1384,8 +1384,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_get_record",
-            {"session_id": session_id, "record_ref": record_ref},
-            session_id,
+            {"record_ref": record_ref},
+            None,
             operation,
         )
 
@@ -1393,12 +1393,12 @@ def create_mcp_server() -> FastMCP:
         name="unolock_create_note",
         description=(
             "Create a new UnoLock note from raw text in an existing writable Records archive. "
-            "If session_id is omitted, the MCP will authenticate automatically and resume after the PIN is supplied. "
+            "The MCP will authenticate automatically when needed and resume after the PIN is supplied. "
             "Read the target space first and check writable/allowed_operations before creating notes. "
             "The returned record metadata includes the new record version and lock state."
         ),
     )
-    def create_note(session_id: str | None = None, space_id: int = 0, title: str = "", text: str = "") -> dict[str, Any]:
+    def create_note(space_id: int = 0, title: str = "", text: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             writable_records = UnoLockWritableRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1414,8 +1414,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_create_note",
-            {"session_id": session_id, "space_id": space_id, "title": title, "text": text},
-            session_id,
+            {"space_id": space_id, "title": title, "text": text},
+            None,
             operation,
         )
 
@@ -1429,7 +1429,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def create_checklist(
-        session_id: str | None = None,
         space_id: int = 0,
         title: str = "",
         items: list[dict[str, Any]] | None = None,
@@ -1449,8 +1448,8 @@ def create_mcp_server() -> FastMCP:
 
         return _run_with_auto_session(
             "unolock_create_checklist",
-            {"session_id": session_id, "space_id": space_id, "title": title, "items": items},
-            session_id,
+            {"space_id": space_id, "title": title, "items": items},
+            None,
             operation,
         )
 
@@ -1463,7 +1462,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def update_note(
-        session_id: str | None = None,
         record_ref: str = "",
         expected_version: int = 0,
         title: str = "",
@@ -1486,13 +1484,12 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_update_note",
             {
-                "session_id": session_id,
                 "record_ref": record_ref,
                 "expected_version": expected_version,
                 "title": title,
                 "text": text,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1505,7 +1502,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def append_note(
-        session_id: str | None = None,
         record_ref: str = "",
         expected_version: int = 0,
         append_text: str = "",
@@ -1526,12 +1522,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_append_note",
             {
-                "session_id": session_id,
                 "record_ref": record_ref,
                 "expected_version": expected_version,
                 "append_text": append_text,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1544,7 +1539,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def rename_record(
-        session_id: str | None = None,
         record_ref: str = "",
         expected_version: int = 0,
         title: str = "",
@@ -1565,12 +1559,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_rename_record",
             {
-                "session_id": session_id,
                 "record_ref": record_ref,
                 "expected_version": expected_version,
                 "title": title,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1583,7 +1576,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def set_checklist_item_done(
-        session_id: str | None = None,
         record_ref: str = "",
         expected_version: int = 0,
         item_id: int = 0,
@@ -1606,13 +1598,12 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_set_checklist_item_done",
             {
-                "session_id": session_id,
                 "record_ref": record_ref,
                 "expected_version": expected_version,
                 "item_id": item_id,
                 "done": done,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1625,7 +1616,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def add_checklist_item(
-        session_id: str | None = None,
         record_ref: str = "",
         expected_version: int = 0,
         text: str = "",
@@ -1646,12 +1636,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_add_checklist_item",
             {
-                "session_id": session_id,
                 "record_ref": record_ref,
                 "expected_version": expected_version,
                 "text": text,
             },
-            session_id,
+            None,
             operation,
         )
 
@@ -1664,7 +1653,6 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def remove_checklist_item(
-        session_id: str | None = None,
         record_ref: str = "",
         expected_version: int = 0,
         item_id: int = 0,
@@ -1685,12 +1673,11 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_remove_checklist_item",
             {
-                "session_id": session_id,
                 "record_ref": record_ref,
                 "expected_version": expected_version,
                 "item_id": item_id,
             },
-            session_id,
+            None,
             operation,
         )
 
