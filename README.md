@@ -385,6 +385,8 @@ Registration discovery support:
 * the MCP can report whether it is registered
 * if not registered, it tells the agent to ask the user for the UnoLock Agent Key URL
 * that URL is explicitly treated as one-time-use and enrollment-only
+* the URL is only used to enroll the local UnoLock MCP on that machine
+* after enrollment, the MCP uses the registered local agent key and normal authentication instead of the URL itself
 * in the cold-start path, the MCP now prefers that the agent ask for the Agent Key URL and the optional PIN together
 * the Agent Key URL can be submitted and stored locally
 * `unolock_submit_agent_bootstrap` can submit the Agent Key URL and optional PIN in one step

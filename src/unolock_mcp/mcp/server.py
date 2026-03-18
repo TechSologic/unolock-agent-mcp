@@ -313,7 +313,8 @@ def create_mcp_server() -> FastMCP:
                 "UnoLock keeps sensitive data inside a Safe controlled by the user.",
                 "An Agent Key is a dedicated access key for an AI agent, not a full admin credential.",
                 "The agent only gets the Spaces and permissions granted to that Agent Key.",
-                "The one-time Agent Key URL is for enrollment only and cannot be reused after registration succeeds.",
+                "The one-time Agent Key URL is only used to enroll the local UnoLock MCP on this machine.",
+                "After enrollment, ongoing access uses the registered agent key plus normal UnoLock authentication, not the URL itself.",
             ],
             "how_to_ask": [
                 "If the user does not already have an Agent Key URL, ask them to open the Safe web app at https://safe.unolock.com/ and create one.",
@@ -345,8 +346,9 @@ def create_mcp_server() -> FastMCP:
             ),
             "why_the_agent_asks_for_an_agent_key_url": [
                 "The Agent Key URL is a one-time enrollment URL created by the Safe admin.",
-                "It tells the MCP how to register the host for that Agent Key.",
-                "It is not a reusable long-term credential and should be treated as enrollment-only."
+                "It tells the MCP how to register the local host for that Agent Key.",
+                "It is not the ongoing access credential and should be treated as enrollment-only.",
+                "After registration, the MCP uses the registered local agent credential and short-lived authenticated sessions."
             ],
             "why_the_agent_may_ask_for_a_pin": [
                 "Some Agent Keys require a PIN on authentication.",
@@ -408,7 +410,9 @@ def create_mcp_server() -> FastMCP:
                 "content": (
                 "If UnoLock registration is not configured, ask the user to provide the UnoLock "
                     "Agent Key URL for AI/agent registration and, if they configured one, the UnoLock "
-                    "agent PIN at the same time. The Agent Key URL is one-time-use and for enrollment only. Once "
+                    "agent PIN at the same time. The Agent Key URL is one-time-use and only registers the local "
+                    "UnoLock MCP on this machine. Once registration succeeds, ongoing access uses the registered "
+                    "agent key and normal authentication, not the URL itself. Once "
                     "the user gives you those values, call "
                     "unolock_submit_agent_bootstrap."
                 ),
@@ -428,6 +432,8 @@ def create_mcp_server() -> FastMCP:
                     "Use UnoLock in this order: first call unolock_get_registration_status. "
                     "If registration is needed, ask the user for the one-time UnoLock Agent Key URL "
                     "and optional PIN together, then call unolock_submit_agent_bootstrap and unolock_bootstrap_agent. "
+                    "Treat the Agent Key URL only as the one-time enrollment input for the local MCP on this machine, "
+                    "not as the ongoing access credential. "
                     "After authentication, prefer unolock_list_spaces, unolock_list_records, unolock_list_files, and "
                     "unolock_get_record. Before writing, read the target record and use its writable, "
                     "allowed_operations, record_ref, and version fields. Avoid low-level flow/api tools unless the "
@@ -447,8 +453,10 @@ def create_mcp_server() -> FastMCP:
                 "role": "user",
                 "content": (
                     "When a user asks why UnoLock Agent MCP needs an Agent Key URL, PIN, or a stronger host key store, "
-                    "explain it plainly: UnoLock uses an Agent Key instead of a reusable API key. The one-time agent key "
-                    "Agent Key URL is for enrollment only. The PIN may be required to re-authenticate the agent. TPM, "
+                    "explain it plainly: UnoLock uses an Agent Key instead of a reusable API key. The one-time "
+                    "Agent Key URL is only for enrolling the local MCP on this machine. After registration, the agent "
+                    "uses the registered local credential and normal authentication. The PIN may be required to "
+                    "re-authenticate the agent. TPM, "
                     "Secure Enclave, or other platform-backed key storage is preferred because it helps keep the agent's "
                     "credential device-bound and harder to export. If you need authoritative wording, read the "
                     "unolock://usage/about and unolock://usage/security-model resources and summarize them for the user."

@@ -167,8 +167,8 @@ class RegistrationState:
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
                 "If registration is needed, ask the user for the one-time-use UnoLock agent key connection URL and "
-                "pass it to unolock_submit_connection_url. The connection URL is for enrollment only and should not "
-                "be treated as a reusable credential."
+                "pass it to unolock_submit_connection_url. The connection URL is only for enrolling the local MCP on "
+                "this machine and should not be treated as the ongoing access credential."
             ),
             "next_step": (
                 "Agent Key URL accepted. Start or continue MCP-guided registration next."
