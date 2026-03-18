@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import re
 import secrets
 from datetime import datetime, timezone
 from typing import Any
@@ -17,6 +18,8 @@ from unolock_mcp.tpm.factory import create_tpm_dao
 
 
 class AgentAuthClient:
+    _AGENT_PIN_PATTERN = re.compile(r"^[0-9a-f]+$")
+
     def __init__(
         self,
         flow_client: UnoLockFlowClient | None,
@@ -49,6 +52,16 @@ class AgentAuthClient:
         self._flow_client = flow_client
 
     def set_agent_pin(self, pin: str) -> dict[str, Any]:
+        if not isinstance(pin, str):
+            raise ValueError(
+                "invalid_input: Agent PIN must be passed as a string containing only characters 0-9 and a-f."
+            )
+        if not pin:
+            raise ValueError("invalid_input: Agent PIN must not be empty.")
+        if self._AGENT_PIN_PATTERN.fullmatch(pin) is None:
+            raise ValueError(
+                "invalid_input: Agent PIN must contain only lowercase characters 0-9 and a-f."
+            )
         self._agent_pin = pin
         return self.runtime_status()
 

@@ -505,11 +505,15 @@ def create_mcp_server() -> FastMCP:
         name="unolock_set_agent_pin",
         description=(
             "Store an optional UnoLock agent PIN in MCP process memory only. The MCP will hash it with the "
-            "server challenge when a GetPin callback is encountered."
+            "server challenge when a GetPin callback is encountered. Pass the PIN as a string using only "
+            "characters 0-9 and a-f."
         ),
     )
     def set_agent_pin(pin: str) -> dict[str, Any]:
-        return agent_auth.set_agent_pin(pin)
+        try:
+            return agent_auth.set_agent_pin(pin)
+        except ValueError as exc:
+            return _tool_error_response(exc)
 
     @server.tool(
         name="unolock_clear_agent_pin",
@@ -554,7 +558,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_submit_agent_bootstrap",
         description=(
             "Accept the one-time UnoLock Agent Key URL and an optional agent PIN together. "
-            "This is the preferred cold-start bootstrap tool."
+            "This is the preferred cold-start bootstrap tool. If a PIN is provided, pass it as a string "
+            "using only characters 0-9 and a-f."
         ),
     )
     def submit_agent_bootstrap(connection_url: str, pin: str | None = None) -> dict[str, Any]:
@@ -562,7 +567,10 @@ def create_mcp_server() -> FastMCP:
         if status.get("ok") is False or status.get("blocked"):
             return status
         if pin:
-            status = agent_auth.set_agent_pin(pin)
+            try:
+                status = agent_auth.set_agent_pin(pin)
+            except ValueError as exc:
+                return _tool_error_response(exc)
         return {
             "ok": True,
             "registration": registration_store.load().summary(),

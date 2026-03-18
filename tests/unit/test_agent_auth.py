@@ -393,6 +393,28 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertIsNotNone(stored)
             self.assertEqual(stored, aidk)
 
+    def test_set_agent_pin_requires_string(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            client = AgentAuthClient(None, None, None, tpm_dao=dao)  # type: ignore[arg-type]
+
+            with self.assertRaisesRegex(ValueError, "must be passed as a string"):
+                client.set_agent_pin(1)  # type: ignore[arg-type]
+
+    def test_set_agent_pin_requires_lowercase_hex_characters(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            client = AgentAuthClient(None, None, None, tpm_dao=dao)  # type: ignore[arg-type]
+
+            with self.assertRaisesRegex(ValueError, "only lowercase characters 0-9 and a-f"):
+                client.set_agent_pin("1A2b")
+
+            with self.assertRaisesRegex(ValueError, "must not be empty"):
+                client.set_agent_pin("")
+
+            status = client.set_agent_pin("1a2b")
+            self.assertTrue(status["has_agent_pin"])
+
 
 if __name__ == "__main__":
     unittest.main()
