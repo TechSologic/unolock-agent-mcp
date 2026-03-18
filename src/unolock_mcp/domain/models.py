@@ -138,6 +138,7 @@ class RegistrationState:
     registered: bool = False
     registration_mode: str = "unconfigured"
     connection_url: ConnectionUrlInfo | None = None
+    current_space_id: int | None = None
     registered_at: str | None = None
     access_id: str | None = None
     key_id: str | None = None
@@ -161,6 +162,7 @@ class RegistrationState:
             "registered_at": self.registered_at,
             "tpm_provider": tpm_provider,
             "reduced_assurance_acknowledged": self.reduced_assurance_acknowledged,
+            "current_space_id": self.current_space_id,
             "connection_url": self.connection_url.summary() if self.connection_url else None,
             "agent_instruction": (
                 "If registration is needed, ask the user for the one-time-use UnoLock agent key connection URL and "

@@ -94,6 +94,15 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertEqual(state.app_version, "0.20.21")
             self.assertEqual(state.signing_public_key_b64, "pq-key")
 
+    def test_current_space_is_persisted(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            store = RegistrationStore(Path(temp_dir) / "registration.json")
+
+            state = store.set_current_space(1773)
+
+            self.assertEqual(state.current_space_id, 1773)
+            self.assertEqual(store.load().current_space_id, 1773)
+
     def test_new_connection_url_resets_stale_registration_fields(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             store = RegistrationStore(Path(temp_dir) / "registration.json")
@@ -121,6 +130,7 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertIsNone(state.key_id)
             self.assertIsNone(state.bootstrap_secret)
             self.assertIsNone(state.tpm_provider)
+            self.assertIsNone(state.current_space_id)
 
     def test_reset_removes_registration_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

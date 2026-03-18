@@ -167,7 +167,26 @@ class _FakeReadonlyRecordsClient:
         return {
             "ok": True,
             "internal_session_id": session_id,
-            "spaces": [{"space_id": 1773, "name": "Agent Space"}],
+            "spaces": [{"space_id": 1773, "name": "Agent Space", "writable": True, "allowed_operations": ["create_note"]}],
+        }
+
+    def list_records(
+        self,
+        session_id: str,
+        kind: str = "all",
+        *,
+        space_id: int | None = None,
+        pinned: bool | None = None,
+        label: str | None = None,
+    ) -> dict[str, object]:
+        return {
+            "ok": True,
+            "internal_session_id": session_id,
+            "kind_filter": kind,
+            "space_id_filter": space_id,
+            "pinned_filter": pinned,
+            "label_filter": label,
+            "records": [],
         }
 
 
@@ -357,6 +376,33 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(first["internal_session_id"], "active")
             self.assertEqual(second["internal_session_id"], "active")
             self.assertEqual(auth.auth_calls, 1)
+
+    def test_set_and_get_current_space(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                selected = server._tool_manager._tools["unolock_set_current_space"].fn(1773)
+                current = server._tool_manager._tools["unolock_get_current_space"].fn()
+
+            self.assertTrue(selected["ok"])
+            self.assertEqual(selected["current_space_id"], 1773)
+            self.assertTrue(selected["space"]["current"])
+            self.assertTrue(current["selected"])
+            self.assertEqual(current["current_space_id"], 1773)
+
+    def test_list_records_defaults_to_current_space(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                server._tool_manager._tools["unolock_set_current_space"].fn(1773)
+                result = server._tool_manager._tools["unolock_list_records"].fn()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["space_id_filter"], 1773)
 
 
 if __name__ == "__main__":

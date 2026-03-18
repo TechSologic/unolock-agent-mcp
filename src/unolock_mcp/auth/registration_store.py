@@ -26,6 +26,7 @@ class RegistrationStore:
             registered=bool(raw.get("registered", False)),
             registration_mode=str(raw.get("registration_mode", "unconfigured")),
             connection_url=connection_url,
+            current_space_id=raw.get("current_space_id"),
             registered_at=raw.get("registered_at"),
             access_id=raw.get("access_id"),
             key_id=raw.get("key_id"),
@@ -56,6 +57,7 @@ class RegistrationStore:
             registered=False,
             registration_mode="pending_connection_url",
             connection_url=sanitized,
+            current_space_id=None,
             registered_at=None,
             access_id=None,
             key_id=None,
@@ -75,6 +77,7 @@ class RegistrationStore:
             registered=current.registered,
             registration_mode="registered" if current.registered else "unconfigured",
             connection_url=None,
+            current_space_id=current.current_space_id,
             registered_at=current.registered_at,
             access_id=None,
             key_id=current.key_id,
@@ -106,6 +109,7 @@ class RegistrationStore:
             registered=True,
             registration_mode="registered",
             connection_url=None,
+            current_space_id=current.current_space_id,
             registered_at=datetime.now(timezone.utc).isoformat(),
             access_id=None,
             key_id=key_id or current.key_id,
@@ -132,6 +136,7 @@ class RegistrationStore:
             registered=current.registered,
             registration_mode=current.registration_mode,
             connection_url=current.connection_url,
+            current_space_id=current.current_space_id,
             registered_at=current.registered_at,
             access_id=current.access_id,
             key_id=current.key_id,
@@ -151,6 +156,7 @@ class RegistrationStore:
             registered=current.registered,
             registration_mode=current.registration_mode,
             connection_url=current.connection_url,
+            current_space_id=current.current_space_id,
             registered_at=current.registered_at,
             access_id=current.access_id,
             key_id=current.key_id,
@@ -161,6 +167,26 @@ class RegistrationStore:
             app_version=current.app_version,
             signing_public_key_b64=current.signing_public_key_b64,
             reduced_assurance_acknowledged=acknowledged,
+        )
+        return self.save(state)
+
+    def set_current_space(self, current_space_id: int | None) -> RegistrationState:
+        current = self.load()
+        state = RegistrationState(
+            registered=current.registered,
+            registration_mode=current.registration_mode,
+            connection_url=current.connection_url,
+            current_space_id=current_space_id,
+            registered_at=current.registered_at,
+            access_id=current.access_id,
+            key_id=current.key_id,
+            bootstrap_secret=current.bootstrap_secret,
+            tpm_provider=current.tpm_provider,
+            api_base_url=current.api_base_url,
+            transparency_origin=current.transparency_origin,
+            app_version=current.app_version,
+            signing_public_key_b64=current.signing_public_key_b64,
+            reduced_assurance_acknowledged=current.reduced_assurance_acknowledged,
         )
         return self.save(state)
 

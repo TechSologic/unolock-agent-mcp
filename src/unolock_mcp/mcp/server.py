@@ -41,6 +41,7 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
         "record_not_found": "Reread the target space or record and verify the current record_ref or item id.",
         "item_not_found": "Reread the checklist and use the current checklist item ids before retrying.",
         "invalid_input": "Correct the input payload and retry the write operation.",
+        "missing_current_space": "Set the current UnoLock space with unolock_set_current_space or provide space_id explicitly.",
         "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_submit_agent_bootstrap.",
         "wrong_connection_url_type": "Ask the user for a UnoLock Agent Key URL in the #/agent-register/... format.",
         "session_not_found": "Authenticate again or restart the UnoLock bootstrap flow, then retry the request.",
@@ -150,6 +151,7 @@ def _registration_status_payload(
         "unolock_submit_agent_bootstrap",
         "unolock_bootstrap_agent",
         "unolock_list_spaces",
+        "unolock_set_current_space",
         "unolock_list_records",
         "unolock_list_files",
         "unolock_get_record",
@@ -215,6 +217,7 @@ def _registration_status_payload(
             "Check registration status first.",
             "If needed, ask the user for the one-time Agent Key URL and optional PIN together.",
             "If registration is already configured, call the normal data tools directly and let the MCP authenticate automatically when needed.",
+            "After authentication, set the current space once and let normal record/file tools use it by default.",
             "Read a space or record before writing so you have current version and allowed_operations metadata.",
             "If a write reports conflict, reread the target record and retry with the latest version.",
         ],
@@ -289,6 +292,38 @@ def create_mcp_server() -> FastMCP:
     def _clear_pending_operation() -> None:
         nonlocal pending_operation
         pending_operation = None
+
+    def _current_space_id() -> int | None:
+        current = registration_store.load().current_space_id
+        return current if isinstance(current, int) and current > 0 else None
+
+    def _resolve_space_id(space_id: int | None, *, required: bool) -> int | None:
+        if isinstance(space_id, int) and space_id > 0:
+            return space_id
+        current = _current_space_id()
+        if current is not None:
+            return current
+        if required:
+            raise ValueError(
+                "missing_current_space: No current UnoLock space is selected. Call unolock_set_current_space or provide space_id explicitly."
+            )
+        return None
+
+    def _current_space_payload() -> dict[str, Any]:
+        return {
+            "selected": _current_space_id() is not None,
+            "current_space_id": _current_space_id(),
+        }
+
+    def _decorate_spaces_payload(payload: dict[str, Any]) -> dict[str, Any]:
+        current_space_id = _current_space_id()
+        spaces = payload.get("spaces")
+        if isinstance(spaces, list):
+            for space in spaces:
+                if isinstance(space, dict):
+                    space["current"] = space.get("space_id") == current_space_id
+        payload["current_space_id"] = current_space_id
+        return payload
 
     def _build_blocked_operation_response(
         tool_name: str,
@@ -427,12 +462,13 @@ def create_mcp_server() -> FastMCP:
         instructions=(
             "Start with unolock_get_registration_status and follow its recommended_next_action. "
             "Prefer the primary workflow tools first: unolock_submit_agent_bootstrap, unolock_bootstrap_agent, "
-            "unolock_list_spaces, unolock_list_records, unolock_list_files, and unolock_get_record. Read records before "
-            "writing so you have current version and allowed_operations metadata. If registration is not configured, "
+            "unolock_list_spaces, unolock_set_current_space, unolock_list_records, unolock_list_files, and "
+            "unolock_get_record. Read records before writing so you have current version and allowed_operations metadata. "
+            "If registration is not configured, "
             "ask the user for the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
             "then submit them with unolock_submit_agent_bootstrap. The Agent Key URL is for enrollment only. "
             "For normal use, call the data tools directly; they can authenticate automatically and resume after a PIN "
-            "is supplied. "
+            "is supplied. After authentication, select a current space and let normal record/file tools use it by default. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for an Agent Key URL or PIN, "
             "or why host assurance matters, use the explanatory UnoLock resources instead of improvising."
         ),
@@ -460,6 +496,7 @@ def create_mcp_server() -> FastMCP:
                 "unolock_submit_agent_bootstrap",
                 "unolock_bootstrap_agent",
                 "unolock_list_spaces",
+                "unolock_set_current_space",
                 "unolock_list_records",
                 "unolock_list_files",
                 "unolock_get_record",
@@ -469,6 +506,10 @@ def create_mcp_server() -> FastMCP:
                 "authentication step is actually required. Start with unolock_get_registration_status and follow "
                 "its recommended_next_action instead of inventing a manual bootstrap sequence. For normal use, "
                 "call the data tools directly and let the MCP authenticate automatically when needed."
+            ),
+            "space_rule": (
+                "After authentication, list spaces and set the current space. Record and file list/create/upload "
+                "tools default to the current space when space_id is omitted."
             ),
             "agent_behavior_note": (
                 "Ask only for the Agent Key URL and, if needed, the PIN. Do not invent menu paths, expiry behavior, "
@@ -791,6 +832,62 @@ def create_mcp_server() -> FastMCP:
         return registration_store.clear_connection_url().summary()
 
     @server.tool(
+        name="unolock_get_current_space",
+        description="Return the currently selected UnoLock space used as the default for normal record and file operations.",
+    )
+    def get_current_space() -> dict[str, Any]:
+        return _current_space_payload()
+
+    @server.tool(
+        name="unolock_set_current_space",
+        description=(
+            "Select the current UnoLock space for subsequent list/create/upload operations. "
+            "When space_id is omitted from normal record and file tools, the MCP uses this current space."
+        ),
+    )
+    def set_current_space(space_id: int = 0) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            if space_id <= 0:
+                raise ValueError("invalid_input: space_id must be a positive integer.")
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            payload = readonly_records.list_spaces(resolved_session_id)
+            selected_space = None
+            spaces = payload.get("spaces")
+            if isinstance(spaces, list):
+                for space in spaces:
+                    if isinstance(space, dict) and space.get("space_id") == space_id:
+                        selected_space = dict(space)
+                        break
+            if selected_space is None:
+                raise ValueError("record_not_found: The requested space_id is not available to this agent.")
+            registration_store.set_current_space(space_id)
+            selected_space["current"] = True
+            return {
+                "ok": True,
+                "current_space_id": space_id,
+                "space": selected_space,
+            }
+
+        return _run_with_auto_session(
+            "unolock_set_current_space",
+            {"space_id": space_id},
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_clear_current_space",
+        description="Clear the current UnoLock space selection so list operations span all accessible spaces again.",
+    )
+    def clear_current_space() -> dict[str, Any]:
+        registration_store.set_current_space(None)
+        return _current_space_payload()
+
+    @server.tool(
         name="unolock_disconnect_agent",
         description=(
             "Permanently disconnect this local MCP host from its current UnoLock agent registration by "
@@ -952,7 +1049,6 @@ def create_mcp_server() -> FastMCP:
         ) -> dict[str, Any]:
             api_client = UnoLockApiClient(ensure_flow_client(), session_store)
             return api_client.call_action(
-                SessionStore.ACTIVE_SESSION_ID,
                 action=action,
                 request=request,
                 result=result,
@@ -966,7 +1062,7 @@ def create_mcp_server() -> FastMCP:
         )
         def get_spaces() -> dict[str, Any]:
             api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-            return api_client.get_spaces(SessionStore.ACTIVE_SESSION_ID)
+            return api_client.get_spaces()
 
         @server.tool(
             name="unolock_get_archives",
@@ -974,7 +1070,7 @@ def create_mcp_server() -> FastMCP:
         )
         def get_archives() -> dict[str, Any]:
             api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-            return api_client.get_archives(SessionStore.ACTIVE_SESSION_ID)
+            return api_client.get_archives()
 
     @server.tool(
         name="unolock_list_spaces",
@@ -991,7 +1087,7 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
-            return readonly_records.list_spaces(resolved_session_id)
+            return _decorate_spaces_payload(readonly_records.list_spaces(resolved_session_id))
 
         return _run_with_auto_session(
             "unolock_list_spaces",
@@ -1016,6 +1112,7 @@ def create_mcp_server() -> FastMCP:
         label: str | None = None,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id, required=False)
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
@@ -1024,7 +1121,7 @@ def create_mcp_server() -> FastMCP:
             return readonly_records.list_records(
                 resolved_session_id,
                 kind=kind,
-                space_id=space_id,
+                space_id=effective_space_id,
                 pinned=pinned,
                 label=label,
             )
@@ -1054,6 +1151,7 @@ def create_mcp_server() -> FastMCP:
         label: str | None = None,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id, required=False)
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
@@ -1062,7 +1160,7 @@ def create_mcp_server() -> FastMCP:
             return readonly_records.list_records(
                 resolved_session_id,
                 kind="note",
-                space_id=space_id,
+                space_id=effective_space_id,
                 pinned=pinned,
                 label=label,
             )
@@ -1091,6 +1189,7 @@ def create_mcp_server() -> FastMCP:
         label: str | None = None,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id, required=False)
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
@@ -1099,7 +1198,7 @@ def create_mcp_server() -> FastMCP:
             return readonly_records.list_records(
                 resolved_session_id,
                 kind="checklist",
-                space_id=space_id,
+                space_id=effective_space_id,
                 pinned=pinned,
                 label=label,
             )
@@ -1125,12 +1224,13 @@ def create_mcp_server() -> FastMCP:
     )
     def list_files(space_id: int | None = None) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id, required=False)
             readonly_files = UnoLockReadonlyFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
-            return readonly_files.list_files(resolved_session_id, space_id=space_id)
+            return readonly_files.list_files(resolved_session_id, space_id=effective_space_id)
 
         return _run_with_auto_session(
             "unolock_list_files",
@@ -1212,6 +1312,7 @@ def create_mcp_server() -> FastMCP:
         mime_type: str | None = None,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id if space_id > 0 else None, required=True)
             writable_files = UnoLockWritableFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
@@ -1219,7 +1320,7 @@ def create_mcp_server() -> FastMCP:
             )
             return writable_files.upload_file(
                 resolved_session_id,
-                space_id=space_id,
+                space_id=effective_space_id,
                 local_path=local_path,
                 name=name,
                 mime_type=mime_type,
@@ -1364,6 +1465,7 @@ def create_mcp_server() -> FastMCP:
     )
     def create_note(space_id: int = 0, title: str = "", text: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id if space_id > 0 else None, required=True)
             writable_records = UnoLockWritableRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
@@ -1371,7 +1473,7 @@ def create_mcp_server() -> FastMCP:
             )
             return writable_records.create_note(
                 resolved_session_id,
-                space_id=space_id,
+                space_id=effective_space_id,
                 title=title,
                 text=text,
             )
@@ -1398,6 +1500,7 @@ def create_mcp_server() -> FastMCP:
         items: list[dict[str, Any]] | None = None,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
+            effective_space_id = _resolve_space_id(space_id if space_id > 0 else None, required=True)
             writable_records = UnoLockWritableRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
@@ -1405,7 +1508,7 @@ def create_mcp_server() -> FastMCP:
             )
             return writable_records.create_checklist(
                 resolved_session_id,
-                space_id=space_id,
+                space_id=effective_space_id,
                 title=title,
                 items=[] if items is None else items,
             )
