@@ -47,18 +47,15 @@ class SessionStore:
         self._records_archive_snapshots.clear()
         self._auth_context = None
 
-    def latest_session_id(self, *, authorized: bool | None = None, incomplete_only: bool = False) -> str | None:
+    def has_active_flow(self, *, authorized: bool | None = None, incomplete_only: bool = False) -> bool:
         session = self._active_session
         if session is None:
-            return None
+            return False
         if authorized is not None and session.authorized is not authorized:
-            return None
+            return False
         if incomplete_only and session.current_callback.type in {"SUCCESS", "FAILED"}:
-            return None
-        return self.ACTIVE_SESSION_ID
-
-    def latest_authorized_session_id(self) -> str | None:
-        return self.latest_session_id(authorized=True)
+            return False
+        return True
 
     def get_auth_context(self, session_id: str | None = None) -> dict:
         if session_id and session_id != self.ACTIVE_SESSION_ID:

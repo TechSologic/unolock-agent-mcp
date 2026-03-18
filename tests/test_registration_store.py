@@ -64,7 +64,7 @@ class RegistrationStoreTest(unittest.TestCase):
                 f"http://localhost:4200/#/agent-register/{_b64url('aid')}/{_b64url('code')}/{_b64url('bootstrap')}"
             )
 
-            state = store.mark_registered(session_id="session-1", key_id="agent-aid", tpm_provider="windows-tpm")
+            state = store.mark_registered(key_id="agent-aid", tpm_provider="windows-tpm")
 
             self.assertTrue(state.registered)
             self.assertEqual(state.registration_mode, "registered")
@@ -102,7 +102,6 @@ class RegistrationStoreTest(unittest.TestCase):
                     registered=True,
                     registration_mode="registered",
                     connection_url=None,
-                    session_id="old-session",
                     registered_at="2026-03-09T00:00:00Z",
                     access_id="old-aid",
                     key_id="old-key",
@@ -118,7 +117,6 @@ class RegistrationStoreTest(unittest.TestCase):
             self.assertFalse(state.registered)
             self.assertEqual(state.registration_mode, "pending_connection_url")
             self.assertIsNone(state.access_id)
-            self.assertIsNone(state.session_id)
             self.assertIsNone(state.registered_at)
             self.assertIsNone(state.key_id)
             self.assertIsNone(state.bootstrap_secret)

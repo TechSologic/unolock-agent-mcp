@@ -81,16 +81,15 @@ def _registration_status_payload(
         "Agent registration is configured. The normal UnoLock data tools can authenticate automatically when needed "
         "and will stop only for one concrete missing input such as the PIN."
     )
-    pending_session = None
-    active_flow_id = session_store.latest_session_id(incomplete_only=True)
-    if active_flow_id:
+    pending_flow = None
+    if session_store.has_active_flow(incomplete_only=True):
         try:
-            pending_session = _strip_session_ids(session_store.get(active_flow_id).summary())
+            pending_flow = _strip_session_ids(session_store.get().summary())
         except KeyError:
-            pending_session = None
+            pending_flow = None
 
-    if pending_session and pending_session.get("current_callback_type") in {"SUCCESS", "FAILED"}:
-        pending_session = None
+    if pending_flow and pending_flow.get("current_callback_type") in {"SUCCESS", "FAILED"}:
+        pending_flow = None
 
     if provider_mismatch:
         next_action = "resolve_tpm_provider_mismatch"
@@ -101,8 +100,8 @@ def _registration_status_payload(
             "This host is using the lower-assurance software provider. Ask the user whether they want to continue "
             "in reduced-assurance mode, then call unolock_acknowledge_reduced_assurance before registering or authenticating."
         )
-    elif pending_session is not None:
-        callback_type = pending_session.get("current_callback_type")
+    elif pending_flow is not None:
+        callback_type = pending_flow.get("current_callback_type")
         if callback_type == "GetPin" and not runtime.get("has_agent_pin"):
             next_action = "ask_for_agent_pin_then_continue"
             guidance = (
@@ -110,7 +109,7 @@ def _registration_status_payload(
                 "unolock_set_agent_pin, then call unolock_bootstrap_agent or unolock_continue_agent_session."
             )
         else:
-            next_action = "continue_pending_session"
+            next_action = "continue_pending_flow"
             guidance = (
                 "A UnoLock flow is already in progress. Continue it with unolock_bootstrap_agent or "
                 "unolock_continue_agent_session instead of starting over."
@@ -200,7 +199,7 @@ def _registration_status_payload(
         **runtime,
         "tpm_diagnostics": tpm,
         "security_warning": security_warning,
-        "pending_session": pending_session,
+        "pending_flow": pending_flow,
         "recommended_next_action": next_action,
         "guidance": guidance,
         "primary_tools": primary_tools,
@@ -350,52 +349,35 @@ def create_mcp_server() -> FastMCP:
             "result": _strip_session_ids(result),
         }
 
-    def _resolve_authorized_session_id(requested_session_id: str | None) -> str | None:
-        if requested_session_id and requested_session_id != SessionStore.ACTIVE_SESSION_ID:
-            return None
-        if requested_session_id:
-            try:
-                session_store.get_auth_context(SessionStore.ACTIVE_SESSION_ID)
-                return SessionStore.ACTIVE_SESSION_ID
-            except KeyError:
-                pass
-        latest_session_id = session_store.latest_authorized_session_id()
-        if latest_session_id:
-            try:
-                session_store.get_auth_context(latest_session_id)
-                return latest_session_id
-            except KeyError:
-                pass
-        return None
-
     def _ensure_authenticated_session(
-        requested_session_id: str | None,
         *,
         tool_name: str,
         tool_args: dict[str, Any],
         resume: Callable[[], dict[str, Any]],
-    ) -> tuple[str | None, dict[str, Any] | None]:
-        authorized_session_id = _resolve_authorized_session_id(requested_session_id)
-        if authorized_session_id is not None:
-            return authorized_session_id, None
+    ) -> dict[str, Any] | None:
+        if session_store.has_active_flow(authorized=True):
+            try:
+                session_store.get_auth_context()
+                return None
+            except KeyError:
+                pass
 
         ensure_flow_client()
 
         while True:
-            pending_session_id = session_store.latest_session_id(incomplete_only=True)
-            if pending_session_id:
-                pending_result = agent_auth.advance_session(pending_session_id)
+            if session_store.has_active_flow(incomplete_only=True):
+                pending_result = agent_auth.advance_session(SessionStore.ACTIVE_SESSION_ID)
                 if pending_result.get("ok") and pending_result.get("authorized") and pending_result.get("completed"):
-                    pending_session = pending_result.get("session") or {}
-                    if pending_session.get("flow") == "agentAccess":
-                        return SessionStore.ACTIVE_SESSION_ID, None
+                    pending_flow = pending_result.get("session") or {}
+                    if pending_flow.get("flow") == "agentAccess":
+                        return None
                     continue
-                return None, _build_blocked_operation_response(tool_name, tool_args, pending_result, resume)
+                return _build_blocked_operation_response(tool_name, tool_args, pending_result, resume)
 
             registration = registration_store.load()
             if not registration.registered:
                 if registration.connection_url is None:
-                    return None, _build_blocked_operation_response(
+                    return _build_blocked_operation_response(
                         tool_name,
                         tool_args,
                         {
@@ -408,46 +390,33 @@ def create_mcp_server() -> FastMCP:
                 registration_result = agent_auth.start_registration_from_stored_url()
                 if registration_result.get("ok") and registration_result.get("authorized") and registration_result.get("completed"):
                     continue
-                return None, _build_blocked_operation_response(tool_name, tool_args, registration_result, resume)
+                return _build_blocked_operation_response(tool_name, tool_args, registration_result, resume)
 
             auth_result = agent_auth.authenticate_registered_agent()
             if auth_result.get("ok") and auth_result.get("authorized") and auth_result.get("completed"):
-                return SessionStore.ACTIVE_SESSION_ID, None
-                return None, _build_blocked_operation_response(
-                    tool_name,
-                    tool_args,
-                    {
-                        "ok": False,
-                        "reason": "session_not_found",
-                        "message": "UnoLock authenticated the agent but did not return a usable session.",
-                    },
-                    resume,
-                )
-            return None, _build_blocked_operation_response(tool_name, tool_args, auth_result, resume)
+                return None
+            return _build_blocked_operation_response(tool_name, tool_args, auth_result, resume)
 
     def _run_with_auto_session(
         tool_name: str,
         tool_args: dict[str, Any],
-        requested_session_id: str | None,
+        _requested_session_id: str | None,
         operation: Callable[[str], dict[str, Any]],
     ) -> dict[str, Any]:
         normalized_tool_args = _normalize_tool_args(tool_args)
 
         def resume() -> dict[str, Any]:
-            return _run_with_auto_session(tool_name, normalized_tool_args, requested_session_id, operation)
+            return _run_with_auto_session(tool_name, normalized_tool_args, None, operation)
 
         try:
-            session_id, blocker = _ensure_authenticated_session(
-                requested_session_id,
+            blocker = _ensure_authenticated_session(
                 tool_name=tool_name,
                 tool_args=normalized_tool_args,
                 resume=resume,
             )
             if blocker is not None:
                 return blocker
-            if session_id is None:
-                return _tool_error_response(ValueError("session_not_found: No authenticated UnoLock session is available."))
-            result = _strip_session_ids(operation(session_id))
+            result = _strip_session_ids(operation(SessionStore.ACTIVE_SESSION_ID))
             _clear_pending_operation()
             return result
         except (ValueError, KeyError) as exc:
@@ -945,7 +914,7 @@ def create_mcp_server() -> FastMCP:
             )
             session_store.put(updated)
             if updated.authorized and updated.flow == "agentRegister":
-                registration_store.mark_registered(session_id=updated.session_id)
+                registration_store.mark_registered()
             return updated.summary()
 
         @server.tool(

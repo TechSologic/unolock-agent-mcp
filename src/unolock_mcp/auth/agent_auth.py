@@ -253,8 +253,8 @@ class AgentAuthClient:
             summary["security_warning"] = warning
         return summary
 
-    def get_keyring_for_session(self, session_id: str) -> SafeKeyringManager:
-        session = self._session_store.get(session_id)
+    def get_keyring_for_session(self, session_id: str | None = None) -> SafeKeyringManager:
+        session = self._session_store.get()
         registration = self._load_registration()
         access_id = self._resolve_access_id(registration, session.current_callback, session)
         keyring = self._get_data_keyring(access_id)
@@ -280,7 +280,7 @@ class AgentAuthClient:
         flow = registration.connection_url.flow or "agentRegister"
         session = flow_client.start(flow=flow)
         self._session_store.put(session)
-        result = self._advance_session(session.session_id)
+        result = self._advance_session()
         warning = self._insecure_provider_warning()
         if warning is not None:
             result["security_warning"] = warning
@@ -305,18 +305,18 @@ class AgentAuthClient:
 
         session = flow_client.start(flow="agentAccess")
         self._session_store.put(session)
-        result = self._advance_session(session.session_id)
+        result = self._advance_session()
         warning = self._insecure_provider_warning()
         if warning is not None:
             result["security_warning"] = warning
         return result
 
-    def advance_session(self, session_id: str) -> dict[str, Any]:
+    def advance_session(self, session_id: str | None = None) -> dict[str, Any]:
         return self._advance_session(session_id)
 
-    def _advance_session(self, session_id: str) -> dict[str, Any]:
+    def _advance_session(self, session_id: str | None = None) -> dict[str, Any]:
         flow_client = self.require_flow_client()
-        session = self._session_store.get(session_id)
+        session = self._session_store.get()
         registration = self._load_registration()
         steps: list[dict[str, Any]] = []
 
@@ -328,7 +328,6 @@ class AgentAuthClient:
                     self._delete_protected_bootstrap_secret(resolved_access_id)
                     self._delete_registration_material()
                 updated = self._registration_store.mark_registered(
-                    session_id=session.session_id,
                     access_id=resolved_access_id,
                     key_id=self._resolve_key_id(registration),
                     bootstrap_secret="",
@@ -478,7 +477,6 @@ class AgentAuthClient:
                     registered=registration.registered,
                     registration_mode=registration.registration_mode,
                     connection_url=registration.connection_url,
-                    session_id=registration.session_id,
                     registered_at=registration.registered_at,
                     access_id=access_id,
                     key_id=created.key_id,

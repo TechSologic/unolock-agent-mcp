@@ -138,7 +138,6 @@ class RegistrationState:
     registered: bool = False
     registration_mode: str = "unconfigured"
     connection_url: ConnectionUrlInfo | None = None
-    session_id: str | None = None
     registered_at: str | None = None
     access_id: str | None = None
     key_id: str | None = None
