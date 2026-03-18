@@ -1,8 +1,8 @@
 # mcporter
 
-`mcporter` is a good way to run UnoLock Agent MCP as a persistent external MCP server instead of spawning a fresh process for every interaction.
+`mcporter` is a good compatibility way to run UnoLock Agent MCP as a persistent external MCP server instead of spawning a fresh process for every interaction.
 
-It is also the preferred path when it is available.
+It is no longer the primary UnoLock onboarding path, because the UnoLock executable now has its own built-in local daemon and tool-calling CLI.
 
 When you choose `mcporter`, use it as the normal control surface:
 
@@ -20,6 +20,21 @@ That matters for UnoLock because the MCP keeps useful state in memory while it i
 * in-memory archive cache
 * the agent PIN held only in MCP memory after the user provides it
 * cached Safe record views used by the write path
+
+## When to use mcporter
+
+Use `mcporter` when:
+
+* your surrounding host already expects an MCP runner
+* you want UnoLock to behave like another named external MCP server in an existing stack
+* you are integrating with tooling that already standardizes on `mcporter`
+
+If you are setting up UnoLock directly, prefer the built-in UnoLock daemon instead:
+
+```bash
+unolock-agent-mcp start
+unolock-agent-mcp call unolock_get_registration_status
+```
 
 ## Why use mcporter
 

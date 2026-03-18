@@ -49,9 +49,9 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 The preferred path is:
 
-1. run the MCP through `mcporter` or another keep-alive runner when available
-2. use `npx @techsologic/unolock-agent-mcp@latest` as the MCP command
-3. keep the MCP warm between interactions so the user PIN can stay in MCP process memory instead of being stored persistently
+1. run UnoLock through its built-in local daemon/CLI
+2. use a GitHub Release binary or `npx @techsologic/unolock-agent-mcp@latest`
+3. let the UnoLock CLI keep the MCP warm between interactions so the user PIN can stay in MCP process memory instead of being stored persistently
 
 If you need the public-facing explanation of this path, see:
 
@@ -75,7 +75,7 @@ The wrapper downloads the matching GitHub Release binary for the current platfor
 
 On restart, the npm wrapper checks GitHub Releases for a newer stable binary and can update its cached binary between tasks.
 
-The npm package is an OpenClaw-friendly install and launch path for the external UnoLock MCP binary.
+The npm package is an OpenClaw-friendly install and launch path for the UnoLock executable.
 
 It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
 
@@ -89,13 +89,14 @@ Use it as a command that OpenClaw can launch, for example:
 npx @techsologic/unolock-agent-mcp@latest mcp
 ```
 
-With no arguments, the npm wrapper starts the MCP server by default:
+For the first-party local daemon flow, use:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest
+npx @techsologic/unolock-agent-mcp@latest start
+npx @techsologic/unolock-agent-mcp@latest call unolock_get_registration_status
 ```
 
-Preferred `mcporter` keep-alive example:
+Compatibility example if you still want `mcporter`:
 
 ```json
 {
@@ -109,6 +110,26 @@ Preferred `mcporter` keep-alive example:
   }
 }
 ```
+
+## Built-in local daemon
+
+The UnoLock executable now includes its own local daemon. That is the preferred path when you want a long-running local UnoLock process without asking the agent to manage `mcporter`.
+
+Useful commands:
+
+```bash
+unolock-agent-mcp start
+unolock-agent-mcp status
+unolock-agent-mcp tools
+unolock-agent-mcp call unolock_get_registration_status
+unolock-agent-mcp stop
+```
+
+Notes:
+
+* `start` starts the local daemon only if it is not already running.
+* `tools` and `call` auto-start the daemon if needed.
+* the current Space, auth state, and PIN-in-memory behavior now belong to the UnoLock daemon itself
 
 ## Updates
 
@@ -133,10 +154,12 @@ Or through the MCP:
 
 Preferred behavior by channel:
 
-* `mcporter` + `npx @techsologic/unolock-agent-mcp@latest`
+* built-in local daemon + `npx @techsologic/unolock-agent-mcp@latest`
   * preferred path
+  * daemon restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
+* `mcporter` + `npx @techsologic/unolock-agent-mcp@latest`
+  * compatibility path when the surrounding MCP host expects it
   * runner restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
-  * npm publishing is only needed when the wrapper itself changes
 * direct GitHub Release binary
   * download the latest binary, replace the current executable, restart the runner
 * source/Python install
@@ -148,7 +171,7 @@ Do not update in the middle of:
 * a sensitive write flow
 * a task that depends on the current in-memory PIN remaining available
 
-If you already have a Python/source install and want a generated helper output:
+If you already have a Python/source install and still want a generated `mcporter` helper output:
 
 ```bash
 python3 -m unolock_mcp mcporter-config
@@ -249,7 +272,7 @@ python3 -m unolock_mcp tpm-diagnose
 python3 -m unolock_mcp config-check
 ```
 
-For normal installs, do not drive the CLI `bootstrap` command directly. Prefer an MCP host such as `mcporter`, then use the MCP tools:
+For normal installs, do not drive the CLI `bootstrap` command directly. Prefer the built-in local daemon/CLI, then use the MCP tools:
 
 ```text
 unolock_submit_agent_bootstrap

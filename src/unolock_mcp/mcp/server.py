@@ -41,6 +41,7 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
         "record_not_found": "Reread the target space or record and verify the current record_ref or item id.",
         "item_not_found": "Reread the checklist and use the current checklist item ids before retrying.",
         "invalid_input": "Correct the input payload and retry the write operation.",
+        "no_accessible_spaces": "Ask the user to share or create a UnoLock Space for this Agent Key, or issue a different Agent Key with Space access.",
         "missing_current_space": "List spaces or get the current UnoLock space so the MCP can select an accessible default space.",
         "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_submit_agent_bootstrap.",
         "wrong_connection_url_type": "Ask the user for a UnoLock Agent Key URL in the #/agent-register/... format.",
@@ -332,6 +333,10 @@ def create_mcp_server() -> FastMCP:
     def _decorate_spaces_payload(payload: dict[str, Any]) -> dict[str, Any]:
         current_space_id = _current_space_id()
         spaces = payload.get("spaces")
+        if isinstance(spaces, list) and len(spaces) == 0:
+            raise ValueError(
+                "no_accessible_spaces: This Agent Key does not currently have access to any UnoLock Spaces."
+            )
         if current_space_id is None and isinstance(spaces, list):
             for space in spaces:
                 if isinstance(space, dict):
@@ -624,7 +629,7 @@ def create_mcp_server() -> FastMCP:
                 "server replacing itself mid-session."
             ),
             "preferred_path": [
-                "Prefer mcporter keep-alive plus `npx @techsologic/unolock-agent-mcp@latest` when available.",
+                "Prefer the built-in UnoLock local daemon plus a GitHub Release binary or `npx @techsologic/unolock-agent-mcp@latest`.",
                 "Use `unolock_get_update_status` or `unolock-agent-mcp check-update` to see whether a newer release exists.",
                 "If an update is available, restart the runner between tasks so the wrapper or binary can be replaced cleanly.",
             ],
@@ -857,7 +862,8 @@ def create_mcp_server() -> FastMCP:
         name="unolock_get_current_space",
         description=(
             "Return the currently selected UnoLock space used as the default for normal record and file operations. "
-            "If no current space is selected yet, the MCP will pick the first accessible space automatically."
+            "If no current space is selected yet, the MCP will pick the first accessible space automatically. "
+            "If this Agent Key has access to no Spaces, the MCP returns a clear error."
         ),
     )
     def get_current_space() -> dict[str, Any]:
@@ -1116,7 +1122,8 @@ def create_mcp_server() -> FastMCP:
         description=(
             "List UnoLock spaces with record counts, Cloud file counts, and write capability metadata. "
             "The MCP will authenticate automatically when needed and only stop for one concrete missing input such as the PIN. "
-            "Use writable and allowed_operations to decide whether note/checklist or file actions are allowed."
+            "Use writable and allowed_operations to decide whether note/checklist or file actions are allowed. "
+            "If this Agent Key has access to no Spaces, the MCP returns a clear error."
         ),
     )
     def list_spaces() -> dict[str, Any]:

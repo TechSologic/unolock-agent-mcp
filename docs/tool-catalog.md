@@ -6,11 +6,18 @@ This document describes the current normal UnoLock Agent MCP surface.
 
 The normal agent workflow is:
 
-1. Launch the local `stdio` MCP, ideally through a keep-alive runner such as `mcporter`.
+1. Launch the UnoLock local daemon/CLI, or launch the local `stdio` MCP from an external host if one is already in use.
 2. Ask for the one-time UnoLock Agent Key URL only if the MCP says registration is needed.
 3. Ask for the PIN only if the MCP says the key uses one.
 4. Let the MCP guide registration or authentication.
 5. Use the current Space for normal read, write, and file work.
+
+For direct local use, the preferred commands are:
+
+```bash
+unolock-agent-mcp start
+unolock-agent-mcp call unolock_get_registration_status
+```
 
 The normal agent workflow should not require:
 
@@ -117,6 +124,7 @@ Notes:
 
 * If no current Space exists yet, the MCP auto-selects the first accessible Space.
 * Each Space entry indicates whether it is the current Space.
+* If the Agent Key currently has access to zero Spaces, the MCP returns `no_accessible_spaces`.
 
 ### `unolock_get_current_space`
 
@@ -126,6 +134,7 @@ Return the current default Space used by normal operations.
 Notes:
 
 * If no Space was selected yet, the MCP auto-selects the first accessible Space.
+* If the Agent Key currently has access to zero Spaces, the MCP returns `no_accessible_spaces`.
 
 ### `unolock_set_current_space`
 

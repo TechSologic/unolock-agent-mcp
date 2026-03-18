@@ -14,6 +14,15 @@ from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.config import default_config_path, load_unolock_config, resolve_unolock_config
 from unolock_mcp.domain.models import UnoLockConfig
+from unolock_mcp.host import (
+    LocalHostError,
+    call_tool as call_daemon_tool,
+    ensure_daemon_running,
+    list_tools as list_daemon_tools,
+    serve_local_daemon_forever,
+    stop_daemon,
+    get_daemon_status,
+)
 from unolock_mcp.mcp.server import create_mcp_server
 from unolock_mcp.update import get_update_status
 
@@ -40,6 +49,59 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run the UnoLock agent stdio MCP server.",
     )
     mcp_parser.add_argument("--transport", default="stdio", choices=["stdio", "sse", "streamable-http"])
+
+    host_start_parser = subparsers.add_parser(
+        "start",
+        help="Start the UnoLock local daemon if it is not already running.",
+        description=(
+            "Start the first-party UnoLock local daemon. If the daemon is already running, "
+            "return its current status instead of launching another copy."
+        ),
+    )
+    host_start_parser.add_argument("--timeout", type=float, default=15.0)
+
+    subparsers.add_parser(
+        "status",
+        help="Show whether the UnoLock local daemon is running.",
+        description="Inspect the first-party UnoLock local daemon state.",
+    )
+
+    host_stop_parser = subparsers.add_parser(
+        "stop",
+        help="Stop the UnoLock local daemon.",
+        description="Ask the first-party UnoLock local daemon to stop.",
+    )
+    host_stop_parser.add_argument("--timeout", type=float, default=5.0)
+
+    host_tools_parser = subparsers.add_parser(
+        "tools",
+        help="List UnoLock MCP tools through the local daemon.",
+        description="List the MCP tool names exposed by the currently running UnoLock local daemon.",
+    )
+    host_tools_parser.add_argument("--no-auto-start", action="store_true")
+
+    host_call_parser = subparsers.add_parser(
+        "call",
+        help="Call one UnoLock MCP tool through the local daemon.",
+        description=(
+            "Call one UnoLock MCP tool through the first-party local daemon. "
+            "If the daemon is not running yet, this command starts it automatically."
+        ),
+    )
+    host_call_parser.add_argument("tool")
+    host_call_parser.add_argument(
+        "--args",
+        default="{}",
+        help="JSON object of tool arguments. Example: --args '{\"pin\":\"1\"}'",
+    )
+    host_call_parser.add_argument("--no-auto-start", action="store_true")
+    host_call_parser.add_argument("--timeout", type=float, default=30.0)
+
+    subparsers.add_parser(
+        "_daemon",
+        help=argparse.SUPPRESS,
+        description=argparse.SUPPRESS,
+    )
 
     bootstrap_parser = subparsers.add_parser(
         "bootstrap",
@@ -138,6 +200,63 @@ def main(argv: list[str] | None = None) -> int:
         server = create_mcp_server()
         server.run(args.transport)
         return 0
+
+    if command == "_daemon":
+        return serve_local_daemon_forever()
+
+    if command == "start":
+        try:
+            payload = ensure_daemon_running(timeout=getattr(args, "timeout", 15.0))
+        except LocalHostError as exc:
+            print(json.dumps({"ok": False, "reason": "daemon_start_failed", "message": str(exc)}, indent=2))
+            return 1
+        print(json.dumps(payload, indent=2))
+        return 0
+
+    if command == "status":
+        payload = get_daemon_status()
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("ok", True) else 1
+
+    if command == "stop":
+        try:
+            payload = stop_daemon(timeout=getattr(args, "timeout", 5.0))
+        except LocalHostError as exc:
+            print(json.dumps({"ok": False, "reason": "daemon_stop_failed", "message": str(exc)}, indent=2))
+            return 1
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("ok", True) else 1
+
+    if command == "tools":
+        try:
+            payload = list_daemon_tools(auto_start=not getattr(args, "no_auto_start", False))
+        except LocalHostError as exc:
+            print(json.dumps({"ok": False, "reason": "daemon_tools_failed", "message": str(exc)}, indent=2))
+            return 1
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("ok", True) else 1
+
+    if command == "call":
+        try:
+            tool_args = json.loads(args.args)
+        except json.JSONDecodeError as exc:
+            print(json.dumps({"ok": False, "reason": "invalid_input", "message": f"Invalid JSON for --args: {exc}"}, indent=2))
+            return 1
+        if not isinstance(tool_args, dict):
+            print(json.dumps({"ok": False, "reason": "invalid_input", "message": "--args must decode to a JSON object."}, indent=2))
+            return 1
+        try:
+            payload = call_daemon_tool(
+                args.tool,
+                tool_args,
+                auto_start=not getattr(args, "no_auto_start", False),
+                timeout=getattr(args, "timeout", 30.0),
+            )
+        except LocalHostError as exc:
+            print(json.dumps({"ok": False, "reason": "daemon_call_failed", "message": str(exc)}, indent=2))
+            return 1
+        print(json.dumps(payload, indent=2))
+        return 0 if payload.get("ok", True) else 1
 
     if command == "config-check":
         registration = RegistrationStore().load()

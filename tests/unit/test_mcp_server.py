@@ -153,6 +153,15 @@ class ToolErrorResponseTest(unittest.TestCase):
         self.assertEqual(payload["reason"], "operation_failed")
         self.assertEqual(payload["message"], "unexpected failure")
 
+    def test_structured_no_accessible_spaces_error(self) -> None:
+        payload = _tool_error_response(
+            ValueError("no_accessible_spaces: This Agent Key does not currently have access to any UnoLock Spaces.")
+        )
+        self.assertFalse(payload["ok"])
+        self.assertEqual(payload["reason"], "no_accessible_spaces")
+        self.assertIn("does not currently have access to any UnoLock Spaces", payload["message"])
+        self.assertIn("share or create a UnoLock Space", payload["suggested_action"])
+
 
 class _FakeFlowClient:
     def __init__(self, config) -> None:
@@ -190,6 +199,15 @@ class _FakeReadonlyRecordsClient:
             "pinned_filter": pinned,
             "label_filter": label,
             "records": [],
+        }
+
+
+class _FakeReadonlyRecordsNoSpacesClient(_FakeReadonlyRecordsClient):
+    def list_spaces(self, session_id: str) -> dict[str, object]:
+        return {
+            "ok": True,
+            "internal_session_id": session_id,
+            "spaces": [],
         }
 
 
@@ -437,6 +455,79 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(result["space_id"], 1773)
             self.assertEqual(result["space_id_filter"], 1773)
             self.assertEqual(current["current_space_id"], 1773)
+
+    def test_list_spaces_returns_clear_error_when_agent_has_no_spaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                self._seed_registered_state(tmpdir)
+                stack.enter_context(patch.dict(os.environ, {"HOME": tmpdir}, clear=False))
+                stack.enter_context(patch.object(_FakeAgentAuthForAutoSession, "instances", []))
+                stack.enter_context(patch("unolock_mcp.mcp.server.AgentAuthClient", _FakeAgentAuthForAutoSession))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockReadonlyRecordsClient",
+                        _FakeReadonlyRecordsNoSpacesClient,
+                    )
+                )
+                stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.resolve_unolock_config",
+                        return_value=UnoLockResolvedConfig(
+                            base_url="https://api.safe.test.1two.be",
+                            transparency_origin="https://safe.test.1two.be",
+                            app_version="0.20.21",
+                            signing_public_key_b64="ZmFrZQ==",
+                            sources={},
+                        ),
+                    )
+                )
+                server = create_mcp_server()
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_list_spaces"].fn()
+                current = server._tool_manager._tools["unolock_get_current_space"].fn()
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason"], "no_accessible_spaces")
+            self.assertIn("does not currently have access to any UnoLock Spaces", result["message"])
+            self.assertFalse(current["ok"])
+            self.assertEqual(current["reason"], "no_accessible_spaces")
+
+    def test_list_records_returns_clear_error_when_agent_has_no_spaces(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                self._seed_registered_state(tmpdir)
+                stack.enter_context(patch.dict(os.environ, {"HOME": tmpdir}, clear=False))
+                stack.enter_context(patch.object(_FakeAgentAuthForAutoSession, "instances", []))
+                stack.enter_context(patch("unolock_mcp.mcp.server.AgentAuthClient", _FakeAgentAuthForAutoSession))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockReadonlyRecordsClient",
+                        _FakeReadonlyRecordsNoSpacesClient,
+                    )
+                )
+                stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.resolve_unolock_config",
+                        return_value=UnoLockResolvedConfig(
+                            base_url="https://api.safe.test.1two.be",
+                            transparency_origin="https://safe.test.1two.be",
+                            app_version="0.20.21",
+                            signing_public_key_b64="ZmFrZQ==",
+                            sources={},
+                        ),
+                    )
+                )
+                server = create_mcp_server()
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_list_records"].fn()
+
+            self.assertFalse(result["ok"])
+            self.assertEqual(result["reason"], "no_accessible_spaces")
+            self.assertIn("share or create a UnoLock Space", result["suggested_action"])
 
 
 if __name__ == "__main__":

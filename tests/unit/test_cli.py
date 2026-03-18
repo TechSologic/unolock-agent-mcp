@@ -262,6 +262,45 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(result, 0)
         self.assertEqual(print_mock.call_args.args[0], "UPDATE_AVAILABLE: restart the runner")
 
+    def test_start_uses_local_daemon_helper(self) -> None:
+        with patch.object(cli, "ensure_daemon_running", return_value={"ok": True, "running": True, "pid": 1234}) as start_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["start"])
+
+        self.assertEqual(result, 0)
+        start_mock.assert_called_once_with(timeout=15.0)
+        self.assertIn('"running": true', print_mock.call_args.args[0])
+
+    def test_tools_uses_local_daemon_helper(self) -> None:
+        with patch.object(cli, "list_daemon_tools", return_value={"ok": True, "result": {"tools": ["unolock_list_spaces"]}}) as tools_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["tools"])
+
+        self.assertEqual(result, 0)
+        tools_mock.assert_called_once_with(auto_start=True)
+        self.assertIn("unolock_list_spaces", print_mock.call_args.args[0])
+
+    def test_call_uses_local_daemon_helper(self) -> None:
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True}}) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["call", "unolock_set_agent_pin", "--args", '{"pin":"1"}'])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_set_agent_pin",
+            {"pin": "1"},
+            auto_start=True,
+            timeout=30.0,
+        )
+        self.assertIn('"ok": true', print_mock.call_args.args[0])
+
+    def test_call_rejects_non_object_json_args(self) -> None:
+        with patch("builtins.print") as print_mock:
+            result = cli.main(["call", "unolock_set_agent_pin", "--args", '["bad"]'])
+
+        self.assertEqual(result, 1)
+        self.assertIn("--args must decode to a JSON object", print_mock.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()

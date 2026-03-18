@@ -37,9 +37,9 @@ Checked against the official host docs on 2026-03-08:
 
 The preferred mode is:
 
-* use `mcporter` or another keep-alive runner when it is available
-* launch the MCP through `npx @techsologic/unolock-agent-mcp@latest`
-* keep the MCP alive so the user PIN can remain in MCP process memory instead of being persisted by the agent
+* use the built-in UnoLock local daemon/CLI for direct agent use
+* launch the MCP through `npx @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
+* keep the UnoLock daemon alive so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
 
@@ -55,17 +55,22 @@ This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock M
 
 It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
 
-With no arguments, the wrapper starts the MCP server by default.
+For the first-party local daemon flow, prefer:
+
+```bash
+npx @techsologic/unolock-agent-mcp@latest start
+npx @techsologic/unolock-agent-mcp@latest call unolock_get_registration_status
+```
 
 Project home:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
 
-If you want the preferred keep-alive path instead of relaunching the MCP repeatedly, see:
+If you need an external MCP runner for compatibility, see:
 
 * [mcporter keep-alive setup](mcporter.md)
 
-This is especially useful for UnoLock because the user PIN is kept only in MCP process memory. A keep-alive runner lets the agent continue working without repeatedly asking the user for the PIN while that MCP process stays alive, and reduces pressure to store that PIN persistently.
+The built-in UnoLock daemon already provides this keep-alive behavior. Use `mcporter` only when a surrounding host specifically expects a third-party MCP runner.
 
 For updates, the preferred pattern is:
 
@@ -145,6 +150,18 @@ macOS note:
 * the current implementation uses a small Swift helper that talks to Security.framework
 * install Apple Xcode Command Line Tools first with `xcode-select --install`
 * for a first customer trial, start with [macos.md](macos.md)
+
+## Direct CLI host
+
+For direct local agent use without a separate MCP host, the preferred commands are:
+
+```bash
+unolock-agent-mcp start
+unolock-agent-mcp tools
+unolock-agent-mcp call unolock_get_registration_status
+```
+
+`unolock-agent-mcp call ...` automatically starts the local daemon if it is not already running.
 
 ## Claude Desktop
 
@@ -258,6 +275,13 @@ Relevant tools:
 * `unolock_upload_file`
 * `unolock_rename_record`
 * `unolock_create_checklist`
+
+Important current-space behavior:
+
+* the MCP now keeps one current Space locally
+* if no current Space was selected yet, it auto-selects the first accessible Space
+* normal read and write tools act in that current Space
+* if the Agent Key has access to no Spaces, the MCP returns a clear `no_accessible_spaces` error
 * `unolock_set_checklist_item_done`
 * `unolock_add_checklist_item`
 * `unolock_remove_checklist_item`

@@ -75,9 +75,9 @@ Agent-first onboarding site:
 
 Recommended customer install source:
 
-* `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp@latest` when available
-* GitHub Releases binaries
+* UnoLock's built-in local daemon/CLI with a GitHub Release binary when available
 * `npx @techsologic/unolock-agent-mcp@latest` as the Node/npm wrapper path
+* `mcporter` only when the surrounding host already expects an MCP runner
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -134,7 +134,19 @@ For real MCP hosts, see:
 * [mcporter example](examples/mcporter.json)
 * [Config file example](examples/unolock-agent-config.json)
 
-`mcporter` is the preferred path when it is available. The user PIN is kept only in MCP process memory, so keeping the MCP alive means lower latency, fewer repeat PIN prompts, and less pressure for the agent to store the PIN persistently.
+The preferred local path is UnoLock's own built-in daemon/CLI. It keeps the UnoLock MCP alive inside one long-running local process, so the user PIN can remain in process memory, the current Space stays selected, and the agent does not need to reason about a separate third-party runner.
+
+The normal first-party local flow is:
+
+```bash
+unolock-agent-mcp start
+unolock-agent-mcp tools
+unolock-agent-mcp call unolock_get_registration_status
+```
+
+The `call` and `tools` commands automatically start the local UnoLock daemon if it is not already running.
+
+`mcporter` is still supported when a surrounding host already expects it, but it is no longer the primary UnoLock onboarding path.
 
 Once the local stdio MCP is running, the normal flow is that the MCP guides the agent through any registration or authentication step that is actually required. Start with `unolock_get_registration_status` and follow its `recommended_next_action` instead of inventing a manual bootstrap sequence.
 
@@ -157,7 +169,7 @@ python3 -m unolock_mcp config-check
 For normal customer and agent onboarding, do not drive the CLI `bootstrap` command directly.
 Prefer:
 
-* an MCP host config such as `mcporter`
+* the built-in local daemon/CLI
 * `unolock_submit_agent_bootstrap`
 * `unolock_bootstrap_agent`
 
@@ -173,7 +185,7 @@ For the best customer experience, prefer GitHub Release binaries over source ins
 
 ## Preferred Customer Install
 
-When available, prefer `mcporter` keep-alive plus the npm wrapper or release binary instead of a cold-start bare MCP process.
+When available, prefer the built-in UnoLock local daemon plus the npm wrapper or release binary instead of a cold-start bare MCP process.
 
 For an agent-first public onboarding flow, send users or agents to:
 
@@ -213,7 +225,14 @@ With no arguments, the npm wrapper starts the MCP server by default:
 npx @techsologic/unolock-agent-mcp@latest
 ```
 
-Preferred keep-alive example with `mcporter`:
+Preferred first-party local example:
+
+```bash
+unolock-agent-mcp start
+unolock-agent-mcp call unolock_get_registration_status
+```
+
+Compatibility example with `mcporter`:
 
 ```json
 {
