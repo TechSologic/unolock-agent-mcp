@@ -198,7 +198,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "mcp":
         server = create_mcp_server()
-        server.run(args.transport)
+        server.run(getattr(args, "transport", "stdio"))
         return 0
 
     if command == "_daemon":
