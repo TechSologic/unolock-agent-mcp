@@ -210,7 +210,7 @@ async function ensureBinary() {
 
 async function main() {
   const { dest, releaseVersion } = await ensureBinary();
-  const forwardedArgs = process.argv.length > 2 ? process.argv.slice(2) : ["mcp"];
+  const forwardedArgs = process.argv.length > 2 ? process.argv.slice(2) : [];
   const child = spawn(dest, forwardedArgs, {
     stdio: "inherit",
     env: {

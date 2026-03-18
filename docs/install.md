@@ -86,7 +86,7 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest mcp
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 For the first-party local daemon flow, use:
@@ -230,7 +230,7 @@ Expected provider on macOS when the host is working:
 Then configure your MCP host to launch:
 
 ```bash
-unolock-agent-mcp mcp
+unolock-agent-mcp
 ```
 
 The agent should then ask the user for the UnoLock Agent Key URL and optional PIN.
@@ -260,7 +260,7 @@ pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 After install, the MCP command is:
 
 ```bash
-unolock-agent-mcp mcp
+unolock-agent-mcp
 ```
 
 Useful extra command:
@@ -330,7 +330,7 @@ python3 -c "import oqs; print('liboqs-python ok')"
 Once installed, configure your MCP host to run:
 
 ```bash
-unolock-agent-mcp mcp
+unolock-agent-mcp
 ```
 
 See:

@@ -3,9 +3,6 @@
     "unolock-agent": {
       "type": "stdio",
       "command": "unolock-agent-mcp",
-      "args": [
-        "mcp"
-      ],
       "env": {
         "UNOLOCK_TPM_PROVIDER": "auto"
       }

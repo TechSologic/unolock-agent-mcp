@@ -194,7 +194,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    command = args.command or "probe"
+    command = args.command or "mcp"
 
     if command == "mcp":
         server = create_mcp_server()
@@ -322,7 +322,7 @@ def main(argv: list[str] | None = None) -> int:
                     "unolock-agent": {
                         "type": "stdio",
                         "command": args.binary_path,
-                        "args": ["mcp"],
+                        "args": [],
                         "lifecycle": "keep-alive",
                     }
                 }
@@ -469,7 +469,7 @@ def probe_main() -> int:
 def mcp_main() -> int:
     if len(sys.argv) > 1 and sys.argv[1] in {"--help", "-h", "--version"}:
         return main(sys.argv[1:])
-    return main(["mcp", *sys.argv[1:]])
+    return main(sys.argv[1:])
 
 
 def tpm_check_main() -> int:

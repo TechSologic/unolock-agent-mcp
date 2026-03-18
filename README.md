@@ -159,7 +159,7 @@ git clone https://github.com/TechSologic/unolock-agent-mcp.git
 cd unolock-agent-mcp
 python3 -m pip install --user -e .
 unolock-agent-probe probe
-unolock-agent-mcp mcp
+unolock-agent-mcp
 python3 -m unolock_mcp tpm-diagnose
 unolock-agent-tpm-check
 unolock-agent-self-test
@@ -216,7 +216,7 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest mcp
+npx @techsologic/unolock-agent-mcp@latest
 ```
 
 With no arguments, the npm wrapper starts the MCP server by default:

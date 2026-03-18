@@ -18,13 +18,13 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(result, 0)
         main_mock.assert_called_once_with(["--version"])
 
-    def test_mcp_main_defaults_to_mcp_subcommand(self) -> None:
+    def test_mcp_main_passes_through_empty_argv(self) -> None:
         with patch.object(cli, "main", return_value=0) as main_mock:
             with patch("sys.argv", ["unolock-agent-mcp"]):
                 result = cli.mcp_main()
 
         self.assertEqual(result, 0)
-        main_mock.assert_called_once_with(["mcp"])
+        main_mock.assert_called_once_with([])
 
     def test_tpm_check_main_defaults_to_tpm_check_subcommand(self) -> None:
         with patch.object(cli, "main", return_value=0) as main_mock:
@@ -238,7 +238,7 @@ class CliEntryPointTest(unittest.TestCase):
         payload = json.loads(print_mock.call_args.args[0])
         self.assertEqual(payload["mcpServers"]["unolock-agent"]["type"], "stdio")
         self.assertEqual(payload["mcpServers"]["unolock-agent"]["command"], "/opt/unolock-agent-mcp")
-        self.assertEqual(payload["mcpServers"]["unolock-agent"]["args"], ["mcp"])
+        self.assertEqual(payload["mcpServers"]["unolock-agent"]["args"], [])
         self.assertEqual(payload["mcpServers"]["unolock-agent"]["lifecycle"], "keep-alive")
 
     def test_check_update_json_uses_update_status_helper(self) -> None:

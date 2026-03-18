@@ -174,7 +174,6 @@ Example snippet:
   "mcpServers": {
     "unolock-agent": {
       "command": "/home/you/.local/bin/unolock-agent-mcp",
-      "args": ["mcp"],
       "env": {
         "UNOLOCK_TPM_PROVIDER": "auto"
       }
@@ -205,7 +204,6 @@ Example snippet:
     "unolock-agent": {
       "type": "stdio",
       "command": "unolock-agent-mcp",
-      "args": ["mcp"],
       "env": {
         "UNOLOCK_TPM_PROVIDER": "auto"
       }
@@ -222,7 +220,6 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
     "unolock-agent": {
       "type": "stdio",
       "command": "${env:HOME}/.local/bin/unolock-agent-mcp",
-      "args": ["mcp"],
       "env": {
         "UNOLOCK_TPM_PROVIDER": "auto"
       }

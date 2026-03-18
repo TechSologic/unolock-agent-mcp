@@ -62,7 +62,7 @@ For normal UnoLock cloud-service use, no UnoLock-specific runtime configuration 
 Your MCP host should launch:
 
 ```bash
-unolock-agent-mcp mcp
+unolock-agent-mcp
 ```
 
 See:
