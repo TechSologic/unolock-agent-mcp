@@ -257,7 +257,7 @@ class _FakeAgentAuthForAutoSession:
             "session": session.summary(),
         }
 
-    def advance_session(self, _session_id: str) -> dict[str, object]:
+    def advance_active_flow(self) -> dict[str, object]:
         return {
             "ok": False,
             "authorized": False,

@@ -13,7 +13,6 @@ class UnoLockApiClient:
 
     def call_action(
         self,
-        session_id: str,
         *,
         action: str,
         request: Any | None = None,
@@ -21,7 +20,7 @@ class UnoLockApiClient:
         reason: str | None = None,
         message: list[str] | None = None,
     ) -> dict[str, Any]:
-        session = self._session_store.get(session_id)
+        session = self._session_store.get()
         updated_session, callback = self._flow_client.call_api(
             session,
             action=action,
@@ -36,38 +35,35 @@ class UnoLockApiClient:
             "callback": callback.to_payload(),
         }
 
-    def get_spaces(self, session_id: str) -> dict[str, Any]:
-        return self.call_action(session_id, action="GetSpaces")
+    def get_spaces(self) -> dict[str, Any]:
+        return self.call_action(action="GetSpaces")
 
-    def get_archives(self, session_id: str) -> dict[str, Any]:
-        return self.call_action(session_id, action="GetArchives")
+    def get_archives(self) -> dict[str, Any]:
+        return self.call_action(action="GetArchives")
 
-    def get_regional_download_url(self, session_id: str, archive_id: str) -> dict[str, Any]:
+    def get_regional_download_url(self, archive_id: str) -> dict[str, Any]:
         return self.call_action(
-            session_id,
             action="GetRegionalDownloadUrl",
             request={"archiveID": archive_id},
         )
 
-    def get_download_url(self, session_id: str, archive_id: str) -> dict[str, Any]:
+    def get_download_url(self, archive_id: str) -> dict[str, Any]:
         return self.call_action(
-            session_id,
             action="GetDownloadUrl",
             request={"archiveID": archive_id},
         )
 
-    def update_archive(self, session_id: str, archive: dict[str, Any]) -> dict[str, Any]:
-        return self.call_action(session_id, action="UpdateArchive", request=archive)
+    def update_archive(self, archive: dict[str, Any]) -> dict[str, Any]:
+        return self.call_action(action="UpdateArchive", request=archive)
 
-    def create_archive(self, session_id: str, archive: dict[str, Any]) -> dict[str, Any]:
-        return self.call_action(session_id, action="CreateArchive", request=archive)
+    def create_archive(self, archive: dict[str, Any]) -> dict[str, Any]:
+        return self.call_action(action="CreateArchive", request=archive)
 
-    def delete_archive(self, session_id: str, archive_id: str) -> dict[str, Any]:
-        return self.call_action(session_id, action="DeleteArchive", request=archive_id)
+    def delete_archive(self, archive_id: str) -> dict[str, Any]:
+        return self.call_action(action="DeleteArchive", request=archive_id)
 
     def get_upload_put_url(
         self,
-        session_id: str,
         archive_id: str,
         md5_b64: str,
         current_etag: str | None = None,
@@ -78,21 +74,19 @@ class UnoLockApiClient:
             request["currentEtag"] = current_etag
         if new_etag:
             request["newEtag"] = new_etag
-        return self.call_action(session_id, action="GetUploadPutUrl", request=request)
+        return self.call_action(action="GetUploadPutUrl", request=request)
 
-    def get_upload_post_object(self, session_id: str, archive_id: str) -> dict[str, Any]:
-        return self.call_action(session_id, action="GetUploadPostObject", request=archive_id)
+    def get_upload_post_object(self, archive_id: str) -> dict[str, Any]:
+        return self.call_action(action="GetUploadPostObject", request=archive_id)
 
-    def init_archive_upload(self, session_id: str, archive_id: str, md5_b64: str) -> dict[str, Any]:
+    def init_archive_upload(self, archive_id: str, md5_b64: str) -> dict[str, Any]:
         return self.call_action(
-            session_id,
             action="InitArchiveUpload",
             request={"archiveID": archive_id, "md5": md5_b64},
         )
 
     def get_archive_upload_url(
         self,
-        session_id: str,
         *,
         archive_id: str,
         part_number: int,
@@ -100,7 +94,6 @@ class UnoLockApiClient:
         md5_b64: str,
     ) -> dict[str, Any]:
         return self.call_action(
-            session_id,
             action="GetArchiveUploadUrl",
             request={
                 "archiveID": archive_id,
@@ -112,7 +105,6 @@ class UnoLockApiClient:
 
     def complete_archive_upload(
         self,
-        session_id: str,
         *,
         archive_id: str,
         upload_id: str,
@@ -120,7 +112,6 @@ class UnoLockApiClient:
         parts: list[dict[str, Any]],
     ) -> dict[str, Any]:
         return self.call_action(
-            session_id,
             action="CompleteArchiveUpload",
             request={
                 "archiveID": archive_id,
@@ -130,9 +121,8 @@ class UnoLockApiClient:
             },
         )
 
-    def abort_multipart_upload(self, session_id: str, *, archive_id: str, upload_id: str) -> dict[str, Any]:
+    def abort_multipart_upload(self, *, archive_id: str, upload_id: str) -> dict[str, Any]:
         return self.call_action(
-            session_id,
             action="AbortMultipartUpload",
             request={"archiveID": archive_id, "uploadId": upload_id},
         )

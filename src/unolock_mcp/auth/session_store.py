@@ -23,16 +23,12 @@ class SessionStore:
             self._auth_context = copy.deepcopy(stored.current_callback.result)
         return stored
 
-    def get(self, session_id: str | None = None) -> FlowSession:
+    def get(self) -> FlowSession:
         if self._active_session is None:
             raise KeyError("No active flow is available")
-        if session_id and session_id != self.ACTIVE_SESSION_ID:
-            raise KeyError(f"Unknown session_id: {session_id}")
         return self._active_session
 
-    def delete(self, session_id: str) -> None:
-        if session_id != self.ACTIVE_SESSION_ID:
-            return
+    def delete(self) -> None:
         self._active_session = None
         self._records_archive_snapshots.clear()
         self._auth_context = None
@@ -57,44 +53,36 @@ class SessionStore:
             return False
         return True
 
-    def get_auth_context(self, session_id: str | None = None) -> dict:
-        if session_id and session_id != self.ACTIVE_SESSION_ID:
-            raise KeyError(f"Unknown auth context for session_id={session_id}")
+    def get_auth_context(self) -> dict:
         if self._auth_context is None:
             raise KeyError("No active auth context is available")
         return copy.deepcopy(self._auth_context)
 
-    def put_records_archive_snapshot(self, session_id: str, archive_id: str, snapshot: dict) -> None:
-        if session_id != self.ACTIVE_SESSION_ID:
-            raise KeyError(f"Unknown session_id: {session_id}")
+    def put_records_archive_snapshot(self, archive_id: str, snapshot: dict) -> None:
         stored = copy.deepcopy(snapshot)
         stored["cached_at"] = time.time()
         self._records_archive_snapshots[archive_id] = stored
 
     def get_records_archive_snapshot(
         self,
-        session_id: str,
         archive_id: str,
         *,
         max_age_seconds: int | None = None,
         now: float | None = None,
     ) -> dict:
-        if session_id != self.ACTIVE_SESSION_ID:
-            raise KeyError(f"Unknown session_id: {session_id}")
         try:
             snapshot = self._records_archive_snapshots[archive_id]
         except KeyError as exc:
-            raise KeyError(f"Unknown cached records archive for session_id={session_id} archive_id={archive_id}") from exc
+            raise KeyError(f"Unknown cached records archive for archive_id={archive_id}") from exc
         if max_age_seconds is not None:
             cached_at = snapshot.get("cached_at")
             current_time = time.time() if now is None else now
             if not isinstance(cached_at, (int, float)) or current_time - float(cached_at) > max_age_seconds:
-                raise KeyError(f"Stale cached records archive for session_id={session_id} archive_id={archive_id}")
+                raise KeyError(f"Stale cached records archive for archive_id={archive_id}")
         return copy.deepcopy(snapshot)
 
     def update(
         self,
-        session_id: str,
         *,
         state: str | None = None,
         current_callback: CallbackAction | None = None,
@@ -102,7 +90,7 @@ class SessionStore:
         last_nonce: str | None = None,
         authorized: bool | None = None,
     ) -> FlowSession:
-        session = self.get(session_id)
+        session = self.get()
         updated = replace(
             session,
             state=session.state if state is None else state,

@@ -253,7 +253,7 @@ class AgentAuthClient:
             summary["security_warning"] = warning
         return summary
 
-    def get_keyring_for_session(self, session_id: str | None = None) -> SafeKeyringManager:
+    def get_active_keyring(self) -> SafeKeyringManager:
         session = self._session_store.get()
         registration = self._load_registration()
         access_id = self._resolve_access_id(registration, session.current_callback, session)
@@ -280,7 +280,7 @@ class AgentAuthClient:
         flow = registration.connection_url.flow or "agentRegister"
         session = flow_client.start(flow=flow)
         self._session_store.put(session)
-        result = self._advance_session()
+        result = self._advance_active_flow()
         warning = self._insecure_provider_warning()
         if warning is not None:
             result["security_warning"] = warning
@@ -305,16 +305,16 @@ class AgentAuthClient:
 
         session = flow_client.start(flow="agentAccess")
         self._session_store.put(session)
-        result = self._advance_session()
+        result = self._advance_active_flow()
         warning = self._insecure_provider_warning()
         if warning is not None:
             result["security_warning"] = warning
         return result
 
-    def advance_session(self, session_id: str | None = None) -> dict[str, Any]:
-        return self._advance_session(session_id)
+    def advance_active_flow(self) -> dict[str, Any]:
+        return self._advance_active_flow()
 
-    def _advance_session(self, session_id: str | None = None) -> dict[str, Any]:
+    def _advance_active_flow(self) -> dict[str, Any]:
         flow_client = self.require_flow_client()
         session = self._session_store.get()
         registration = self._load_registration()

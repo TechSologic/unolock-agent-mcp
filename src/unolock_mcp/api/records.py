@@ -30,7 +30,7 @@ class _UnoLockRecordsBase:
         self._session_store = session_store
 
     def _load_spaces(self, session_id: str, keyring) -> dict[int, dict[str, Any]]:
-        response = self._api_client.get_spaces(session_id)
+        response = self._api_client.get_spaces()
         spaces = self._unwrap_result_list(
             self._extract_result(response, expected_type="GetSpaces"),
             list_key="spaces",
@@ -52,7 +52,7 @@ class _UnoLockRecordsBase:
         return resolved
 
     def _load_archives(self, session_id: str, keyring) -> list[dict[str, Any]]:
-        response = self._api_client.get_archives(session_id)
+        response = self._api_client.get_archives()
         archives = self._unwrap_result_list(
             self._extract_result(response, expected_type="GetArchives"),
             list_key="archives",
@@ -87,10 +87,10 @@ class _UnoLockRecordsBase:
         archive_id = str(archive.get("id", ""))
         transfer_mode = str(metadata.get("tr", "post"))
         if transfer_mode == "lput":
-            response = self._api_client.get_download_url(session_id, archive_id)
+            response = self._api_client.get_download_url(archive_id)
             url = self._extract_result(response, expected_type="GetDownloadUrl")
         else:
-            response = self._api_client.get_regional_download_url(session_id, archive_id)
+            response = self._api_client.get_regional_download_url(archive_id)
             url = self._extract_result(response, expected_type="GetRegionalDownloadUrl")
 
         if not isinstance(url, str) or not url:
@@ -275,7 +275,6 @@ class _UnoLockRecordsBase:
         if not archive_id:
             return
         self._session_store.put_records_archive_snapshot(
-            session_id,
             archive_id,
             {
                 "archive": archive,
@@ -296,7 +295,6 @@ class _UnoLockRecordsBase:
         if self._session_store is None:
             raise KeyError("No records archive cache is configured")
         return self._session_store.get_records_archive_snapshot(
-            session_id,
             archive_id,
             max_age_seconds=max_age_seconds,
         )
@@ -305,7 +303,7 @@ class _UnoLockRecordsBase:
         if self._session_store is None or not session_id:
             return {}
         try:
-            auth_context = self._session_store.get_auth_context(session_id)
+            auth_context = self._session_store.get_auth_context()
         except KeyError:
             return {}
         return auth_context if isinstance(auth_context, dict) else {}
@@ -396,7 +394,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
             raise ValueError("kind must be one of: all, note, checklist")
         normalized_label = label.strip().lower() if isinstance(label, str) and label.strip() else None
 
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archives = self._load_archives(session_id, keyring)
         records: list[dict[str, Any]] = []
@@ -436,7 +434,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
         }
 
     def list_spaces(self, session_id: str) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archives = self._load_archives(session_id, keyring)
         summaries: dict[int, dict[str, Any]] = {}
@@ -519,7 +517,7 @@ class UnoLockReadonlyRecordsClient(_UnoLockRecordsBase):
 
     def get_record(self, session_id: str, record_ref: str) -> dict[str, Any]:
         archive_id, record_id = self._parse_record_ref(record_ref)
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archives = {archive["id"]: archive for archive in self._load_archives(session_id, keyring)}
         archive = archives.get(archive_id)
@@ -685,7 +683,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                     continue
                 raise
 
-            keyring = self._agent_auth.get_keyring_for_session(session_id)
+            keyring = self._agent_auth.get_active_keyring()
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
@@ -766,7 +764,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                     continue
                 raise
 
-            keyring = self._agent_auth.get_keyring_for_session(session_id)
+            keyring = self._agent_auth.get_active_keyring()
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
@@ -838,7 +836,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                     continue
                 raise
 
-            keyring = self._agent_auth.get_keyring_for_session(session_id)
+            keyring = self._agent_auth.get_active_keyring()
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
@@ -890,7 +888,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                     continue
                 raise
 
-            keyring = self._agent_auth.get_keyring_for_session(session_id)
+            keyring = self._agent_auth.get_active_keyring()
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
@@ -941,7 +939,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                     continue
                 raise
 
-            keyring = self._agent_auth.get_keyring_for_session(session_id)
+            keyring = self._agent_auth.get_active_keyring()
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
@@ -1001,7 +999,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
                 if "conflict" in str(exc).lower():
                     continue
                 raise
-            keyring = self._agent_auth.get_keyring_for_session(session_id)
+            keyring = self._agent_auth.get_active_keyring()
             spaces = self._load_spaces(session_id, keyring)
             return {
                 "ok": True,
@@ -1010,7 +1008,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         raise ValueError("write_conflict_requires_reread: Read the target space or record again and retry with the latest version.")
 
     def _load_write_context(self, session_id: str, space_id: int) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archives = self._load_archives(session_id, keyring)
         archive = next(
@@ -1035,7 +1033,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
         }
 
     def _load_write_context_for_archive(self, session_id: str, archive_id: str) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         archives = self._load_archives(session_id, keyring)
         archive = next(
             (
@@ -1060,7 +1058,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
     def _get_cached_write_context_for_archive(self, session_id: str, archive_id: str) -> dict[str, Any]:
         self._ensure_session_writable(session_id)
         snapshot = self._get_cached_records_archive_snapshot(session_id, archive_id)
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         return {
             "archive": snapshot["archive"],
             "body": snapshot["body"],
@@ -1159,7 +1157,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             next_metadata["kek"] = updated_kek
             next_archive["m"] = next_metadata
             self._extract_result(
-                self._api_client.update_archive(session_id, next_archive),
+                self._api_client.update_archive(next_archive),
                 expected_type="UpdateArchive",
             )
             archive["m"] = next_metadata
@@ -1173,7 +1171,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
 
         if transfer_mode == "post":
             upload_object = self._extract_result(
-                self._api_client.get_upload_post_object(session_id, str(archive.get("id", ""))),
+                self._api_client.get_upload_post_object(str(archive.get("id", ""))),
                 expected_type="GetUploadPostObject",
             )
             if not isinstance(upload_object, dict):
@@ -1202,9 +1200,7 @@ class UnoLockWritableRecordsClient(_UnoLockRecordsBase):
             context["etag"] = new_etag
         elif transfer_mode == "lput":
             upload_url = self._extract_result(
-                self._api_client.get_upload_put_url(
-                    session_id,
-                    archive_id=str(archive.get("id", "")),
+                self._api_client.get_upload_put_url(archive_id=str(archive.get("id", "")),
                     md5_b64=md5_b64,
                     current_etag=current_etag,
                     new_etag=new_etag,

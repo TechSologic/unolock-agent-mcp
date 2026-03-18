@@ -34,9 +34,9 @@ class UnoLockApiClientTest(unittest.TestCase):
         self.session_store.get.return_value = self.session
         self.flow_client.call_api.return_value = (self.updated_session, self.callback)
 
-        result = self.client.call_action("session-1", action="GetSpaces", request={"x": 1})
+        result = self.client.call_action(action="GetSpaces", request={"x": 1})
 
-        self.session_store.get.assert_called_once_with("session-1")
+        self.session_store.get.assert_called_once_with()
         self.flow_client.call_api.assert_called_once_with(
             self.session,
             action="GetSpaces",
@@ -53,7 +53,6 @@ class UnoLockApiClientTest(unittest.TestCase):
         self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
 
         result = self.client.get_upload_put_url(
-            "session-1",
             "archive-1",
             "md5-b64",
             current_etag='"old"',
@@ -61,7 +60,6 @@ class UnoLockApiClientTest(unittest.TestCase):
         )
 
         self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
-            "session-1",
             action="GetUploadPutUrl",
             request={"archiveID": "archive-1", "md5": "md5-b64", "currentEtag": '"old"', "newEtag": '"new"'},
         )
@@ -70,10 +68,9 @@ class UnoLockApiClientTest(unittest.TestCase):
     def test_get_upload_post_object_uses_archive_id_request(self) -> None:
         self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
 
-        self.client.get_upload_post_object("session-1", "archive-9")
+        self.client.get_upload_post_object("archive-9")
 
         self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
-            "session-1",
             action="GetUploadPostObject",
             request="archive-9",
         )
@@ -82,10 +79,9 @@ class UnoLockApiClientTest(unittest.TestCase):
         self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
 
         archive = {"t": "Cloud", "m": "encrypted-meta", "l": "17", "sid": 123}
-        self.client.create_archive("session-1", archive)
+        self.client.create_archive(archive)
 
         self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
-            "session-1",
             action="CreateArchive",
             request=archive,
         )
@@ -93,10 +89,9 @@ class UnoLockApiClientTest(unittest.TestCase):
     def test_init_archive_upload_uses_expected_request_shape(self) -> None:
         self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
 
-        self.client.init_archive_upload("session-1", "archive-9", "md5-b64")
+        self.client.init_archive_upload("archive-9", "md5-b64")
 
         self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
-            "session-1",
             action="InitArchiveUpload",
             request={"archiveID": "archive-9", "md5": "md5-b64"},
         )
@@ -105,7 +100,6 @@ class UnoLockApiClientTest(unittest.TestCase):
         self.client.call_action = Mock(return_value={"ok": True})  # type: ignore[method-assign]
 
         self.client.complete_archive_upload(
-            "session-1",
             archive_id="archive-9",
             upload_id="upload-1",
             metadata="encrypted-meta",
@@ -113,7 +107,6 @@ class UnoLockApiClientTest(unittest.TestCase):
         )
 
         self.client.call_action.assert_called_once_with(  # type: ignore[attr-defined]
-            "session-1",
             action="CompleteArchiveUpload",
             request={
                 "archiveID": "archive-9",

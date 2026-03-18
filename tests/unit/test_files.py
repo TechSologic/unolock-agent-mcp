@@ -9,16 +9,26 @@ from unittest.mock import Mock, patch
 from unolock_mcp.api.files import UnoLockReadonlyFilesClient, UnoLockWritableFilesClient
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.crypto.safe_keyring import SafeKeyringManager
+from unolock_mcp.domain.models import CallbackAction, FlowSession
 
 
 class UnoLockFilesClientTest(unittest.TestCase):
     def setUp(self) -> None:
         self.session_store = SessionStore()
-        self.session_store._auth_contexts["session-1"] = {"ro": False}
+        self.session_store.put(
+            FlowSession(
+                session_id="session-1",
+                flow="agentAccess",
+                state="state",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="SUCCESS", result={"ro": False}),
+                authorized=True,
+            )
+        )
         self.keyring = SafeKeyringManager()
         self.keyring.init_with_safe_access_master_key(b"1" * 32)
         self.agent_auth = Mock()
-        self.agent_auth.get_keyring_for_session.return_value = self.keyring
+        self.agent_auth.get_active_keyring.return_value = self.keyring
         self.api_client = Mock()
         self.api_client.http_client = Mock()
         self.readonly_client = UnoLockReadonlyFilesClient(self.api_client, self.agent_auth, self.session_store)
@@ -198,7 +208,16 @@ class UnoLockFilesClientTest(unittest.TestCase):
             self.readonly_client.get_file("session-1", "msg-1")
 
     def test_upload_file_rejects_read_only_session(self) -> None:
-        self.session_store._auth_contexts["session-1"] = {"ro": True}
+        self.session_store.put(
+            FlowSession(
+                session_id="session-1",
+                flow="agentAccess",
+                state="state",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="SUCCESS", result={"ro": True}),
+                authorized=True,
+            )
+        )
 
         with tempfile.TemporaryDirectory() as tmpdir:
             source_path = Path(tmpdir) / "payload.bin"
@@ -347,7 +366,7 @@ class UnoLockFilesClientTest(unittest.TestCase):
                 )
 
         self.api_client.abort_multipart_upload.assert_called_once()
-        self.api_client.delete_archive.assert_called_once_with("session-1", archive_id)
+        self.api_client.delete_archive.assert_called_once_with(archive_id)
 
     def test_rename_file_updates_cloud_metadata(self) -> None:
         archive_id = "cloud-1"
@@ -392,7 +411,7 @@ class UnoLockFilesClientTest(unittest.TestCase):
 
         self.assertTrue(result["ok"])
         self.assertEqual(result["file"]["name"], "renamed.txt")
-        update_request = self.api_client.update_archive.call_args.args[1]
+        update_request = self.api_client.update_archive.call_args.args[0]
         self.assertEqual(update_request["m"]["name"], "renamed.txt")
 
     def test_delete_file_removes_cloud_archive(self) -> None:
@@ -422,7 +441,7 @@ class UnoLockFilesClientTest(unittest.TestCase):
         self.assertTrue(result["ok"])
         self.assertTrue(result["deleted"])
         self.assertEqual(result["file"]["archive_id"], archive_id)
-        self.api_client.delete_archive.assert_called_once_with("session-1", archive_id)
+        self.api_client.delete_archive.assert_called_once_with(archive_id)
 
     def test_replace_file_reuses_existing_cloud_archive(self) -> None:
         archive_id = "cloud-1"
@@ -520,7 +539,7 @@ class UnoLockFilesClientTest(unittest.TestCase):
         self.assertEqual(result["file"]["archive_id"], archive_id)
         self.api_client.create_archive.assert_not_called()
         self.api_client.delete_archive.assert_not_called()
-        update_request = self.api_client.update_archive.call_args.args[1]
+        update_request = self.api_client.update_archive.call_args.args[0]
         self.assertEqual(update_request["id"], archive_id)
         self.assertEqual(update_request["fs"], len(file_bytes))
         self.assertEqual(update_request["m"]["name"], "replacement.bin")

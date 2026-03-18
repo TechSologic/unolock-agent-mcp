@@ -375,7 +375,7 @@ class AgentAuthClientTest(unittest.TestCase):
             client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
             client._load_registration_material = Mock(return_value={"access_id": "access-123", "registration_code": "code-123"})  # type: ignore[method-assign]
 
-            result = client._advance_session("session-1")
+            result = client._advance_active_flow()
 
             self.assertFalse(result["ok"])
             self.assertEqual(result["reason"], "agent_key_invalid_or_consumed")

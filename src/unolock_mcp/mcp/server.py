@@ -366,7 +366,7 @@ def create_mcp_server() -> FastMCP:
 
         while True:
             if session_store.has_active_flow(incomplete_only=True):
-                pending_result = agent_auth.advance_session(SessionStore.ACTIVE_SESSION_ID)
+                pending_result = agent_auth.advance_active_flow()
                 if pending_result.get("ok") and pending_result.get("authorized") and pending_result.get("completed"):
                     pending_flow = pending_result.get("session") or {}
                     if pending_flow.get("flow") == "agentAccess":
@@ -824,7 +824,7 @@ def create_mcp_server() -> FastMCP:
     def continue_agent_session() -> dict[str, Any]:
         try:
             ensure_flow_client()
-            return _strip_session_ids(agent_auth.advance_session(SessionStore.ACTIVE_SESSION_ID))
+            return _strip_session_ids(agent_auth.advance_active_flow())
         except (ValueError, KeyError) as exc:
             return _tool_error_response(exc)
 
@@ -936,7 +936,7 @@ def create_mcp_server() -> FastMCP:
             description="Advanced/debug: clear the current in-memory UnoLock auth-flow state.",
         )
         def delete_session() -> dict[str, Any]:
-            session_store.delete(SessionStore.ACTIVE_SESSION_ID)
+            session_store.delete()
             return {"deleted": "active"}
 
         @server.tool(

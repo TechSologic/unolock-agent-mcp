@@ -13,7 +13,7 @@ from unolock_mcp.api.records import _UnoLockRecordsBase
 
 class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
     def list_files(self, session_id: str, *, space_id: int | None = None) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archives = self._load_archives(session_id, keyring)
         files: list[dict[str, Any]] = []
@@ -34,7 +34,7 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
         }
 
     def get_file(self, session_id: str, archive_id: str) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
         return self._project_cloud_file(archive, spaces, session_id=session_id)
@@ -47,7 +47,7 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
         output_path: str,
         overwrite: bool = False,
     ) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         spaces = self._load_spaces(session_id, keyring)
         archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
         projected = self._project_cloud_file(archive, spaces, session_id=session_id)
@@ -61,7 +61,7 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
             raise ValueError("invalid_input: output_path parent directory does not exist.")
 
         signed_url = self._extract_result(
-            self._api_client.get_download_url(session_id, archive_id),
+            self._api_client.get_download_url(archive_id),
             expected_type="GetDownloadUrl",
         )
         if not isinstance(signed_url, str) or not signed_url:
@@ -169,7 +169,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         mime_type: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_session_writable(session_id)
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         archives = self._load_archives(session_id, keyring)
         location_id = self._resolve_cloud_upload_location(space_id, archives)
         if not location_id:
@@ -196,7 +196,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         if not new_name:
             raise ValueError("invalid_input: name must not be empty.")
 
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
         metadata = dict(archive.get("m") if isinstance(archive.get("m"), dict) else {})
         metadata["name"] = new_name
@@ -204,7 +204,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         updated_archive = dict(archive)
         updated_archive["m"] = metadata
         self._extract_result(
-            self._api_client.update_archive(session_id, updated_archive),
+            self._api_client.update_archive(updated_archive),
             expected_type="UpdateArchive",
         )
         return {
@@ -214,12 +214,12 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
 
     def delete_file(self, session_id: str, *, archive_id: str) -> dict[str, Any]:
         self._ensure_session_writable(session_id)
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
         spaces = self._load_spaces(session_id, keyring)
         projected = self._project_cloud_file(archive, spaces, session_id=session_id)
         self._extract_result(
-            self._api_client.delete_archive(session_id, archive_id),
+            self._api_client.delete_archive(archive_id),
             expected_type="DeleteArchive",
         )
         return {
@@ -238,7 +238,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         mime_type: str | None = None,
     ) -> dict[str, Any]:
         self._ensure_session_writable(session_id)
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         archive = self._require_cloud_archive(session_id, archive_id, keyring=keyring)
         location_id = str(archive.get("l", "")).strip() or None
         if not location_id or location_id == "Local":
@@ -267,7 +267,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         mime_type: str | None,
         existing_archive: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        keyring = self._agent_auth.get_keyring_for_session(session_id)
+        keyring = self._agent_auth.get_active_keyring()
         source_path = Path(local_path).expanduser()
         if not source_path.exists() or not source_path.is_file():
             raise ValueError("invalid_input: local_path must point to an existing file.")
@@ -316,7 +316,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                 updated_archive["fs"] = file_size
                 updated_archive["m"] = archive_metadata
                 self._extract_result(
-                    self._api_client.update_archive(session_id, updated_archive),
+                    self._api_client.update_archive(updated_archive),
                     expected_type="UpdateArchive",
                 )
             parts: list[dict[str, Any]] = []
@@ -339,7 +339,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                     md5_b64 = base64.b64encode(hashlib.md5(encrypted_chunk).digest()).decode("ascii")
                     if part_number == 1:
                         init_result = self._extract_result(
-                            self._api_client.init_archive_upload(session_id, archive_id, md5_b64),
+                            self._api_client.init_archive_upload(archive_id, md5_b64),
                             expected_type="InitArchiveUpload",
                         )
                         if not isinstance(init_result, dict):
@@ -348,9 +348,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                         signed_url = init_result.get("signedUrl")
                     else:
                         signed_url = self._extract_result(
-                            self._api_client.get_archive_upload_url(
-                                session_id,
-                                archive_id=archive_id,
+                            self._api_client.get_archive_upload_url(archive_id=archive_id,
                                 part_number=part_number,
                                 upload_id=upload_id,
                                 md5_b64=md5_b64,
@@ -375,9 +373,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                     part_number += 1
 
             complete_result = self._extract_result(
-                self._api_client.complete_archive_upload(
-                    session_id,
-                    archive_id=archive_id,
+                self._api_client.complete_archive_upload(archive_id=archive_id,
                     upload_id=upload_id,
                     metadata=keyring.encrypt_string(json.dumps(archive_metadata, separators=(",", ":")), sid=space_id),
                     parts=parts,
@@ -395,9 +391,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
             if archive_id and upload_id and not upload_completed:
                 try:
                     self._extract_result(
-                        self._api_client.abort_multipart_upload(
-                            session_id,
-                            archive_id=archive_id,
+                        self._api_client.abort_multipart_upload(archive_id=archive_id,
                             upload_id=upload_id,
                         ),
                         expected_type="AbortMultipartUpload",
@@ -407,7 +401,7 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
             if archive_id and not upload_completed and existing_archive is None:
                 try:
                     self._extract_result(
-                        self._api_client.delete_archive(session_id, archive_id),
+                        self._api_client.delete_archive(archive_id),
                         expected_type="DeleteArchive",
                     )
                 except Exception:

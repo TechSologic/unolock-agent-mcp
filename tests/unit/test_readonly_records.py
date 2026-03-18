@@ -88,7 +88,16 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         self.assertEqual(projected["allowed_operations"], ["get_record"])
 
     def test_string_false_record_ro_does_not_make_record_read_only(self) -> None:
-        self.session_store._auth_contexts["session-1"] = {"ro": False}
+        self.session_store.put(
+            FlowSession(
+                session_id="session-1",
+                flow="agentAccess",
+                state="state",
+                shared_secret=b"secret",
+                current_callback=CallbackAction(type="SUCCESS", result={"ro": False}),
+                authorized=True,
+            )
+        )
         projected = self.client._project_record(
             {
                 "id": 13,
@@ -131,7 +140,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         keyring = SafeKeyringManager()
         keyring.init_with_safe_access_master_key(b"1" * 32)
         agent_auth = Mock()
-        agent_auth.get_keyring_for_session.return_value = keyring
+        agent_auth.get_active_keyring.return_value = keyring
         api_client = Mock()
         client = UnoLockReadonlyRecordsClient(api_client, agent_auth, self.session_store)
 
@@ -160,9 +169,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
                 ],
             },
         }
-        self.session_store.put_records_archive_snapshot(
-            "session-1",
-            "archive-1",
+        self.session_store.put_records_archive_snapshot("archive-1",
             {
                 "archive": {"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": "lput", "spaceName": "Main"}},
                 "body": payload,
@@ -192,7 +199,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         keyring = SafeKeyringManager()
         keyring.init_with_safe_access_master_key(b"1" * 32)
         agent_auth = Mock()
-        agent_auth.get_keyring_for_session.return_value = keyring
+        agent_auth.get_active_keyring.return_value = keyring
         api_client = Mock()
         client = UnoLockReadonlyRecordsClient(api_client, agent_auth, self.session_store)
 
@@ -246,9 +253,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
                 ],
             },
         }
-        self.session_store.put_records_archive_snapshot(
-            "session-1",
-            "archive-1",
+        self.session_store.put_records_archive_snapshot("archive-1",
             {
                 "archive": {"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": "lput", "spaceName": "Main"}},
                 "body": stale_payload,
@@ -273,9 +278,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
         api_client.http_client.get_text_with_headers_absolute.return_value = (encrypted_payload, {"ETag": '"new-etag"'})
 
         with patch("unolock_mcp.auth.session_store.time.time", return_value=1000.0):
-            self.session_store.put_records_archive_snapshot(
-                "session-1",
-                "archive-1",
+            self.session_store.put_records_archive_snapshot("archive-1",
                 {
                     "archive": {"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": "lput", "spaceName": "Main"}},
                     "body": stale_payload,
@@ -308,7 +311,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
             )
         )
         agent_auth = Mock()
-        agent_auth.get_keyring_for_session.return_value = keyring
+        agent_auth.get_active_keyring.return_value = keyring
         api_client = Mock()
         client = UnoLockReadonlyRecordsClient(api_client, agent_auth, session_store)
         payload = {
@@ -339,7 +342,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.keyring = SafeKeyringManager()
         self.keyring.init_with_safe_access_master_key(b"1" * 32)
         self.agent_auth = Mock()
-        self.agent_auth.get_keyring_for_session.return_value = self.keyring
+        self.agent_auth.get_active_keyring.return_value = self.keyring
         self.api_client = Mock()
         self.session_store = SessionStore()
         self.writer = UnoLockWritableRecordsClient(self.api_client, self.agent_auth, self.session_store)
@@ -410,9 +413,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         }
 
     def _cache_records_archive(self, payload: str, *, etag: str = '"old-etag"') -> None:
-        self.session_store.put_records_archive_snapshot(
-            "session-1",
-            "archive-1",
+        self.session_store.put_records_archive_snapshot("archive-1",
             {
                 "archive": {"id": "archive-1", "t": "Records", "sid": 101, "m": {"tr": "lput", "spaceName": "Main"}},
                 "body": json.loads(payload),
@@ -447,7 +448,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         result = self.writer.create_note("session-1", space_id=101, title="New note", text="hello world")
 
         self.assertTrue(result["ok"])
-        self.api_client.get_upload_post_object.assert_called_once_with("session-1", "archive-1")
+        self.api_client.get_upload_post_object.assert_called_once_with("archive-1")
         self.api_client.http_client.post_multipart_absolute.assert_called_once()
         self.api_client.http_client.put_bytes_absolute.assert_not_called()
         self.api_client.http_client.head_absolute.assert_called_once_with("https://head")
@@ -487,7 +488,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.writer.create_note("session-1", space_id=101, title="New note", text="hello world")
 
         uploaded_body = self.api_client.http_client.put_bytes_absolute.call_args.args[1]
-        updated_archive = self.api_client.update_archive.call_args.args[1]
+        updated_archive = self.api_client.update_archive.call_args.args[0]
 
         self.assertIsInstance(uploaded_body, bytes)
         self.assertNotEqual(updated_archive["m"]["kek"], None)
