@@ -213,7 +213,7 @@ Then configure your MCP host to launch:
 unolock-agent-mcp
 ```
 
-The agent should then ask the user for the UnoLock Agent Key URL and optional PIN.
+The agent should then ask the user for the UnoLock Agent Key URL and PIN together.
 
 ## Option 0: Install A Standalone Release Binary
 

@@ -8,30 +8,21 @@ The normal agent workflow is:
 
 1. Launch the UnoLock executable as a local `stdio` MCP.
 2. Allow extra time on the very first start on a fresh host, because local cryptographic code may need to be compiled or prepared.
-3. Ask for the one-time UnoLock Agent Key URL only if the MCP asks for it.
-4. Ask for the PIN only if the MCP asks for it.
-5. Follow the MCP's directions.
-6. Use the current Space for normal read, write, and file work.
-
-The normal agent workflow should not require:
-
-* `session_id`
-* `space_id`
-* base URLs
-* signing keys
-* app versions
+3. Ask for the one-time UnoLock Agent Key URL and PIN together when the MCP asks for setup.
+4. Follow the MCP's directions.
+5. Use the current Space for normal read, write, and file work.
 
 The MCP now keeps one current Space. If no current Space was selected yet, it auto-selects the first accessible Space and uses that as the default.
 
 ### `unolock_link_agent_key`
 
 Purpose:
-Store the one-time Agent Key URL and an optional PIN together.
+Store the one-time Agent Key URL and PIN together.
 
 Arguments:
 
 * `connection_url: str`
-* `pin: str | null`
+* `pin: str`
 
 Notes:
 
@@ -39,7 +30,7 @@ Notes:
 * The user manages the Agent Key in the UnoLock Safe web app.
 * The Agent Key URL is the one-time setup input for that Agent Key on this device.
 * After that, ongoing access uses the registered local Agent Key, not the URL itself.
-* If the key does not use a PIN, omit it.
+* The initial setup flow expects both values together.
 
 ### `unolock_set_agent_pin`
 
@@ -54,7 +45,7 @@ Notes:
 
 * PINs are strings, not numbers.
 * Valid characters are `0-9` and `a-f`.
-* After the PIN is provided, retry the original UnoLock request.
+* Use this mainly after restart or re-authentication when the MCP asks for the PIN again.
 
 ## Current Space tools
 

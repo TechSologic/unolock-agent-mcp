@@ -145,8 +145,7 @@ Useful support commands still exist for humans and debugging:
 Once the local stdio MCP is running, the normal flow is:
 
 * call normal UnoLock tools
-* provide the one-time Agent Key URL only if the MCP asks for it
-* provide the PIN only if the MCP asks for it
+* provide the one-time Agent Key URL and PIN together when the MCP asks for setup
 * let the MCP keep and use the current Space by default for normal work
 
 If you prefer manual install from source:

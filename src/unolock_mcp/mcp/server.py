@@ -43,7 +43,7 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
         "invalid_input": "Correct the input payload and retry the write operation.",
         "no_accessible_spaces": "Ask the user to share or create a UnoLock Space for this Agent Key, or issue a different Agent Key with Space access.",
         "missing_current_space": "List spaces or get the current UnoLock space so the MCP can select an accessible default space.",
-        "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_link_agent_key.",
+        "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
         "wrong_connection_url_type": "Ask the user for a UnoLock Agent Key URL in the #/agent-register/... format.",
         "session_not_found": "Authenticate again or restart the UnoLock bootstrap flow, then retry the request.",
         "runtime_metadata_missing": "Submit a UnoLock Agent Key URL from the target Safe first. If this is a non-standard deployment, confirm that deployment metadata is published correctly.",
@@ -113,8 +113,7 @@ def _registration_status_payload(
         if not runtime.get("has_agent_pin"):
             next_action = "authenticate_or_set_pin"
             guidance = (
-                "Registration is configured. If the Safe requires an agent PIN, ask the user for it and "
-                "call unolock_set_agent_pin before authenticating."
+                "Registration is configured. Ask the user for the agent PIN and call unolock_set_agent_pin before authenticating."
             )
         else:
             next_action = "authenticate_agent"
@@ -127,7 +126,7 @@ def _registration_status_payload(
         guidance = (
             "Ask the user for the one-time UnoLock Agent Key URL in the #/agent-register/... format. If they do not "
             "have one yet, ask them to open the Safe web app at https://safe.unolock.com/, create a dedicated Agent "
-            "Key, and paste the generated URL here. Ask for the agent PIN only if that key uses one."
+            "Key, and paste the generated URL here along with the PIN."
         )
     else:
         next_action = "start_registration"
@@ -210,17 +209,16 @@ def _registration_status_payload(
         ],
         "workflow_summary": [
             "Allow extra time on the first start on a fresh host, because local cryptographic code may need to be compiled or prepared.",
-            "If needed, ask the user for the one-time Agent Key URL and optional PIN together.",
+            "Ask the user for the one-time Agent Key URL and PIN together.",
             "Call the normal data tools directly and let the MCP authenticate automatically when needed.",
             "After authentication, set the current space once and let normal record/file tools use it by default.",
             "Read a space or record before writing so you have current version and allowed_operations metadata.",
             "If a write reports conflict, reread the target record and retry with the latest version.",
         ],
         "agent_behavior_rules": [
-            "Do not narrate raw internal MCP state names to the user.",
-            "Do not guess UnoLock UI menu labels or screen paths.",
-            "Do not guess that a URL expired unless the MCP reports a concrete failure.",
-            "If progress stops, report one concrete blocker and ask for one concrete next input.",
+            "Use plain user-facing wording.",
+            "Report one concrete next step.",
+            "Ask for one concrete missing input at a time.",
         ],
     })
 
@@ -530,8 +528,7 @@ def create_mcp_server() -> FastMCP:
                 "in the current space automatically and report the space_id they used."
             ),
             "agent_behavior_note": (
-                "Ask only for the Agent Key URL and, if needed, the PIN. Do not invent menu paths, expiry behavior, "
-                "or deployment internals unless the MCP reports a concrete blocker."
+                "Ask for the Agent Key URL and PIN, then follow the MCP's directions."
             ),
             "write_rule": "Read the target record first, then use record_ref, version, writable, and allowed_operations before writing.",
         }
@@ -649,8 +646,8 @@ def create_mcp_server() -> FastMCP:
                 "role": "user",
                 "content": (
                     "If UnoLock registration is not configured, ask the user to provide the UnoLock "
-                    "Agent Key URL for AI/agent registration and, if they configured one, the UnoLock "
-                    "agent PIN at the same time. The Agent Key URL is one-time-use and is only for setting up the "
+                    "Agent Key URL for AI/agent registration and the UnoLock agent PIN at the same time. "
+                    "The Agent Key URL is one-time-use and is only for setting up the "
                     "Agent Key on this device. Once registration succeeds, ongoing access uses the registered "
                     "agent key and normal authentication, not the URL itself. Once "
                     "the user gives you those values, call "
@@ -670,7 +667,7 @@ def create_mcp_server() -> FastMCP:
                 "role": "user",
                 "content": (
                     "Use UnoLock in this order: call the normal data tools directly. If registration is needed, ask the "
-                    "user for the one-time UnoLock Agent Key URL and optional PIN together, then call "
+                    "user for the one-time UnoLock Agent Key URL and PIN together, then call "
                     "unolock_link_agent_key. Treat the Agent Key URL only as the one-time input used to set up "
                     "the Agent Key on this device, not as the ongoing access credential. After registration, prefer "
                     "unolock_list_spaces, unolock_list_records, unolock_list_files, and unolock_get_record. The MCP can "
@@ -750,20 +747,18 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_link_agent_key",
         description=(
-            "Accept the one-time UnoLock Agent Key URL and an optional agent PIN together. "
-            "This is the preferred cold-start bootstrap tool. If a PIN is provided, pass it as a string "
-            "using only characters 0-9 and a-f."
+            "Accept the one-time UnoLock Agent Key URL and the agent PIN together. "
+            "This is the preferred cold-start setup tool. Pass the PIN as a string using only characters 0-9 and a-f."
         ),
     )
-    def link_agent_key(connection_url: str, pin: str | None = None) -> dict[str, Any]:
+    def link_agent_key(connection_url: str, pin: str) -> dict[str, Any]:
         status = agent_auth.submit_connection_url(connection_url)
         if status.get("ok") is False or status.get("blocked"):
             return _strip_session_ids(status)
-        if pin:
-            try:
-                status = agent_auth.set_agent_pin(pin)
-            except ValueError as exc:
-                return _tool_error_response(exc)
+        try:
+            status = agent_auth.set_agent_pin(pin)
+        except ValueError as exc:
+            return _tool_error_response(exc)
         return _strip_session_ids({
             "ok": True,
             "registration": registration_store.load().summary(),
@@ -962,7 +957,7 @@ def create_mcp_server() -> FastMCP:
                         "ok": False,
                         "reason": "missing_connection_url",
                         "status": status,
-                        "suggested_action": "Ask the user for the one-time UnoLock Agent Key URL, then call unolock_link_agent_key.",
+                        "suggested_action": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
                     }
                 if not status.get("registered"):
                     return _strip_session_ids({

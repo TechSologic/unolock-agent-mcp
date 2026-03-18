@@ -112,7 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
         "bootstrap",
         help="Advanced/manual: register or authenticate the UnoLock agent using the local registration store.",
         description=(
-            "Advanced/manual path. Use the stored UnoLock connection URL and optional PIN to "
+            "Advanced/manual path. Use the stored UnoLock connection URL and PIN to "
             "register/authenticate the agent. For the normal customer or agent flow, prefer an "
             "MCP host and the MCP tools instead of calling this CLI command directly."
         ),
@@ -451,7 +451,7 @@ def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved)
         next_action = "ask_for_connection_url"
         guidance = (
             "This host is ready for bootstrap. Ask the user for the one-time-use UnoLock agent key connection URL "
-            "and optional PIN, then start registration."
+            "and PIN, then start registration."
         )
 
     ok = bool(diagnostics.get("production_ready"))
