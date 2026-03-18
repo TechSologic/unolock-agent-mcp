@@ -82,10 +82,10 @@ def _registration_status_payload(
         "and will stop only for one concrete missing input such as the PIN."
     )
     pending_session = None
-    session_id = registration.get("session_id")
-    if session_id:
+    active_flow_id = session_store.latest_session_id(incomplete_only=True)
+    if active_flow_id:
         try:
-            pending_session = _strip_session_ids(session_store.get(str(session_id)).summary())
+            pending_session = _strip_session_ids(session_store.get(active_flow_id).summary())
         except KeyError:
             pending_session = None
 
@@ -351,10 +351,12 @@ def create_mcp_server() -> FastMCP:
         }
 
     def _resolve_authorized_session_id(requested_session_id: str | None) -> str | None:
+        if requested_session_id and requested_session_id != SessionStore.ACTIVE_SESSION_ID:
+            return None
         if requested_session_id:
             try:
-                session_store.get_auth_context(requested_session_id)
-                return requested_session_id
+                session_store.get_auth_context(SessionStore.ACTIVE_SESSION_ID)
+                return SessionStore.ACTIVE_SESSION_ID
             except KeyError:
                 pass
         latest_session_id = session_store.latest_authorized_session_id()
@@ -386,9 +388,7 @@ def create_mcp_server() -> FastMCP:
                 if pending_result.get("ok") and pending_result.get("authorized") and pending_result.get("completed"):
                     pending_session = pending_result.get("session") or {}
                     if pending_session.get("flow") == "agentAccess":
-                        authorized_session_id = str(pending_session.get("session_id") or "")
-                        if authorized_session_id:
-                            return authorized_session_id, None
+                        return SessionStore.ACTIVE_SESSION_ID, None
                     continue
                 return None, _build_blocked_operation_response(tool_name, tool_args, pending_result, resume)
 
@@ -412,10 +412,7 @@ def create_mcp_server() -> FastMCP:
 
             auth_result = agent_auth.authenticate_registered_agent()
             if auth_result.get("ok") and auth_result.get("authorized") and auth_result.get("completed"):
-                session = auth_result.get("session") or {}
-                authorized_session_id = str(session.get("session_id") or "")
-                if authorized_session_id:
-                    return authorized_session_id, None
+                return SessionStore.ACTIVE_SESSION_ID, None
                 return None, _build_blocked_operation_response(
                     tool_name,
                     tool_args,
@@ -450,7 +447,7 @@ def create_mcp_server() -> FastMCP:
                 return blocker
             if session_id is None:
                 return _tool_error_response(ValueError("session_not_found: No authenticated UnoLock session is available."))
-            result = operation(session_id)
+            result = _strip_session_ids(operation(session_id))
             _clear_pending_operation()
             return result
         except (ValueError, KeyError) as exc:
@@ -855,10 +852,10 @@ def create_mcp_server() -> FastMCP:
             "AgentRegistrationCode, AgentKeyRegistration, AgentChallenge, GetSafeAccessID, DecodeKey, and ClientDataKey."
         ),
     )
-    def continue_agent_session(session_id: str) -> dict[str, Any]:
+    def continue_agent_session() -> dict[str, Any]:
         try:
             ensure_flow_client()
-            return _strip_session_ids(agent_auth.advance_session(session_id))
+            return _strip_session_ids(agent_auth.advance_session(SessionStore.ACTIVE_SESSION_ID))
         except (ValueError, KeyError) as exc:
             return _tool_error_response(exc)
 
@@ -913,7 +910,7 @@ def create_mcp_server() -> FastMCP:
             name="unolock_start_flow",
             description=(
                 "Advanced/debug: start a UnoLock auth flow, automatically complete PQ negotiation, and return a "
-                "session_id plus the next callback that requires client handling."
+                "summary of the active flow plus the next callback that requires client handling."
             ),
         )
         def start_flow(flow: str = "access", args: str | None = None) -> dict[str, Any]:
@@ -925,19 +922,18 @@ def create_mcp_server() -> FastMCP:
         @server.tool(
             name="unolock_continue_flow",
             description=(
-                "Advanced/debug: reply to the current UnoLock auth-flow callback for a session. "
+                "Advanced/debug: reply to the current UnoLock auth-flow callback. "
                 "If callback_type is omitted, the current callback type is reused."
             ),
         )
         def continue_flow(
-            session_id: str,
             callback_type: str | None = None,
             request: Any | None = None,
             result: Any | None = None,
             reason: str | None = None,
             message: list[str] | None = None,
         ) -> dict[str, Any]:
-            session = session_store.get(session_id)
+            session = session_store.get()
             flow_client = ensure_flow_client()
             updated = flow_client.continue_flow(
                 session,
@@ -954,10 +950,10 @@ def create_mcp_server() -> FastMCP:
 
         @server.tool(
             name="unolock_get_session",
-            description="Advanced/debug: inspect the current in-memory UnoLock auth-flow session state.",
+            description="Advanced/debug: inspect the current in-memory UnoLock auth-flow state.",
         )
-        def get_session(session_id: str) -> dict[str, Any]:
-            return session_store.get(session_id).summary()
+        def get_session() -> dict[str, Any]:
+            return session_store.get().summary()
 
         @server.tool(
             name="unolock_list_sessions",
@@ -968,18 +964,17 @@ def create_mcp_server() -> FastMCP:
 
         @server.tool(
             name="unolock_delete_session",
-            description="Advanced/debug: delete an in-memory UnoLock auth-flow session.",
+            description="Advanced/debug: clear the current in-memory UnoLock auth-flow state.",
         )
-        def delete_session(session_id: str) -> dict[str, Any]:
-            session_store.delete(session_id)
-            return {"deleted": session_id}
+        def delete_session() -> dict[str, Any]:
+            session_store.delete(SessionStore.ACTIVE_SESSION_ID)
+            return {"deleted": "active"}
 
         @server.tool(
             name="unolock_call_api",
-            description="Advanced/debug: call a generic authenticated UnoLock /api action for an existing session.",
+            description="Advanced/debug: call a generic authenticated UnoLock /api action for the current active auth state.",
         )
         def call_api(
-            session_id: str,
             action: str,
             request: Any | None = None,
             result: Any | None = None,
@@ -988,7 +983,7 @@ def create_mcp_server() -> FastMCP:
         ) -> dict[str, Any]:
             api_client = UnoLockApiClient(ensure_flow_client(), session_store)
             return api_client.call_action(
-                session_id,
+                SessionStore.ACTIVE_SESSION_ID,
                 action=action,
                 request=request,
                 result=result,
@@ -998,19 +993,19 @@ def create_mcp_server() -> FastMCP:
 
         @server.tool(
             name="unolock_get_spaces",
-            description="Advanced/debug: call UnoLock GetSpaces for an authenticated session.",
+            description="Advanced/debug: call UnoLock GetSpaces for the current authenticated state.",
         )
-        def get_spaces(session_id: str) -> dict[str, Any]:
+        def get_spaces() -> dict[str, Any]:
             api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-            return api_client.get_spaces(session_id)
+            return api_client.get_spaces(SessionStore.ACTIVE_SESSION_ID)
 
         @server.tool(
             name="unolock_get_archives",
-            description="Advanced/debug: call UnoLock GetArchives for an authenticated session.",
+            description="Advanced/debug: call UnoLock GetArchives for the current authenticated state.",
         )
-        def get_archives(session_id: str) -> dict[str, Any]:
+        def get_archives() -> dict[str, Any]:
             api_client = UnoLockApiClient(ensure_flow_client(), session_store)
-            return api_client.get_archives(session_id)
+            return api_client.get_archives(SessionStore.ACTIVE_SESSION_ID)
 
     @server.tool(
         name="unolock_list_spaces",

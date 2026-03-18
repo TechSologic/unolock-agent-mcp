@@ -35,7 +35,6 @@ class LocalServerProbe:
             "pq_request": asdict(request),
             "next_callback_type": session.current_callback.type,
             "next_action": session.current_callback.to_payload(),
-            "session_id": session.session_id,
         }
 
     @staticmethod

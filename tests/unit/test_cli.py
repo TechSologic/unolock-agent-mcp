@@ -204,7 +204,7 @@ class CliEntryPointTest(unittest.TestCase):
                                         agent_auth.authenticate_registered_agent.return_value = {
                                             "ok": True,
                                             "authorized": True,
-                                            "session": {"session_id": "session-1"},
+                                            "session": {"flow": "agentAccess"},
                                         }
                                         records_client_cls.return_value.list_records.return_value = {"count": 0, "records": []}
 
@@ -217,7 +217,7 @@ class CliEntryPointTest(unittest.TestCase):
             agent_auth_cls.return_value,
             session_store,
         )
-        records_client_cls.return_value.list_records.assert_called_once_with("session-1")
+        records_client_cls.return_value.list_records.assert_called_once_with(cli.SessionStore.ACTIVE_SESSION_ID)
 
     def test_mcporter_config_defaults_to_npm_keep_alive(self) -> None:
         with patch("builtins.print") as print_mock:

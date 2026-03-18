@@ -37,7 +37,7 @@ class LocalServerProbeTest(unittest.TestCase):
         self.assertEqual(result["start_callback_type"], "PQ_KEY_EXCHANGE")
         self.assertEqual(result["pq_request"]["public_key_b64"], "public")
         self.assertEqual(result["next_callback_type"], "AgentChallenge")
-        self.assertEqual(result["session_id"], "session-1")
+        self.assertNotIn("session_id", result)
 
     def test_to_json_formats_pretty_json(self) -> None:
         result = LocalServerProbe.to_json({"ok": True, "value": 1})

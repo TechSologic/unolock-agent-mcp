@@ -99,7 +99,6 @@ class FlowSession:
 
     def summary(self) -> dict[str, Any]:
         return {
-            "session_id": self.session_id,
             "flow": self.flow,
             "authorized": self.authorized,
             "exp": self.exp,
@@ -160,7 +159,6 @@ class RegistrationState:
             "has_connection_url": self.connection_url is not None,
             "key_id": self.key_id,
             "has_bootstrap_secret": bool(self.bootstrap_secret),
-            "session_id": self.session_id,
             "registered_at": self.registered_at,
             "tpm_provider": tpm_provider,
             "reduced_assurance_acknowledged": self.reduced_assurance_acknowledged,

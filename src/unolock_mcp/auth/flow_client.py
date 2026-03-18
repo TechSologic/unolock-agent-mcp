@@ -1,6 +1,4 @@
 from __future__ import annotations
-
-import uuid
 import urllib.parse
 from dataclasses import asdict
 from typing import Any
@@ -12,6 +10,8 @@ from unolock_mcp.transport.http_client import HttpClient
 
 
 class UnoLockFlowClient:
+    ACTIVE_FLOW_ID = "active"
+
     def __init__(self, config: UnoLockConfig) -> None:
         self._config = config
         self._http = HttpClient(base_url=config.base_url, app_version=config.app_version)
@@ -46,7 +46,7 @@ class UnoLockFlowClient:
         next_dto = self._http.post_json("/start", reply_dto)
         envelope, next_action = CallbackDtoCodec.parse_dto(next_dto, pq_result.shared_secret)
         return FlowSession(
-            session_id=str(uuid.uuid4()),
+            session_id=self.ACTIVE_FLOW_ID,
             flow=flow,
             state=envelope.state,
             shared_secret=pq_result.shared_secret,

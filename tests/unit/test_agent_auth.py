@@ -91,7 +91,7 @@ class AgentAuthClientTest(unittest.TestCase):
 
         summary = session.summary()
 
-        self.assertEqual(summary["session_id"], "session-1")
+        self.assertNotIn("session_id", summary)
         self.assertEqual(summary["current_callback_type"], "GetPin")
 
     def test_tpm_diagnostics_has_advice_and_summary(self) -> None:

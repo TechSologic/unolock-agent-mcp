@@ -166,7 +166,7 @@ class _FakeReadonlyRecordsClient:
     def list_spaces(self, session_id: str) -> dict[str, object]:
         return {
             "ok": True,
-            "session_id": session_id,
+            "internal_session_id": session_id,
             "spaces": [{"space_id": 1773, "name": "Agent Space"}],
         }
 
@@ -322,7 +322,8 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                 result = server._tool_manager._tools["unolock_list_spaces"].fn()
 
             self.assertTrue(result["ok"])
-            self.assertEqual(result["session_id"], "sess-auth")
+            self.assertNotIn("session_id", result)
+            self.assertEqual(result["internal_session_id"], "active")
             self.assertEqual(auth.auth_calls, 1)
 
     def test_set_agent_pin_resumes_pending_operation(self) -> None:
@@ -340,7 +341,8 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertTrue(resumed["has_agent_pin"])
             self.assertEqual(resumed["resumed_operation"]["tool"], "unolock_list_spaces")
             self.assertTrue(resumed["resumed_operation"]["result"]["ok"])
-            self.assertEqual(resumed["resumed_operation"]["result"]["session_id"], "sess-auth")
+            self.assertNotIn("session_id", resumed["resumed_operation"]["result"])
+            self.assertEqual(resumed["resumed_operation"]["result"]["internal_session_id"], "active")
             self.assertEqual(auth.auth_calls, 2)
 
     def test_list_spaces_reuses_latest_authorized_session(self) -> None:
@@ -352,8 +354,8 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                 first = server._tool_manager._tools["unolock_list_spaces"].fn()
                 second = server._tool_manager._tools["unolock_list_spaces"].fn()
 
-            self.assertEqual(first["session_id"], "sess-auth")
-            self.assertEqual(second["session_id"], "sess-auth")
+            self.assertEqual(first["internal_session_id"], "active")
+            self.assertEqual(second["internal_session_id"], "active")
             self.assertEqual(auth.auth_calls, 1)
 
 
