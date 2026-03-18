@@ -493,7 +493,8 @@ def create_mcp_server() -> FastMCP:
             "For normal use, call the data tools directly; they can authenticate automatically and resume after a PIN "
             "is supplied. After authentication, select a current space and let normal record/file tools use it by default. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for an Agent Key URL or PIN, "
-            "or why host assurance matters, use the explanatory UnoLock resources instead of improvising."
+            "or why host assurance matters, use the explanatory UnoLock resources instead of improvising. "
+            "If the host is operating at reduced assurance, treat that as warning-only information; there is no separate acknowledgment step."
         ),
     )
 
