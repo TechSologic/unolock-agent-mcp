@@ -48,7 +48,6 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run the UnoLock stdio MCP server.",
         description="Run the UnoLock agent stdio MCP server.",
     )
-    mcp_parser.add_argument("--transport", default="stdio", choices=["stdio", "sse", "streamable-http"])
 
     host_start_parser = subparsers.add_parser(
         "start",
@@ -198,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if command == "mcp":
         server = create_mcp_server()
-        server.run(getattr(args, "transport", "stdio"))
+        server.run("stdio")
         return 0
 
     if command == "_daemon":
