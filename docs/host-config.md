@@ -39,7 +39,7 @@ The preferred mode is:
 
 * let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
 * use `npx @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
-* let UnoLock keep its own local daemon alive internally so the user PIN can remain in MCP process memory instead of being persisted by the agent
+* let UnoLock manage its own local runtime so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
 
@@ -69,7 +69,7 @@ For updates, the preferred pattern is:
 
 * check status with `unolock_get_update_status` or `unolock-agent-mcp check-update`
 * let the current task finish
-* restart the runner
+* restart the UnoLock MCP
 * let the npm wrapper or replacement binary apply the update between tasks
 
 Do not expect the live MCP process to replace itself in place.
@@ -86,13 +86,7 @@ If you are running outside a UnoLock monorepo checkout, the MCP can normally der
 
 Use explicit config only when you need overrides or you are connecting to a custom deployment that does not publish the normal deployment metadata.
 
-You can also place them in:
-
-```text
-the user's UnoLock config directory (for example ~/.config/unolock-agent-mcp/config.json on Linux)
-```
-
-and verify the resolved values with:
+You can also place them in the local UnoLock config file and verify the resolved values with:
 
 ```bash
 python3 -m unolock_mcp config-check
@@ -136,18 +130,6 @@ macOS note:
 * the current implementation uses a small Swift helper that talks to Security.framework
 * install Apple Xcode Command Line Tools first with `xcode-select --install`
 * for a first customer trial, start with [macos.md](macos.md)
-
-## Direct CLI host
-
-For direct local agent use without a separate MCP host, the preferred commands are:
-
-```bash
-unolock-agent-mcp start
-unolock-agent-mcp tools
-unolock-agent-mcp call unolock_list_spaces
-```
-
-`unolock-agent-mcp call ...` automatically starts the local daemon if it is not already running.
 
 ## Claude Desktop
 

@@ -97,7 +97,7 @@ For a host-managed stdio launch, use:
 npx @techsologic/unolock-agent-mcp@latest
 ```
 
-The first running copy becomes the local UnoLock daemon automatically. Later launches proxy through that daemon, so the agent does not need to understand daemon mode. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
+UnoLock manages its own local runtime automatically after launch, so the agent does not need to understand daemon mode or any separate runner. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
 
 ## Built-in local daemon
 
@@ -122,13 +122,13 @@ Notes:
 
 ## Updates
 
-UnoLock Agent MCP updates should normally be handled by the install channel or runner, not by the live MCP process replacing itself mid-session.
+UnoLock Agent MCP updates should normally be handled by the install channel, not by the live MCP process replacing itself mid-session.
 
 Recommended update flow:
 
 1. check update status
 2. finish the current task or flow
-3. restart the MCP runner
+3. restart the UnoLock MCP
 4. let the wrapper, binary replacement, or package manager apply the update
 
 Check update status locally:
@@ -147,9 +147,9 @@ Preferred behavior by channel:
   * preferred path
   * daemon restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
 * direct GitHub Release binary
-  * download the latest binary, replace the current executable, restart the runner
+  * download the latest binary, replace the current executable, restart the UnoLock MCP
 * source/Python install
-  * upgrade the Python package in the environment that launches the MCP, restart the runner
+  * upgrade the Python package in the environment that launches the MCP, restart the UnoLock MCP
 
 Do not update in the middle of:
 
@@ -332,11 +332,7 @@ Common advanced environment variables:
 * `UNOLOCK_SIGNING_PUBLIC_KEY`
 * `UNOLOCK_CONFIG_FILE`
 
-Instead of environment variables, you can also create a config file at:
-
-```text
-the user's UnoLock config directory (for example ~/.config/unolock-agent-mcp/config.json on Linux)
-```
+Instead of environment variables, you can also use the local UnoLock config file if you are dealing with an advanced override case.
 
 Advanced override example:
 

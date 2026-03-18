@@ -135,11 +135,10 @@ The preferred path is one executable with one normal MCP-facing behavior:
 
 * MCP hosts launch `unolock-agent-mcp` with no UnoLock-specific arguments.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
-* The first running copy becomes the local UnoLock daemon automatically.
-* Later launches proxy through that daemon automatically.
+* UnoLock manages its own local runtime automatically after launch.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
 
-That keeps the user PIN in process memory, keeps the current Space selected, and hides daemon ownership details from the agent.
+That keeps the user PIN in process memory, keeps the current Space selected, and hides local process details from the agent.
 
 Useful support commands still exist for humans and debugging:
 
@@ -240,8 +239,8 @@ UnoLock Agent MCP should not replace itself in the middle of an active session o
 The intended update model is:
 
 * the MCP reports update status
-* the wrapper or runner applies updates
-* the runner restarts between tasks so in-memory PINs and sessions can be re-established cleanly
+* the install channel applies updates
+* the UnoLock process restarts between tasks so in-memory PINs and sessions can be re-established cleanly
 
 Check update status with:
 
@@ -260,21 +259,15 @@ Preferred channel behavior:
   * on restart, the npm wrapper checks GitHub Releases and can fetch the latest stable binary
   * npm publishing is only needed when the wrapper itself changes
 * direct GitHub Release binary
-  * replace the binary manually, then restart the MCP runner
+  * replace the binary manually, then restart the UnoLock MCP
 * Python package install
-  * upgrade the package in that environment, then restart the runner
+  * upgrade the package in that environment, then restart the UnoLock MCP
 
 For the best user experience, do updates between tasks, not while an enrollment flow, authentication flow, or sensitive write flow is active.
 
 ## Standalone config
 
-Normal setup should not require this section. When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock Agent Key URL. Environment variables and config files are primarily for advanced overrides and custom deployments when the normal Agent-Key-URL-driven flow is not enough.
-
-Default config file location:
-
-```text
-the user's UnoLock config directory (for example ~/.config/unolock-agent-mcp/config.json on Linux)
-```
+Normal setup should not require this section. When the MCP runs outside the main UnoLock monorepo, it can usually derive its UnoLock runtime config from the UnoLock Agent Key URL. Environment variables and config files are advanced overrides for custom deployments or broken metadata, not part of the normal agent flow.
 
 Advanced override example:
 
