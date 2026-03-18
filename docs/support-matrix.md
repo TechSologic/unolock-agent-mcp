@@ -26,7 +26,7 @@ UnoLock Agent MCP is primarily designed for **user-adjacent desktop agents**:
 
 * local AI assistants
 * desktop MCP hosts
-* environments where the user can provide a connection URL and, if needed, a PIN
+* environments where the user can provide an Agent Key URL and, if needed, a PIN
 
 It is **not** designed first for every possible headless or background-agent environment.
 

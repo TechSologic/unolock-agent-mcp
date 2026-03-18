@@ -32,12 +32,12 @@ E2E_AGENT_BOOTSTRAP_OUTPUT_FILE=/tmp/unolock-agent-bootstrap.json \
 npm --prefix /path/to/Unolock/client/e2e-playwright run test:create-safe
 ```
 
-The JSON artifact contains the UnoLock agent key connection URL that can be handed to the MCP.
+The JSON artifact contains the UnoLock Agent Key URL that can be handed to the MCP.
 
 Local bootstrap behavior:
 
-* preferred path: create a dedicated AI-marked access and emit its agent key connection URL
-* fallback path: if the current Safe tier blocks creating another device access, emit an agent key connection URL for the current authenticated access instead
+* preferred path: create a dedicated AI-marked access and emit its Agent Key URL
+* fallback path: if the current Safe tier blocks creating another device access, emit an Agent Key URL for the current authenticated access instead
 
 That fallback exists to keep local development moving on lower tiers. It should not be treated as the preferred production model.
 

@@ -16,7 +16,7 @@ For the public agent-first explanation of this choice, see:
 
 That matters for UnoLock because the MCP keeps useful state in memory while it is running:
 
-* in-memory session state
+* in-memory authentication state
 * in-memory archive cache
 * the agent PIN held only in MCP memory after the user provides it
 * cached Safe record views used by the write path
@@ -133,7 +133,7 @@ Using `mcporter` keep-alive does **not** change the main UnoLock security model:
 
 * Safe content still stays client-side decrypted only in MCP memory
 * archive cache remains in memory only
-* the connection URL is still one-time-use
+* the Agent Key URL is still one-time-use
 * the user PIN is still not persisted
 
 ## Related docs

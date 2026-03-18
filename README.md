@@ -324,7 +324,7 @@ On the current local stack this is already returning the next callback successfu
 
 The package now also exposes a real stdio MCP server with:
 
-* in-memory UnoLock auth-flow session store
+* single active UnoLock auth-flow state machine
 * generic `/start` flow bootstrap after PQ negotiation
 * generic flow continuation
 * generic authenticated `/api` action calls
@@ -349,7 +349,6 @@ Current MCP tools:
 * `unolock_set_agent_pin`
 * `unolock_clear_agent_pin`
 * `unolock_acknowledge_reduced_assurance`
-* `unolock_submit_connection_url`
 * `unolock_submit_agent_bootstrap`
 * `unolock_clear_connection_url`
 * `unolock_disconnect_agent`
@@ -358,6 +357,9 @@ Current MCP tools:
 * `unolock_authenticate_agent`
 * `unolock_bootstrap_agent`
 * `unolock_list_spaces`
+* `unolock_get_current_space`
+* `unolock_set_current_space`
+* `unolock_clear_current_space`
 * `unolock_list_records`
 * `unolock_list_files`
 * `unolock_list_notes`
@@ -397,6 +399,7 @@ Registration discovery support:
 * the software provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * the MCP can now create notes and checklists and perform version-aware note/checklist updates, note appends, and checklist updates within the agent's allowed Spaces
+* the MCP now keeps one current Space and uses it as the default for normal read, write, and Cloud file operations
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating
 * registration state now remembers which TPM provider created the agent key and will tell the host to re-register or force the old provider if there is a provider mismatch
@@ -404,10 +407,12 @@ Registration discovery support:
 
 Read and write support:
 
-* `unolock_list_records` accepts `kind`, `space_id`, `pinned`, and `label`
+* `unolock_list_records` accepts `kind`, `pinned`, and `label`
 * `unolock_list_notes` and `unolock_list_checklists` are convenience wrappers
+* `unolock_list_spaces` marks the current Space, and `unolock_get_current_space` / `unolock_set_current_space` manage that default
 * `unolock_list_files` exposes only `Cloud` archives; `Local` and `Msg` archives are intentionally excluded
 * `unolock_list_spaces` returns space metadata plus record counts and Cloud file counts
+* normal read and write tools use the current Space automatically and include the `space_id` they actually used in their responses
 * read/list/get responses include `writable`, `allowed_operations`, `version`, `read_only`, and `locked`
 * write tools use cache-first optimistic writes with 5-minute in-memory archive TTLs
 * archive rereads happen only on cache miss, cache expiry, or upload conflict

@@ -16,7 +16,7 @@ UnoLock Agent MCP is designed to work across a wide range of agent hosts, but so
 * plain Docker containers
 * Kubernetes pods without a host or VM trust path
 * fully remote or unattended agent sandboxes
-* environments where the user cannot provide a connection URL and, if needed, a PIN
+* environments where the user cannot provide an Agent Key URL and, if needed, a PIN
 
 These environments are harder to support because UnoLock Agent MCP is designed around non-exportable host-bound keys, not reusable secrets. They may still work, but the MCP should report the reduced assurance clearly.
 

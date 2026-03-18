@@ -1,96 +1,194 @@
 # MCP Tool Catalog
 
-This document describes the current UnoLock Agent MCP tool surface for the current read and write MVP.
+This document describes the current normal UnoLock Agent MCP surface.
 
-The recommended lifecycle is:
+## Normal agent model
 
-1. Check registration and TPM readiness.
-2. Ask the user for a one-time-use UnoLock agent key connection URL and, if configured, the agent PIN if needed.
-3. Register or authenticate the agent.
-4. Use the primary space, record, and Cloud file tools.
-5. Read a target record before updating it so the MCP has cached archive state and the current record version.
+The normal agent workflow is:
 
-If the user asks what UnoLock is, why the MCP needs a connection URL, why it may ask for a PIN, or why host assurance matters, use the explanatory resources:
+1. Launch the local `stdio` MCP, ideally through a keep-alive runner such as `mcporter`.
+2. Ask for the one-time UnoLock Agent Key URL only if the MCP says registration is needed.
+3. Ask for the PIN only if the MCP says the key uses one.
+4. Let the MCP guide registration or authentication.
+5. Use the current Space for normal read, write, and file work.
 
-* `unolock://usage/about`
-* `unolock://usage/security-model`
-* `unolock://usage/updates`
+The normal agent workflow should not require:
 
-Primary tools for first-time agent use:
+* `session_id`
+* `space_id`
+* base URLs
+* signing keys
+* app versions
 
-* `unolock_get_registration_status`
-* `unolock_submit_agent_bootstrap`
-* `unolock_bootstrap_agent`
-* `unolock_list_spaces`
-* `unolock_list_records`
-* `unolock_list_files`
-* `unolock_get_record`
+The MCP now keeps one current Space. If no current Space was selected yet, it will auto-select the first accessible Space and use that as the default.
 
-Advanced/debug tools exist too, but agents should ignore them unless the primary workflow cannot complete the task.
-
-## Registration And Runtime
+## Primary first-use tools
 
 ### `unolock_get_registration_status`
 
 Purpose:
-Return whether this MCP host is already registered, whether it has a stored agent key connection URL, and what the agent should do next.
+Return the MCP's current state and the next thing the agent should do.
 
-Notes:
+Important fields:
 
-* When registration is needed, the MCP should tell the agent that the agent key connection URL is one-time-use and for enrollment only.
-
-Arguments:
-None.
-
-Important response fields:
-
+* `registration_state`
 * `registered`
-* `needs_connection_url`
 * `recommended_next_action`
 * `guidance`
 * `has_agent_pin`
-* `tpm_provider`
-* `tpm_diagnostics`
+* `reduced_assurance_acknowledged`
+* `current_space_id`
+* `current_space_name`
 * `explanation_resources`
 
-Typical `recommended_next_action` values:
+Typical next actions:
 
-* `ask_for_connection_url`
+* `ask_for_agent_key_url`
 * `start_registration`
-* `authenticate_or_set_pin`
+* `ask_for_agent_pin`
 * `authenticate_agent`
-* `ask_for_agent_pin_then_continue`
-* `continue_pending_session`
-* `review_tpm_diagnostics`
-* `resolve_tpm_provider_mismatch`
+* `choose_current_space`
+* `ready`
 
-The `explanation_resources` field points to MCP resources the agent can read when it needs authoritative user-facing language about UnoLock, Agent Keys, enrollment URLs, PINs, and assurance tradeoffs.
-
-### `unolock_get_update_status`
+### `unolock_submit_agent_bootstrap`
 
 Purpose:
-Check the installed UnoLock Agent MCP version against the latest GitHub Release and return runner-specific update guidance.
+Store the one-time Agent Key URL and an optional PIN together.
 
 Arguments:
-None.
+
+* `connection_url: str`
+* `pin: str | null`
 
 Notes:
 
-* UnoLock Agent MCP should normally be updated by its wrapper or runner, not by the live MCP process replacing itself mid-session.
-* Prefer checking between tasks, not during an active registration, authentication, or sensitive write flow.
-* The preferred low-friction path is `mcporter` keep-alive plus `npx @techsologic/unolock-agent-mcp@latest`.
+* The input is the one-time `#/agent-register/...` Agent Key URL.
+* The Agent Key URL is for local enrollment only, not ongoing access.
+* If the key does not use a PIN, omit it.
 
-## Cloud File Tools
+### `unolock_bootstrap_agent`
+
+Purpose:
+Run the normal one-shot registration/authentication path.
+
+Notes:
+
+* If the MCP is unregistered and already has a stored Agent Key URL, this enrolls the local MCP.
+* If the MCP is already registered, this authenticates it.
+* If the MCP needs a PIN or reduced-assurance acknowledgment, it will return a concrete blocker instead of making the agent guess.
+
+### `unolock_set_agent_pin`
+
+Purpose:
+Store the Agent Key PIN in MCP process memory only.
+
+Arguments:
+
+* `pin: str`
+
+Notes:
+
+* PINs are strings, not numbers.
+* Valid characters are `0-9` and `a-f`.
+* The MCP can resume pending auth or data work after the PIN is provided.
+
+### `unolock_acknowledge_reduced_assurance`
+
+Purpose:
+Acknowledge that the current host is using the software provider or another lower-assurance path.
+
+Notes:
+
+* This acknowledgment persists for the local MCP registration on that machine.
+
+## Current Space tools
+
+### `unolock_list_spaces`
+
+Purpose:
+List the Spaces visible to the current Agent Key.
+
+Important response fields:
+
+* `spaces`
+* `current_space_id`
+
+Notes:
+
+* If no current Space exists yet, the MCP auto-selects the first accessible Space.
+* Each Space entry indicates whether it is the current Space.
+
+### `unolock_get_current_space`
+
+Purpose:
+Return the current default Space used by normal operations.
+
+Notes:
+
+* If no Space was selected yet, the MCP auto-selects the first accessible Space.
+
+### `unolock_set_current_space`
+
+Purpose:
+Switch the MCP's current default Space.
+
+Arguments:
+
+* `space_id: int`
+
+### `unolock_clear_current_space`
+
+Purpose:
+Clear the remembered current Space.
+
+Notes:
+
+* The next normal read or write operation will auto-select the first accessible Space again.
+
+## Read tools
+
+These tools use the current Space by default and include the `space_id` they actually used in their responses.
+
+### `unolock_list_records`
+
+Arguments:
+
+* `kind: str = "all"`
+* `pinned: bool | null = None`
+* `label: str | null = None`
+
+Notes:
+
+* `kind` may be `all`, `note`, or `checklist`.
+
+### `unolock_list_notes`
+
+Arguments:
+
+* `pinned: bool | null = None`
+* `label: str | null = None`
+
+### `unolock_list_checklists`
+
+Arguments:
+
+* `pinned: bool | null = None`
+* `label: str | null = None`
+
+### `unolock_get_record`
+
+Arguments:
+
+* `record_ref: str`
+
+Notes:
+
+* Use this before updates so the MCP has the latest version and archive state.
 
 ### `unolock_list_files`
 
 Purpose:
-List UnoLock Cloud files visible to the authenticated Agent Key.
-
-Arguments:
-
-* `session_id: str`
-* `space_id: int | null`
+List Cloud files in the current Space.
 
 Notes:
 
@@ -99,625 +197,155 @@ Notes:
 
 ### `unolock_get_file`
 
-Purpose:
-Return metadata for one UnoLock Cloud file by `archive_id`.
-
 Arguments:
 
-* `session_id: str`
 * `archive_id: str`
 
 ### `unolock_download_file`
 
-Purpose:
-Download one UnoLock Cloud file to a local filesystem path.
-
 Arguments:
 
-* `session_id: str`
 * `archive_id: str`
 * `output_path: str`
 * `overwrite: bool = False`
 
 Notes:
 
-* The MCP reconstructs multipart Cloud archives part by part before writing the plaintext file locally.
-* Only `Cloud` files are supported.
+* The MCP reconstructs multipart Cloud archives before writing plaintext to the local filesystem.
 
-### `unolock_upload_file`
+## Write tools
 
-Purpose:
-Upload one local filesystem file into a UnoLock `Cloud` archive inside an allowed Space.
-
-Arguments:
-
-* `session_id: str`
-* `space_id: int`
-* `local_path: str`
-* `name: str | null`
-* `mime_type: str | null`
-
-Notes:
-
-* The MCP creates a `Cloud` archive and uploads encrypted multipart chunks like the web client path.
-* Only `Cloud` files are supported.
-* `Local` and `Msg` archive types are intentionally excluded from the MCP file surface.
-
-### `unolock_rename_file`
-
-Purpose:
-Rename one existing UnoLock Cloud file by `archive_id`.
-
-Arguments:
-
-* `session_id: str`
-* `archive_id: str`
-* `name: str`
-
-Notes:
-
-* This updates Cloud file metadata only.
-* Use `unolock_get_file` first to confirm `writable=true`.
-
-### `unolock_replace_file`
-
-Purpose:
-Replace the content of one existing UnoLock Cloud file from a local filesystem path.
-
-Arguments:
-
-* `session_id: str`
-* `archive_id: str`
-* `local_path: str`
-* `name: str | null`
-* `mime_type: str | null`
-
-Notes:
-
-* The MCP reuses the existing Cloud archive instead of creating a duplicate.
-* If `name` or `mime_type` is provided, the MCP updates that metadata while replacing the file.
-* Only `Cloud` files are supported.
-
-### `unolock_delete_file`
-
-Purpose:
-Delete one existing UnoLock Cloud file by `archive_id`.
-
-Arguments:
-
-* `session_id: str`
-* `archive_id: str`
-
-Notes:
-
-* Only `Cloud` files are supported.
-* Use `unolock_get_file` first to confirm `writable=true`.
-
-## Explanatory Resources
-
-### `unolock://usage/about`
-
-Purpose:
-Return a concise explanation of what UnoLock is, what an Agent Key is, and why customers might use UnoLock with AI agents.
-
-Typical use:
-
-* user asks what UnoLock is
-* user asks why an Agent Key is needed
-* agent needs authoritative wording instead of improvising
-
-### `unolock://usage/security-model`
-
-Purpose:
-Return a concise explanation of why the MCP asks for a one-time-use connection URL, why a PIN may be needed, and why stronger host key storage is preferred.
-
-Typical use:
-
-* user asks why the connection URL is required
-* user asks why the URL is one-time-use
-* user asks why the agent may need a PIN
-* user asks why TPM, Secure Enclave, or platform-backed keys matter
-
-### `unolock://usage/quickstart`
-
-Purpose:
-Return the preferred short MCP happy path for first-time agent use.
-
-### `unolock://usage/updates`
-
-Purpose:
-Return concise guidance for how UnoLock Agent MCP updates should be checked and applied without pushing the agent toward unsafe in-place self-replacement.
-
-### `unolock_get_tpm_diagnostics`
-
-Purpose:
-Describe the active TPM/vTPM provider and whether the host is production-ready.
-
-Arguments:
-None.
-
-Important response fields:
-
-* `provider_name`
-* `provider_type`
-* `production_ready`
-* `available`
-* `summary`
-* `advice`
-
-### `unolock_submit_connection_url`
-
-Purpose:
-Store and parse a one-time-use UnoLock agent key connection URL from the user.
-
-Arguments:
-
-* `connection_url: str`
-
-Expected input:
-
-* one-time-use agent URL format: `#/agent-register/...`
-
-Common failure response:
-
-* `reason: wrong_connection_url_type`
-  Used when the user provides a normal `#/register/...` key URL instead of an agent key URL.
-
-### `unolock_submit_agent_bootstrap`
-
-Purpose:
-Store the one-time-use UnoLock agent key connection URL and an optional agent PIN together in one step.
-
-Arguments:
-
-* `connection_url: str`
-* `pin: str | null`
-
-Typical use:
-
-* cold start
-* reduce one round trip by asking the user for the connection URL and PIN together
-
-Notes:
-
-* the connection URL is one-time-use and for enrollment only
-* the PIN remains in process memory only
-* if no PIN was configured for the agent key, omit it
-
-### `unolock_clear_connection_url`
-
-Purpose:
-Remove the locally stored one-time-use UnoLock agent key connection URL.
-
-Arguments:
-None.
-
-### `unolock_set_agent_pin`
-
-Purpose:
-Store the optional agent PIN in process memory only.
-
-Arguments:
-
-* `pin: str`
-
-Notes:
-
-* The PIN is not persisted across MCP process restarts.
-* The MCP hashes it with the server challenge when `GetPin` is encountered.
-
-### `unolock_clear_agent_pin`
-
-Purpose:
-Clear the in-memory agent PIN.
-
-Arguments:
-None.
-
-### `unolock_disconnect_agent`
-
-Purpose:
-Permanently disconnect the local MCP host from the current UnoLock agent registration.
-
-Arguments:
-None.
-
-What it removes locally:
-
-* TPM/provider key for the local agent
-* provider-protected bootstrap secret
-* provider-protected AIDK secret
-* local registration state
-* in-memory auth sessions
-* in-memory PIN
-
-What it does not remove:
-
-* the server-side access record
-
-## Agent Flow Tools
-
-### `unolock_start_registration_from_connection_url`
-
-Purpose:
-Start agent registration from the stored one-time-use agent key connection URL.
-
-Arguments:
-None.
-
-Typical use:
-
-* after `unolock_submit_connection_url`
-* or after a restart when a stored URL exists and registration was not completed
-
-### `unolock_continue_agent_session`
-
-Purpose:
-Continue an in-memory agent flow session through known callbacks.
-
-Arguments:
-
-* `session_id: str`
-
-Typical use:
-
-* continue a paused `GetPin` session after calling `unolock_set_agent_pin`
-
-### `unolock_authenticate_agent`
-
-Purpose:
-Authenticate an already registered agent.
-
-Arguments:
-None.
-
-Typical use:
-
-* after the MCP process restarts
-* after setting the agent PIN in memory
-
-### `unolock_bootstrap_agent`
-
-Purpose:
-One-shot helper that chooses registration or authentication based on the current local state.
-
-Arguments:
-None.
-
-Behavior:
-
-* if not registered and a stored agent key connection URL exists:
-  starts registration
-* if already registered:
-  authenticates the agent
-
-## Read-Only Data Tools
-
-These tools require an authenticated `session_id`.
-
-### `unolock_list_spaces`
-
-Purpose:
-Return the visible UnoLock spaces plus record counts.
-
-Arguments:
-
-* `session_id: str`
-
-Response shape:
-
-* `count`
-* `spaces[]`
-
-Each `spaces[]` item includes:
-
-* `space_id`
-* `type`
-* `owner`
-* `space_name`
-* `record_archive_id`
-* `record_count`
-* `note_count`
-* `checklist_count`
-* `writable`
-* `allowed_operations`
-
-### `unolock_list_records`
-
-Purpose:
-Return read-only notes and checklists projected into agent-friendly DTOs.
-
-Arguments:
-
-* `session_id: str`
-* `kind: "all" | "note" | "checklist"` default `all`
-* `space_id: int | null`
-* `pinned: bool | null`
-* `label: str | null`
-
-Response shape:
-
-* `count`
-* `records[]`
-
-Each `records[]` item includes:
-
-* `record_ref`
-* `id`
-* `version`
-* `archive_id`
-* `space_id`
-* `space_name`
-* `kind`
-* `title`
-* `plain_text`
-* `pinned`
-* `labels`
-* `message_meta`
-* `checklist_items`
-* `raw_delta`
-* `raw_checkboxes`
-* `read_only`
-* `locked`
-* `writable`
-* `allowed_operations`
-
-For checklist records, each `checklist_items[]` item includes:
-
-* `id`
-* `text`
-* `done`
-* `checked`
-* `state`
-* `order`
-
-### `unolock_list_notes`
-
-Purpose:
-Convenience wrapper for `unolock_list_records(kind="note")`.
-
-Arguments:
-
-* `session_id: str`
-* `space_id: int | null`
-* `pinned: bool | null`
-* `label: str | null`
-
-### `unolock_list_checklists`
-
-Purpose:
-Convenience wrapper for `unolock_list_records(kind="checklist")`.
-
-### `unolock_get_record`
-
-Purpose:
-Return one note or checklist by `record_ref`.
-
-Arguments:
-
-* `session_id: str`
-* `record_ref: str`
-
-Typical use:
-
-* call `unolock_list_records` first to discover `record_ref`
-
-Notes:
-
-* This is the recommended way to refresh one record before a write.
-* Existing-record writes depend on cached archive state from a prior `get` or `list` call.
-* Use `writable` and `allowed_operations` to decide whether a write is allowed before calling a write tool.
-
-## Write Tools
-
-These tools require an authenticated `session_id`.
-
-General rules:
-
-* Read the target record first with `unolock_get_record` or `unolock_list_records`.
-* Check `writable` and `allowed_operations` before attempting a write.
-* Use the returned `record_ref` and `version` when updating existing records.
-* Read-only agents fail early with `space_read_only`.
-* Locked/read-only records fail with `record_locked`.
-* If the record changed since the last read, the MCP fails with `write_conflict_requires_reread` and the agent should reread before retrying.
-
-Stable write failure reasons:
-
-* `space_read_only`
-* `record_locked`
-* `write_conflict_requires_reread`
-* `read_first_before_write`
-* `operation_not_allowed`
-* `record_not_found`
-* `item_not_found`
-* `invalid_input`
-
-Each write failure response includes:
-
-* `ok: false`
-* `reason`
-* `message`
-* `suggested_action`
+These tools either use the current Space automatically or act on an already identified record or file.
 
 ### `unolock_create_note`
 
-Purpose:
-Create a new note from raw text.
-
 Arguments:
 
-* `session_id: str`
-* `space_id: int`
 * `title: str`
 * `text: str`
 
-Notes:
-
-* New notes start at `version: 1`.
-* Raw text is converted to the minimal Quill JSON form UnoLock stores internally.
-* If the space is not writable for this agent, the MCP fails early with `space_read_only`.
-
 ### `unolock_update_note`
-
-Purpose:
-Update an existing note's title and body from raw text.
 
 Arguments:
 
-* `session_id: str`
 * `record_ref: str`
 * `expected_version: int`
 * `title: str`
 * `text: str`
 
-Notes:
-
-* Requires cached archive state from a prior read.
-* Uses a cache-first optimistic write path.
-* On archive conflict, the MCP rereads from UnoLock and retries only if the note version is unchanged.
-* If the note is locked or the agent only has read-only access, the MCP fails before upload.
-
 ### `unolock_append_note`
-
-Purpose:
-Append new line(s) of raw text to the end of an existing note without resending the entire note body.
 
 Arguments:
 
-* `session_id: str`
 * `record_ref: str`
 * `expected_version: int`
 * `append_text: str`
 
-Notes:
-
-* Requires cached archive state from a prior read.
-* Uses the same lock checks and optimistic version checks as `unolock_update_note`.
-* Useful whenever the agent only needs to add content at the end of the note instead of replacing the whole body.
-* If the note is locked or the agent only has read-only access, the MCP fails before upload.
-
 ### `unolock_rename_record`
-
-Purpose:
-Change the title of an existing note or checklist.
 
 Arguments:
 
-* `session_id: str`
 * `record_ref: str`
 * `expected_version: int`
 * `title: str`
 
-Notes:
-
-* This changes the title only.
-* It does not change note text or checklist items.
-* Requires cached archive state from a prior read.
-* If the record is locked or the agent only has read-only access, the MCP fails before upload.
-
 ### `unolock_create_checklist`
-
-Purpose:
-Create a new checklist in a writable Records archive.
 
 Arguments:
 
-* `session_id: str`
-* `space_id: int`
 * `title: str`
-* `items: list[object]`
-
-Each `items[]` object must include:
-
-* `text: str`
-
-Supported optional item state fields:
-
-* `checked`
-* `done`
-* `state`
-
-State rules:
-
-* `checked: true` creates a checked item
-* `done: true` creates a checked item
-* `state: "checked"` creates a checked item
-* If the space is not writable for this agent, the MCP fails early with `space_read_only`.
+* `items: list[str] | null = None`
 
 ### `unolock_set_checklist_item_done`
 
-Purpose:
-Set one checklist item's checked state.
-
 Arguments:
 
-* `session_id: str`
 * `record_ref: str`
 * `expected_version: int`
 * `item_id: int`
 * `done: bool`
 
-Notes:
-
-* Requires cached archive state from a prior read.
-* If the checklist is locked or the agent only has read-only access, the MCP fails before upload.
-
 ### `unolock_add_checklist_item`
-
-Purpose:
-Append a new unchecked checklist item.
 
 Arguments:
 
-* `session_id: str`
 * `record_ref: str`
 * `expected_version: int`
 * `text: str`
 
-Notes:
-
-* Requires cached archive state from a prior read.
-* If the checklist is locked or the agent only has read-only access, the MCP fails before upload.
-
 ### `unolock_remove_checklist_item`
-
-Purpose:
-Remove one checklist item by `item_id`.
 
 Arguments:
 
-* `session_id: str`
 * `record_ref: str`
 * `expected_version: int`
 * `item_id: int`
 
+### `unolock_upload_file`
+
+Arguments:
+
+* `local_path: str`
+* `name: str | null = None`
+* `mime_type: str | null = None`
+
 Notes:
 
-* Requires cached archive state from a prior read.
-* If the checklist is locked or the agent only has read-only access, the MCP fails before upload.
+* Upload uses the current Space automatically.
+* Only `Cloud` files are supported.
 
-## Low-Level Utility Tools
+### `unolock_rename_file`
 
-These are useful for debugging or deeper integration work, but they are not the preferred surface for the normal agent workflow.
-They are hidden by default and only exposed when the MCP is started with `UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1`.
+Arguments:
 
-* `unolock_probe_local_server`
-* `unolock_start_flow`
-* `unolock_continue_flow`
-* `unolock_get_session`
-* `unolock_list_sessions`
-* `unolock_delete_session`
-* `unolock_call_api`
-* `unolock_get_spaces`
-* `unolock_get_archives`
+* `archive_id: str`
+* `name: str`
 
-## Recommended Happy Path
+### `unolock_replace_file`
 
-1. Call `unolock_get_registration_status`.
-2. If needed, ask the user for the one-time-use UnoLock agent key connection URL and optional PIN together.
-3. Call `unolock_submit_agent_bootstrap`.
-4. If needed, call `unolock_bootstrap_agent`.
-5. If the MCP still says it needs the agent PIN, ask the user for it and call `unolock_set_agent_pin`.
-6. Continue with `unolock_bootstrap_agent` or `unolock_continue_agent_session`.
-7. After authentication, call `unolock_list_spaces` or `unolock_list_records`.
-8. Before writing, read the target record and use its `writable`, `allowed_operations`, `record_ref`, and `version` fields.
+Arguments:
+
+* `archive_id: str`
+* `local_path: str`
+* `name: str | null = None`
+* `mime_type: str | null = None`
+
+### `unolock_delete_file`
+
+Arguments:
+
+* `archive_id: str`
+
+## Explanatory resources
+
+Use these when the user needs plain-language help instead of improvised agent wording:
+
+* `unolock://usage/about`
+* `unolock://usage/security-model`
+* `unolock://usage/quickstart`
+* `unolock://usage/updates`
+
+## Update and diagnostics tools
+
+### `unolock_get_update_status`
+
+Purpose:
+Return runner-friendly update guidance.
+
+### `unolock_get_tpm_diagnostics`
+
+Purpose:
+Return the active host key-storage provider and assurance guidance.
+
+## Advanced/debug tools
+
+These are not the preferred normal workflow:
+
+* `unolock_submit_connection_url`
+* `unolock_clear_connection_url`
+* `unolock_start_registration_from_connection_url`
+* `unolock_continue_agent_session`
+* `unolock_authenticate_agent`
+* `unolock_disconnect_agent`
+
+Agents should ignore these unless the normal guided workflow cannot complete the task.

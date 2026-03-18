@@ -74,9 +74,9 @@ See:
 1. Start the MCP host.
 2. Let the agent query registration status.
 3. The agent should ask the user for:
-   * the UnoLock Agent Key connection URL
+   * the UnoLock Agent Key URL
    * the optional agent PIN, if one was configured
-4. The MCP derives the UnoLock origins and runtime compatibility values from the connection URL.
+4. The MCP derives the UnoLock origins and runtime compatibility values from the Agent Key URL.
 5. If the host path works, the MCP registers the agent with either a Secure Enclave-backed key or a non-exportable Keychain-backed key.
 6. After restart, the agent remains registered but must ask the user for the PIN again before re-authenticating.
 
