@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Callable
 
 from mcp.server.fastmcp import FastMCP
 
@@ -65,7 +65,10 @@ def _registration_status_payload(
     security_warning = runtime.get("security_warning")
     provider_mismatch = runtime.get("tpm_provider_mismatch_detail")
     next_action = "authenticate_agent"
-    guidance = "Agent registration is configured. Authenticate and start using the UnoLock tools allowed by this Agent Key."
+    guidance = (
+        "Agent registration is configured. The normal UnoLock data tools can authenticate automatically when needed "
+        "and will stop only for one concrete missing input such as the PIN."
+    )
     pending_session = None
     session_id = registration.get("session_id")
     if session_id:
@@ -109,7 +112,10 @@ def _registration_status_payload(
             )
         else:
             next_action = "authenticate_agent"
-            guidance = "Agent registration is configured. Authenticate and start using the UnoLock tools allowed by this Agent Key."
+            guidance = (
+                "Agent registration is configured. The normal UnoLock data tools can authenticate automatically when "
+                "needed and will stop only for one concrete missing input such as the PIN."
+            )
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
@@ -197,7 +203,7 @@ def _registration_status_payload(
         "workflow_summary": [
             "Check registration status first.",
             "If needed, ask the user for the one-time Agent Key URL and optional PIN together.",
-            "Authenticate or finish registration before using data tools.",
+            "If registration is already configured, the normal data tools can authenticate automatically when session_id is omitted.",
             "Read a space or record before writing so you have current version and allowed_operations metadata.",
             "If a write reports conflict, reread the target record and retry with the latest version.",
         ],
@@ -214,6 +220,7 @@ def create_mcp_server() -> FastMCP:
     session_store = SessionStore()
     registration_store = RegistrationStore()
     agent_auth = AgentAuthClient(None, session_store, registration_store)
+    pending_operation: dict[str, Any] | None = None
 
     def resolve_runtime_config() -> UnoLockConfig:
         registration = registration_store.load()
@@ -245,6 +252,198 @@ def create_mcp_server() -> FastMCP:
         agent_auth.set_flow_client(flow_client)
         return flow_client
 
+    def _normalize_tool_args(tool_args: dict[str, Any]) -> dict[str, Any]:
+        return {key: value for key, value in tool_args.items() if value is not None}
+
+    def _pending_operation_payload() -> dict[str, Any] | None:
+        if pending_operation is None:
+            return None
+        return {
+            "tool": pending_operation["tool"],
+            "arguments": dict(pending_operation["arguments"]),
+        }
+
+    def _remember_pending_operation(
+        tool_name: str,
+        tool_args: dict[str, Any],
+        resume: Callable[[], dict[str, Any]],
+    ) -> None:
+        nonlocal pending_operation
+        pending_operation = {
+            "tool": tool_name,
+            "arguments": _normalize_tool_args(tool_args),
+            "resume": resume,
+        }
+
+    def _clear_pending_operation() -> None:
+        nonlocal pending_operation
+        pending_operation = None
+
+    def _build_blocked_operation_response(
+        tool_name: str,
+        tool_args: dict[str, Any],
+        auth_result: dict[str, Any],
+        resume: Callable[[], dict[str, Any]],
+    ) -> dict[str, Any]:
+        _remember_pending_operation(tool_name, tool_args, resume)
+        reason = str(auth_result.get("reason") or "operation_blocked")
+        message = str(auth_result.get("message") or "UnoLock needs an additional step before it can complete this request.")
+        suggested_action = auth_result.get("suggested_action")
+        if reason == "missing_agent_pin":
+            suggested_action = (
+                "Ask the user for the UnoLock agent PIN, call unolock_set_agent_pin, and the MCP will retry "
+                "the original request automatically."
+            )
+        elif reason == "reduced_assurance_acknowledgement_required":
+            suggested_action = (
+                "Ask the user whether to continue in reduced-assurance mode, call "
+                "unolock_acknowledge_reduced_assurance, and the MCP will retry the original request automatically."
+            )
+        elif reason == "missing_connection_url":
+            suggested_action = (
+                "Ask the user for the one-time UnoLock Agent Key URL, submit it with "
+                "unolock_submit_agent_bootstrap, and retry the original request."
+            )
+        elif reason == "agent_key_invalid_or_consumed":
+            suggested_action = "Ask the user for a fresh UnoLock Agent Key URL, then retry the original request."
+        elif reason == "manual_callback_required":
+            suggested_action = (
+                "Continue the pending UnoLock session with unolock_bootstrap_agent or "
+                "unolock_continue_agent_session, then retry the original request."
+            )
+        elif suggested_action is None:
+            suggested_action = "Resolve the reported UnoLock blocker, then retry the original request."
+        return {
+            "ok": False,
+            "reason": reason,
+            "message": message,
+            "suggested_action": suggested_action,
+            "pending_operation": _pending_operation_payload(),
+            "auth": auth_result,
+        }
+
+    def _resume_pending_operation(trigger: str) -> dict[str, Any] | None:
+        nonlocal pending_operation
+        if pending_operation is None:
+            return None
+        operation = pending_operation
+        pending_operation = None
+        result = operation["resume"]()
+        if isinstance(result, dict) and result.get("ok") is False and result.get("pending_operation"):
+            pending_operation = operation
+        return {
+            "trigger": trigger,
+            "tool": operation["tool"],
+            "arguments": dict(operation["arguments"]),
+            "result": result,
+        }
+
+    def _resolve_authorized_session_id(requested_session_id: str | None) -> str | None:
+        if requested_session_id:
+            try:
+                session_store.get_auth_context(requested_session_id)
+                return requested_session_id
+            except KeyError:
+                pass
+        latest_session_id = session_store.latest_authorized_session_id()
+        if latest_session_id:
+            try:
+                session_store.get_auth_context(latest_session_id)
+                return latest_session_id
+            except KeyError:
+                pass
+        return None
+
+    def _ensure_authenticated_session(
+        requested_session_id: str | None,
+        *,
+        tool_name: str,
+        tool_args: dict[str, Any],
+        resume: Callable[[], dict[str, Any]],
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        authorized_session_id = _resolve_authorized_session_id(requested_session_id)
+        if authorized_session_id is not None:
+            return authorized_session_id, None
+
+        ensure_flow_client()
+
+        while True:
+            pending_session_id = session_store.latest_session_id(incomplete_only=True)
+            if pending_session_id:
+                pending_result = agent_auth.advance_session(pending_session_id)
+                if pending_result.get("ok") and pending_result.get("authorized") and pending_result.get("completed"):
+                    pending_session = pending_result.get("session") or {}
+                    if pending_session.get("flow") == "agentAccess":
+                        authorized_session_id = str(pending_session.get("session_id") or "")
+                        if authorized_session_id:
+                            return authorized_session_id, None
+                    continue
+                return None, _build_blocked_operation_response(tool_name, tool_args, pending_result, resume)
+
+            registration = registration_store.load()
+            if not registration.registered:
+                if registration.connection_url is None:
+                    return None, _build_blocked_operation_response(
+                        tool_name,
+                        tool_args,
+                        {
+                            "ok": False,
+                            "reason": "missing_connection_url",
+                            "message": "UnoLock is not enrolled on this machine yet. The MCP needs the one-time Agent Key URL first.",
+                        },
+                        resume,
+                    )
+                registration_result = agent_auth.start_registration_from_stored_url()
+                if registration_result.get("ok") and registration_result.get("authorized") and registration_result.get("completed"):
+                    continue
+                return None, _build_blocked_operation_response(tool_name, tool_args, registration_result, resume)
+
+            auth_result = agent_auth.authenticate_registered_agent()
+            if auth_result.get("ok") and auth_result.get("authorized") and auth_result.get("completed"):
+                session = auth_result.get("session") or {}
+                authorized_session_id = str(session.get("session_id") or "")
+                if authorized_session_id:
+                    return authorized_session_id, None
+                return None, _build_blocked_operation_response(
+                    tool_name,
+                    tool_args,
+                    {
+                        "ok": False,
+                        "reason": "session_not_found",
+                        "message": "UnoLock authenticated the agent but did not return a usable session.",
+                    },
+                    resume,
+                )
+            return None, _build_blocked_operation_response(tool_name, tool_args, auth_result, resume)
+
+    def _run_with_auto_session(
+        tool_name: str,
+        tool_args: dict[str, Any],
+        requested_session_id: str | None,
+        operation: Callable[[str], dict[str, Any]],
+    ) -> dict[str, Any]:
+        normalized_tool_args = _normalize_tool_args(tool_args)
+
+        def resume() -> dict[str, Any]:
+            return _run_with_auto_session(tool_name, normalized_tool_args, requested_session_id, operation)
+
+        try:
+            session_id, blocker = _ensure_authenticated_session(
+                requested_session_id,
+                tool_name=tool_name,
+                tool_args=normalized_tool_args,
+                resume=resume,
+            )
+            if blocker is not None:
+                return blocker
+            if session_id is None:
+                return _tool_error_response(ValueError("session_not_found: No authenticated UnoLock session is available."))
+            result = operation(session_id)
+            _clear_pending_operation()
+            return result
+        except (ValueError, KeyError) as exc:
+            return _tool_error_response(exc)
+
     server = FastMCP(
         name="UnoLock Agent MCP",
         instructions=(
@@ -254,6 +453,8 @@ def create_mcp_server() -> FastMCP:
             "writing so you have current version and allowed_operations metadata. If registration is not configured, "
             "ask the user for the one-time UnoLock Agent Key URL and the optional agent PIN together when possible, "
             "then submit them with unolock_submit_agent_bootstrap. The Agent Key URL is for enrollment only. "
+            "For normal use, omit session_id unless you are intentionally reusing a specific session; the data tools "
+            "can authenticate automatically and resume after a PIN is supplied. "
             "If the user needs an explanation of what UnoLock is, why the MCP asks for an Agent Key URL or PIN, "
             "or why host assurance matters, use the explanatory UnoLock resources instead of improvising."
         ),
@@ -288,7 +489,8 @@ def create_mcp_server() -> FastMCP:
             "normal_flow_note": (
                 "After the local stdio MCP is running, it should guide the agent through whatever registration or "
                 "authentication step is actually required. Start with unolock_get_registration_status and follow "
-                "its recommended_next_action instead of inventing a manual bootstrap sequence."
+                "its recommended_next_action instead of inventing a manual bootstrap sequence. For normal use, "
+                "the data tools can authenticate automatically if session_id is omitted."
             ),
             "agent_behavior_note": (
                 "Ask only for the Agent Key URL and, if needed, the PIN. Do not invent menu paths, expiry behavior, "
@@ -434,8 +636,9 @@ def create_mcp_server() -> FastMCP:
                     "and optional PIN together, then call unolock_submit_agent_bootstrap and unolock_bootstrap_agent. "
                     "Treat the Agent Key URL only as the one-time enrollment input for the local MCP on this machine, "
                     "not as the ongoing access credential. "
-                    "After authentication, prefer unolock_list_spaces, unolock_list_records, unolock_list_files, and "
-                    "unolock_get_record. Before writing, read the target record and use its writable, "
+                    "After registration, prefer unolock_list_spaces, unolock_list_records, unolock_list_files, and "
+                    "unolock_get_record. Omit session_id unless you are intentionally reusing a specific session; the MCP "
+                    "can authenticate automatically and resume the original request after the PIN is supplied. Before writing, read the target record and use its writable, "
                     "allowed_operations, record_ref, and version fields. Avoid low-level flow/api tools unless the "
                     "primary workflow cannot complete the task."
                 ),
@@ -519,9 +722,16 @@ def create_mcp_server() -> FastMCP:
     )
     def set_agent_pin(pin: str) -> dict[str, Any]:
         try:
-            return agent_auth.set_agent_pin(pin)
+            status = agent_auth.set_agent_pin(pin)
         except ValueError as exc:
             return _tool_error_response(exc)
+        resumed = _resume_pending_operation("unolock_set_agent_pin")
+        if resumed is None:
+            return status
+        return {
+            **status,
+            "resumed_operation": resumed,
+        }
 
     @server.tool(
         name="unolock_clear_agent_pin",
@@ -538,7 +748,14 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def acknowledge_reduced_assurance() -> dict[str, Any]:
-        return agent_auth.acknowledge_reduced_assurance()
+        status = agent_auth.acknowledge_reduced_assurance()
+        resumed = _resume_pending_operation("unolock_acknowledge_reduced_assurance")
+        if resumed is None:
+            return status
+        return {
+            **status,
+            "resumed_operation": resumed,
+        }
 
     @server.tool(
         name="unolock_get_tpm_diagnostics",
@@ -786,121 +1003,171 @@ def create_mcp_server() -> FastMCP:
     @server.tool(
         name="unolock_list_spaces",
         description=(
-            "List UnoLock spaces with record counts, Cloud file counts, and write capability metadata for an authenticated session. "
+            "List UnoLock spaces with record counts, Cloud file counts, and write capability metadata. "
+            "If session_id is omitted, the MCP will authenticate automatically and only stop for one concrete missing input such as the PIN. "
             "Use writable and allowed_operations to decide whether note/checklist or file actions are allowed."
         ),
     )
-    def list_spaces(session_id: str) -> dict[str, Any]:
-        try:
+    def list_spaces(session_id: str | None = None) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
-            return readonly_records.list_spaces(session_id)
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+            return readonly_records.list_spaces(resolved_session_id)
+
+        return _run_with_auto_session(
+            "unolock_list_spaces",
+            {"session_id": session_id},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_list_records",
         description=(
-            "List read-only UnoLock notes and checklists for an authenticated session. "
+            "List read-only UnoLock notes and checklists. "
+            "If session_id is omitted, the MCP will authenticate automatically and only stop for one concrete missing input such as the PIN. "
             "Records are projected into agent-friendly plain text and checklist items, and include version, "
             "writable, locked, and allowed_operations metadata."
         ),
     )
     def list_records(
-        session_id: str,
+        session_id: str | None = None,
         kind: str = "all",
         space_id: int | None = None,
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
             return readonly_records.list_records(
-                session_id,
+                resolved_session_id,
                 kind=kind,
                 space_id=space_id,
                 pinned=pinned,
                 label=label,
             )
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_list_records",
+            {
+                "session_id": session_id,
+                "kind": kind,
+                "space_id": space_id,
+                "pinned": pinned,
+                "label": label,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_list_notes",
-        description="List read-only UnoLock notes with version and writable metadata for an authenticated session.",
+        description=(
+            "List read-only UnoLock notes with version and writable metadata. "
+            "If session_id is omitted, the MCP will authenticate automatically."
+        ),
     )
     def list_notes(
-        session_id: str,
+        session_id: str | None = None,
         space_id: int | None = None,
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
             return readonly_records.list_records(
-                session_id,
+                resolved_session_id,
                 kind="note",
                 space_id=space_id,
                 pinned=pinned,
                 label=label,
             )
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_list_notes",
+            {
+                "session_id": session_id,
+                "space_id": space_id,
+                "pinned": pinned,
+                "label": label,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_list_checklists",
-        description="List read-only UnoLock checklists with version and writable metadata for an authenticated session.",
+        description=(
+            "List read-only UnoLock checklists with version and writable metadata. "
+            "If session_id is omitted, the MCP will authenticate automatically."
+        ),
     )
     def list_checklists(
-        session_id: str,
+        session_id: str | None = None,
         space_id: int | None = None,
         pinned: bool | None = None,
         label: str | None = None,
     ) -> dict[str, Any]:
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
             return readonly_records.list_records(
-                session_id,
+                resolved_session_id,
                 kind="checklist",
                 space_id=space_id,
                 pinned=pinned,
                 label=label,
             )
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_list_checklists",
+            {
+                "session_id": session_id,
+                "space_id": space_id,
+                "pinned": pinned,
+                "label": label,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_list_files",
         description=(
-            "List UnoLock Cloud files for an authenticated session. "
+            "List UnoLock Cloud files. "
+            "If session_id is omitted, the MCP will authenticate automatically and only stop for one concrete missing input such as the PIN. "
             "Only Cloud archives are exposed by the MCP; Local and Msg archives are intentionally excluded."
         ),
     )
-    def list_files(session_id: str, space_id: int | None = None) -> dict[str, Any]:
-        try:
+    def list_files(session_id: str | None = None, space_id: int | None = None) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_files = UnoLockReadonlyFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
-            return readonly_files.list_files(session_id, space_id=space_id)
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+            return readonly_files.list_files(resolved_session_id, space_id=space_id)
+
+        return _run_with_auto_session(
+            "unolock_list_files",
+            {"session_id": session_id, "space_id": space_id},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_get_file",
@@ -909,16 +1176,21 @@ def create_mcp_server() -> FastMCP:
             "Use unolock_list_files first to discover archive_id values."
         ),
     )
-    def get_file(session_id: str, archive_id: str) -> dict[str, Any]:
-        try:
+    def get_file(session_id: str | None = None, archive_id: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_files = UnoLockReadonlyFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
-            return readonly_files.get_file(session_id, archive_id)
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+            return readonly_files.get_file(resolved_session_id, archive_id)
+
+        return _run_with_auto_session(
+            "unolock_get_file",
+            {"session_id": session_id, "archive_id": archive_id},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_download_file",
@@ -927,21 +1199,36 @@ def create_mcp_server() -> FastMCP:
             "Only Cloud files are supported; Local and Msg archives are excluded."
         ),
     )
-    def download_file(session_id: str, archive_id: str, output_path: str, overwrite: bool = False) -> dict[str, Any]:
-        try:
+    def download_file(
+        session_id: str | None = None,
+        archive_id: str = "",
+        output_path: str = "",
+        overwrite: bool = False,
+    ) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_files = UnoLockReadonlyFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
             return readonly_files.download_file(
-                session_id,
+                resolved_session_id,
                 archive_id=archive_id,
                 output_path=output_path,
                 overwrite=overwrite,
             )
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_download_file",
+            {
+                "session_id": session_id,
+                "archive_id": archive_id,
+                "output_path": output_path,
+                "overwrite": overwrite,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_upload_file",
@@ -951,27 +1238,38 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def upload_file(
-        session_id: str,
-        space_id: int,
-        local_path: str,
+        session_id: str | None = None,
+        space_id: int = 0,
+        local_path: str = "",
         name: str | None = None,
         mime_type: str | None = None,
     ) -> dict[str, Any]:
-        writable_files = UnoLockWritableFilesClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_files = UnoLockWritableFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_files.upload_file(
-                session_id,
+                resolved_session_id,
                 space_id=space_id,
                 local_path=local_path,
                 name=name,
                 mime_type=mime_type,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_upload_file",
+            {
+                "session_id": session_id,
+                "space_id": space_id,
+                "local_path": local_path,
+                "name": name,
+                "mime_type": mime_type,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_rename_file",
@@ -980,20 +1278,25 @@ def create_mcp_server() -> FastMCP:
             "Use unolock_get_file first to confirm writable=true and the current file metadata."
         ),
     )
-    def rename_file(session_id: str, archive_id: str, name: str) -> dict[str, Any]:
-        writable_files = UnoLockWritableFilesClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def rename_file(session_id: str | None = None, archive_id: str = "", name: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_files = UnoLockWritableFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_files.rename_file(
-                session_id,
+                resolved_session_id,
                 archive_id=archive_id,
                 name=name,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_rename_file",
+            {"session_id": session_id, "archive_id": archive_id, "name": name},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_replace_file",
@@ -1003,27 +1306,38 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def replace_file(
-        session_id: str,
-        archive_id: str,
-        local_path: str,
+        session_id: str | None = None,
+        archive_id: str = "",
+        local_path: str = "",
         name: str | None = None,
         mime_type: str | None = None,
     ) -> dict[str, Any]:
-        writable_files = UnoLockWritableFilesClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_files = UnoLockWritableFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_files.replace_file(
-                session_id,
+                resolved_session_id,
                 archive_id=archive_id,
                 local_path=local_path,
                 name=name,
                 mime_type=mime_type,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_replace_file",
+            {
+                "session_id": session_id,
+                "archive_id": archive_id,
+                "local_path": local_path,
+                "name": name,
+                "mime_type": mime_type,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_delete_file",
@@ -1032,61 +1346,78 @@ def create_mcp_server() -> FastMCP:
             "Use unolock_get_file first to confirm writable=true and the target archive_id."
         ),
     )
-    def delete_file(session_id: str, archive_id: str) -> dict[str, Any]:
-        writable_files = UnoLockWritableFilesClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def delete_file(session_id: str | None = None, archive_id: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_files = UnoLockWritableFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_files.delete_file(
-                session_id,
+                resolved_session_id,
                 archive_id=archive_id,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_delete_file",
+            {"session_id": session_id, "archive_id": archive_id},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_get_record",
         description=(
             "Get one read-only UnoLock note or checklist by record_ref. "
+            "If session_id is omitted, the MCP will authenticate automatically. "
             "Use unolock_list_records first to discover record_ref values and current version metadata before writing."
         ),
     )
-    def get_record(session_id: str, record_ref: str) -> dict[str, Any]:
-        try:
+    def get_record(session_id: str | None = None, record_ref: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
                 agent_auth,
                 session_store,
             )
-            return readonly_records.get_record(session_id, record_ref)
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+            return readonly_records.get_record(resolved_session_id, record_ref)
+
+        return _run_with_auto_session(
+            "unolock_get_record",
+            {"session_id": session_id, "record_ref": record_ref},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_create_note",
         description=(
             "Create a new UnoLock note from raw text in an existing writable Records archive. "
+            "If session_id is omitted, the MCP will authenticate automatically and resume after the PIN is supplied. "
             "Read the target space first and check writable/allowed_operations before creating notes. "
             "The returned record metadata includes the new record version and lock state."
         ),
     )
-    def create_note(session_id: str, space_id: int, title: str, text: str) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def create_note(session_id: str | None = None, space_id: int = 0, title: str = "", text: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.create_note(
-                session_id,
+                resolved_session_id,
                 space_id=space_id,
                 title=title,
                 text=text,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_create_note",
+            {"session_id": session_id, "space_id": space_id, "title": title, "text": text},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_create_checklist",
@@ -1097,21 +1428,31 @@ def create_mcp_server() -> FastMCP:
             "Read the target space first and check writable/allowed_operations before creating checklists."
         ),
     )
-    def create_checklist(session_id: str, space_id: int, title: str, items: list[dict[str, Any]]) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def create_checklist(
+        session_id: str | None = None,
+        space_id: int = 0,
+        title: str = "",
+        items: list[dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.create_checklist(
-                session_id,
+                resolved_session_id,
                 space_id=space_id,
                 title=title,
-                items=items,
+                items=[] if items is None else items,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_create_checklist",
+            {"session_id": session_id, "space_id": space_id, "title": title, "items": items},
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_update_note",
@@ -1121,22 +1462,39 @@ def create_mcp_server() -> FastMCP:
             "If the note is locked, read-only, or changed since the last read, the MCP will reject the update."
         ),
     )
-    def update_note(session_id: str, record_ref: str, expected_version: int, title: str, text: str) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def update_note(
+        session_id: str | None = None,
+        record_ref: str = "",
+        expected_version: int = 0,
+        title: str = "",
+        text: str = "",
+    ) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.update_note(
-                session_id,
+                resolved_session_id,
                 record_ref=record_ref,
                 expected_version=expected_version,
                 title=title,
                 text=text,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_update_note",
+            {
+                "session_id": session_id,
+                "record_ref": record_ref,
+                "expected_version": expected_version,
+                "title": title,
+                "text": text,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_append_note",
@@ -1146,21 +1504,36 @@ def create_mcp_server() -> FastMCP:
             "The MCP still enforces note locks and version conflicts before appending."
         ),
     )
-    def append_note(session_id: str, record_ref: str, expected_version: int, append_text: str) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def append_note(
+        session_id: str | None = None,
+        record_ref: str = "",
+        expected_version: int = 0,
+        append_text: str = "",
+    ) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.append_note(
-                session_id,
+                resolved_session_id,
                 record_ref=record_ref,
                 expected_version=expected_version,
                 append_text=append_text,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_append_note",
+            {
+                "session_id": session_id,
+                "record_ref": record_ref,
+                "expected_version": expected_version,
+                "append_text": append_text,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_rename_record",
@@ -1170,21 +1543,36 @@ def create_mcp_server() -> FastMCP:
             "If the record is locked, read-only, or changed since the last read, the MCP will reject the rename."
         ),
     )
-    def rename_record(session_id: str, record_ref: str, expected_version: int, title: str) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+    def rename_record(
+        session_id: str | None = None,
+        record_ref: str = "",
+        expected_version: int = 0,
+        title: str = "",
+    ) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.rename_record(
-                session_id,
+                resolved_session_id,
                 record_ref=record_ref,
                 expected_version=expected_version,
                 title=title,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_rename_record",
+            {
+                "session_id": session_id,
+                "record_ref": record_ref,
+                "expected_version": expected_version,
+                "title": title,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_set_checklist_item_done",
@@ -1195,27 +1583,38 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def set_checklist_item_done(
-        session_id: str,
-        record_ref: str,
-        expected_version: int,
-        item_id: int,
-        done: bool,
+        session_id: str | None = None,
+        record_ref: str = "",
+        expected_version: int = 0,
+        item_id: int = 0,
+        done: bool = False,
     ) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.set_checklist_item_done(
-                session_id,
+                resolved_session_id,
                 record_ref=record_ref,
                 expected_version=expected_version,
                 item_id=item_id,
                 done=done,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_set_checklist_item_done",
+            {
+                "session_id": session_id,
+                "record_ref": record_ref,
+                "expected_version": expected_version,
+                "item_id": item_id,
+                "done": done,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_add_checklist_item",
@@ -1226,25 +1625,35 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def add_checklist_item(
-        session_id: str,
-        record_ref: str,
-        expected_version: int,
-        text: str,
+        session_id: str | None = None,
+        record_ref: str = "",
+        expected_version: int = 0,
+        text: str = "",
     ) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.add_checklist_item(
-                session_id,
+                resolved_session_id,
                 record_ref=record_ref,
                 expected_version=expected_version,
                 text=text,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_add_checklist_item",
+            {
+                "session_id": session_id,
+                "record_ref": record_ref,
+                "expected_version": expected_version,
+                "text": text,
+            },
+            session_id,
+            operation,
+        )
 
     @server.tool(
         name="unolock_remove_checklist_item",
@@ -1255,24 +1664,34 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     def remove_checklist_item(
-        session_id: str,
-        record_ref: str,
-        expected_version: int,
-        item_id: int,
+        session_id: str | None = None,
+        record_ref: str = "",
+        expected_version: int = 0,
+        item_id: int = 0,
     ) -> dict[str, Any]:
-        writable_records = UnoLockWritableRecordsClient(
-            UnoLockApiClient(ensure_flow_client(), session_store),
-            agent_auth,
-            session_store,
-        )
-        try:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            writable_records = UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
             return writable_records.remove_checklist_item(
-                session_id,
+                resolved_session_id,
                 record_ref=record_ref,
                 expected_version=expected_version,
                 item_id=item_id,
             )
-        except ValueError as exc:
-            return _tool_error_response(exc)
+
+        return _run_with_auto_session(
+            "unolock_remove_checklist_item",
+            {
+                "session_id": session_id,
+                "record_ref": record_ref,
+                "expected_version": expected_version,
+                "item_id": item_id,
+            },
+            session_id,
+            operation,
+        )
 
     return server

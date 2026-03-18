@@ -1,14 +1,17 @@
 from __future__ import annotations
 
+from contextlib import ExitStack
+import os
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
-from unolock_mcp.domain.models import RegistrationState
+from unolock_mcp.domain.models import CallbackAction, FlowSession, RegistrationState, UnoLockResolvedConfig
 
-from unolock_mcp.mcp.server import _registration_status_payload, _tool_error_response
+from unolock_mcp.mcp.server import _registration_status_payload, _tool_error_response, create_mcp_server
 
 
 class _FakeAgentAuth:
@@ -149,6 +152,209 @@ class ToolErrorResponseTest(unittest.TestCase):
         payload = _tool_error_response(ValueError("unexpected failure"))
         self.assertEqual(payload["reason"], "operation_failed")
         self.assertEqual(payload["message"], "unexpected failure")
+
+
+class _FakeFlowClient:
+    def __init__(self, config) -> None:
+        self.config = config
+
+
+class _FakeReadonlyRecordsClient:
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def list_spaces(self, session_id: str) -> dict[str, object]:
+        return {
+            "ok": True,
+            "session_id": session_id,
+            "spaces": [{"space_id": 1773, "name": "Agent Space"}],
+        }
+
+
+class _FakeAgentAuthForAutoSession:
+    instances: list["_FakeAgentAuthForAutoSession"] = []
+
+    def __init__(self, _flow_client, session_store: SessionStore, _registration_store: RegistrationStore, *_args, **_kwargs) -> None:
+        self._session_store = session_store
+        self._agent_pin: str | None = None
+        self.auth_calls = 0
+        self.__class__.instances.append(self)
+
+    def set_flow_client(self, _flow_client) -> None:
+        return None
+
+    def runtime_status(self) -> dict[str, object]:
+        return {
+            "has_agent_pin": self._agent_pin is not None,
+            "pin_mode": "ephemeral_memory" if self._agent_pin is not None else "unset",
+            "tpm_provider": "software",
+            "tpm_production_ready": False,
+            "tpm_available": False,
+            "registered_tpm_provider": "software",
+            "bootstrap_secret_available": True,
+            "tpm_provider_mismatch": False,
+            "tpm_provider_mismatch_detail": None,
+            "reduced_assurance_acknowledged": True,
+        }
+
+    def tpm_diagnostics(self) -> dict[str, object]:
+        return {
+            "provider_name": "software",
+            "provider_type": "software",
+            "production_ready": False,
+            "available": False,
+            "summary": "software fallback",
+            "details": {},
+            "advice": [],
+        }
+
+    def set_agent_pin(self, pin: str) -> dict[str, object]:
+        self._agent_pin = pin
+        return self.runtime_status()
+
+    def clear_agent_pin(self) -> dict[str, object]:
+        self._agent_pin = None
+        return self.runtime_status()
+
+    def acknowledge_reduced_assurance(self) -> dict[str, object]:
+        return self.runtime_status()
+
+    def submit_connection_url(self, connection_url: str) -> dict[str, object]:
+        return {"ok": True, "connection_url": connection_url}
+
+    def start_registration_from_stored_url(self) -> dict[str, object]:
+        return {
+            "ok": True,
+            "authorized": True,
+            "completed": True,
+            "session": {"session_id": "sess-reg", "flow": "agentRegister"},
+            "registration": {"registered": True},
+        }
+
+    def authenticate_registered_agent(self) -> dict[str, object]:
+        self.auth_calls += 1
+        if self._agent_pin is None:
+            return {
+                "ok": False,
+                "authorized": False,
+                "completed": False,
+                "reason": "missing_agent_pin",
+                "message": "Ask the user for the UnoLock agent PIN, call unolock_set_agent_pin, then continue the session.",
+            }
+        session = FlowSession(
+            session_id="sess-auth",
+            flow="agentAccess",
+            state="SUCCESS",
+            shared_secret=b"",
+            current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+            authorized=True,
+        )
+        self._session_store.put(session)
+        return {
+            "ok": True,
+            "authorized": True,
+            "completed": True,
+            "session": session.summary(),
+        }
+
+    def advance_session(self, _session_id: str) -> dict[str, object]:
+        return {
+            "ok": False,
+            "authorized": False,
+            "completed": False,
+            "reason": "manual_callback_required",
+            "message": "Unexpected pending session in test.",
+        }
+
+
+class AutoSessionToolFlowTest(unittest.TestCase):
+    def setUp(self) -> None:
+        _FakeAgentAuthForAutoSession.instances.clear()
+
+    def _seed_registered_state(self, tmpdir: str) -> None:
+        with patch.dict(os.environ, {"HOME": tmpdir}, clear=False):
+            store = RegistrationStore()
+            store.save(
+                RegistrationState(
+                    registered=True,
+                    registration_mode="registered",
+                    key_id="agent-test",
+                    tpm_provider="software",
+                    api_base_url="https://api.safe.test.1two.be",
+                    transparency_origin="https://safe.test.1two.be",
+                    app_version="0.20.21",
+                    signing_public_key_b64="ZmFrZQ==",
+                    reduced_assurance_acknowledged=True,
+                )
+            )
+
+    def _create_server(self, tmpdir: str, stack: ExitStack):
+        self._seed_registered_state(tmpdir)
+        stack.enter_context(patch.dict(os.environ, {"HOME": tmpdir}, clear=False))
+        stack.enter_context(patch("unolock_mcp.mcp.server.AgentAuthClient", _FakeAgentAuthForAutoSession))
+        stack.enter_context(
+            patch(
+                "unolock_mcp.mcp.server.UnoLockReadonlyRecordsClient",
+                _FakeReadonlyRecordsClient,
+            )
+        )
+        stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
+        stack.enter_context(
+            patch(
+                "unolock_mcp.mcp.server.resolve_unolock_config",
+                return_value=UnoLockResolvedConfig(
+                    base_url="https://api.safe.test.1two.be",
+                    transparency_origin="https://safe.test.1two.be",
+                    app_version="0.20.21",
+                    signing_public_key_b64="ZmFrZQ==",
+                    sources={},
+                ),
+            )
+        )
+        return create_mcp_server()
+
+    def test_list_spaces_auto_authenticates_without_explicit_session_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_list_spaces"].fn()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["session_id"], "sess-auth")
+            self.assertEqual(auth.auth_calls, 1)
+
+    def test_set_agent_pin_resumes_pending_operation(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                blocked = server._tool_manager._tools["unolock_list_spaces"].fn()
+                self.assertFalse(blocked["ok"])
+                self.assertEqual(blocked["reason"], "missing_agent_pin")
+                self.assertEqual(blocked["pending_operation"]["tool"], "unolock_list_spaces")
+                self.assertEqual(auth.auth_calls, 1)
+                resumed = server._tool_manager._tools["unolock_set_agent_pin"].fn("1")
+
+            self.assertTrue(resumed["has_agent_pin"])
+            self.assertEqual(resumed["resumed_operation"]["tool"], "unolock_list_spaces")
+            self.assertTrue(resumed["resumed_operation"]["result"]["ok"])
+            self.assertEqual(resumed["resumed_operation"]["result"]["session_id"], "sess-auth")
+            self.assertEqual(auth.auth_calls, 2)
+
+    def test_list_spaces_reuses_latest_authorized_session(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                first = server._tool_manager._tools["unolock_list_spaces"].fn()
+                second = server._tool_manager._tools["unolock_list_spaces"].fn()
+
+            self.assertEqual(first["session_id"], "sess-auth")
+            self.assertEqual(second["session_id"], "sess-auth")
+            self.assertEqual(auth.auth_calls, 1)
 
 
 if __name__ == "__main__":

@@ -40,6 +40,19 @@ class SessionStore:
         self._records_archive_snapshots.clear()
         self._auth_contexts.clear()
 
+    def latest_session_id(self, *, authorized: bool | None = None, incomplete_only: bool = False) -> str | None:
+        sessions = list(self._sessions.values())
+        for session in reversed(sessions):
+            if authorized is not None and session.authorized is not authorized:
+                continue
+            if incomplete_only and session.current_callback.type in {"SUCCESS", "FAILED"}:
+                continue
+            return session.session_id
+        return None
+
+    def latest_authorized_session_id(self) -> str | None:
+        return self.latest_session_id(authorized=True)
+
     def get_auth_context(self, session_id: str) -> dict:
         try:
             return copy.deepcopy(self._auth_contexts[session_id])
