@@ -480,7 +480,7 @@ def create_mcp_server() -> FastMCP:
             "records before writing so you have current version and allowed_operations metadata. "
             "On a fresh host, the first MCP start can take longer because local cryptographic code may need to be "
             "compiled or prepared. "
-            "If registration is not configured, ask the user for the one-time UnoLock Agent Key URL and, if needed, "
+            "If registration is not configured, ask the user for the one-time UnoLock Agent Key URL and "
             "the PIN, then submit them with unolock_link_agent_key. The Agent Key URL is only for the one-time setup step. "
             "Normal data tools can authenticate automatically and resume after a PIN is supplied. After authentication, "
             "select a current space and let normal record/file tools use it by default. "

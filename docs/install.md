@@ -256,8 +256,7 @@ For normal installs, do not drive the CLI `bootstrap` command directly. Prefer t
 
 ```text
 run the MCP
-provide the Agent Key URL only if needed
-provide the PIN only if needed
+provide the Agent Key URL and PIN together
 let the MCP continue
 ```
 
@@ -322,7 +321,7 @@ See:
 
 ## Environment Variables
 
-These are advanced overrides, not part of the normal setup flow. In the normal flow, the agent should only need to run the bridge, receive the one-time UnoLock agent registration URL, and ask for the PIN if needed.
+These are advanced overrides, not part of the normal setup flow. In the normal flow, the agent should only need to run the bridge, receive the one-time UnoLock Agent Key URL, and ask for the PIN.
 
 Common advanced environment variables:
 
