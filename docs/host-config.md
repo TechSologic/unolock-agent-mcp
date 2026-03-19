@@ -38,7 +38,7 @@ Checked against the official host docs on 2026-03-08:
 The preferred mode is:
 
 * let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
-* use `npx @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
+* use `npx -y @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
 * let UnoLock manage its own local runtime so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
@@ -48,7 +48,7 @@ For customer use, prefer a standalone GitHub Release binary:
 If you are integrating with a Node/npm-oriented host, you can also use:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest --version
+npx -y @techsologic/unolock-agent-mcp@latest --version
 ```
 
 This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock MCP binary.
@@ -58,7 +58,7 @@ It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
 For a host-managed stdio launch, prefer:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent-mcp@latest
 ```
 
 Project home:
@@ -141,10 +141,8 @@ Example snippet:
 {
   "mcpServers": {
     "unolock-agent": {
-      "command": "/home/you/.local/bin/unolock-agent-mcp",
-      "env": {
-        "UNOLOCK_TPM_PROVIDER": "auto"
-      }
+      "command": "npx",
+      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
     }
   }
 }
@@ -152,7 +150,7 @@ Example snippet:
 
 Notes:
 
-* If `unolock-agent-mcp` is already on your `PATH`, you can use `"command": "unolock-agent-mcp"`.
+* If you already installed `unolock-agent-mcp` locally, you can use `"command": "unolock-agent-mcp"` instead.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
 * For normal UnoLock cloud-service use, the Agent Key URL is enough for the MCP to resolve what it needs automatically.
 * Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
@@ -171,10 +169,8 @@ Example snippet:
   "mcpServers": {
     "unolock-agent": {
       "type": "stdio",
-      "command": "unolock-agent-mcp",
-      "env": {
-        "UNOLOCK_TPM_PROVIDER": "auto"
-      }
+      "command": "npx",
+      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
     }
   }
 }
@@ -187,14 +183,32 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
   "mcpServers": {
     "unolock-agent": {
       "type": "stdio",
-      "command": "${env:HOME}/.local/bin/unolock-agent-mcp",
-      "env": {
-        "UNOLOCK_TPM_PROVIDER": "auto"
-      }
+      "command": "${env:HOME}/.local/bin/npx",
+      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
     }
   }
 }
 ```
+
+## OpenClaw
+
+Use the same stdio MCP shape for OpenClaw.
+
+Example snippet:
+
+```json
+{
+  "mcpServers": {
+    "unolock-agent": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+    }
+  }
+}
+```
+
+If you already installed `unolock-agent-mcp` locally, you can use `"command": "unolock-agent-mcp"` instead.
 
 ## First-use flow
 
@@ -235,6 +249,9 @@ Relevant tools:
 * `unolock_upload_file`
 * `unolock_rename_record`
 * `unolock_create_checklist`
+* `unolock_set_checklist_item_done`
+* `unolock_add_checklist_item`
+* `unolock_remove_checklist_item`
 
 Important current-space behavior:
 
@@ -242,15 +259,12 @@ Important current-space behavior:
 * if no current Space was selected yet, it auto-selects the first accessible Space
 * normal read and write tools act in that current Space
 * if the Agent Key has access to no Spaces, the MCP returns a clear `no_accessible_spaces` error
-* `unolock_set_checklist_item_done`
-* `unolock_add_checklist_item`
-* `unolock_remove_checklist_item`
 
 Write guidance:
 
 * Let the MCP auto-select the first accessible Space if no current Space was chosen yet.
 * Read the target Space or record first.
-* Use `writable` and `allowed_operations` before attempting a write.
+* Check `writable` and `allowed_operations` in the latest MCP response before attempting a write.
 * Use `record_ref` and `version` when updating existing records.
 * Use `archive_id` from `unolock_list_files` when downloading a Cloud file.
 * Use `unolock_set_current_space` only when you want to switch away from the current default Space.

@@ -76,7 +76,7 @@ Agent-first onboarding site:
 Recommended customer install source:
 
 * UnoLock's built-in local daemon/CLI with a GitHub Release binary when available
-* `npx @techsologic/unolock-agent-mcp@latest` as the Node/npm wrapper path
+* `npx -y @techsologic/unolock-agent-mcp@latest` as the Node/npm wrapper path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -129,6 +129,7 @@ For real MCP hosts, see:
 * [Tool Catalog](docs/tool-catalog.md)
 * [Claude Desktop example](examples/claude-desktop-config.json)
 * [Cursor example](examples/cursor-mcp.json)
+* [OpenClaw example](examples/openclaw-mcp.json)
 * [Config file example](examples/unolock-agent-config.json)
 
 The preferred path is one executable with one normal MCP-facing behavior:
@@ -188,7 +189,7 @@ That avoids most of the Python packaging and source-build overhead for customers
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest --version
+npx -y @techsologic/unolock-agent-mcp@latest --version
 ```
 
 The wrapper downloads the correct GitHub Release binary for the current platform on first use and then reuses the cached copy.
@@ -206,13 +207,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent-mcp@latest
 ```
 
 With no arguments, the npm wrapper starts the MCP server by default:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent-mcp@latest
 ```
 
 That is the preferred host-facing launch shape.
@@ -239,7 +240,7 @@ Or, through the MCP itself, call:
 
 Preferred channel behavior:
 
-* built-in daemon + `npx @techsologic/unolock-agent-mcp@latest`
+* built-in daemon + `npx -y @techsologic/unolock-agent-mcp@latest`
   * preferred low-friction path
   * on restart, the npm wrapper checks GitHub Releases and can fetch the latest stable binary
   * npm publishing is only needed when the wrapper itself changes

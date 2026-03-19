@@ -50,7 +50,7 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 The preferred path is:
 
 1. let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
-2. use a GitHub Release binary or `npx @techsologic/unolock-agent-mcp@latest`
+2. use a GitHub Release binary or `npx -y @techsologic/unolock-agent-mcp@latest`
 3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
 
 On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating the MCP as hung.
@@ -70,7 +70,7 @@ Download from:
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest --version
+npx -y @techsologic/unolock-agent-mcp@latest --version
 ```
 
 The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
@@ -88,13 +88,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent-mcp@latest
 ```
 
 For a host-managed stdio launch, use:
 
 ```bash
-npx @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent-mcp@latest
 ```
 
 UnoLock manages its own local runtime automatically after launch, so the agent does not need to understand daemon mode or any separate runner. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
@@ -143,7 +143,7 @@ Or through the MCP:
 
 Preferred behavior by channel:
 
-* built-in local daemon + `npx @techsologic/unolock-agent-mcp@latest`
+* built-in local daemon + `npx -y @techsologic/unolock-agent-mcp@latest`
   * preferred path
   * daemon restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
 * direct GitHub Release binary

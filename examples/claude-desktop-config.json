@@ -1,10 +1,8 @@
 {
   "mcpServers": {
     "unolock-agent": {
-      "command": "unolock-agent-mcp",
-      "env": {
-        "UNOLOCK_TPM_PROVIDER": "auto"
-      }
+      "command": "npx",
+      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
     }
   }
 }
