@@ -406,11 +406,11 @@ def _print_cli_payload(payload: dict[str, Any]) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     public_commands = [
-        "mcp",
         *CLI_TOOL_COMMANDS.keys(),
         "tpm-diagnose",
         "tpm-check",
         "self-test",
+        "mcp",
     ]
     parser = UnoLockArgumentParser(description="UnoLock Agent commands.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {MCP_VERSION}")
@@ -430,12 +430,6 @@ def build_parser() -> argparse.ArgumentParser:
         description="Run the UnoLock agent probe against a live local server.",
     )
     probe_parser.add_argument("--flow", default="access")
-
-    mcp_parser = subparsers.add_parser(
-        "mcp",
-        help="Run the UnoLock stdio MCP server.",
-        description="Run the UnoLock agent stdio MCP server.",
-    )
 
     host_start_parser = subparsers.add_parser(
         "start",
@@ -543,6 +537,12 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     self_test_parser.add_argument("--json", action="store_true", help="Print the self-test result as JSON.")
+
+    mcp_parser = subparsers.add_parser(
+        "mcp",
+        help="Run the UnoLock stdio MCP server.",
+        description="Run the UnoLock agent stdio MCP server.",
+    )
 
     update_parser = subparsers.add_parser(
         "check-update",
