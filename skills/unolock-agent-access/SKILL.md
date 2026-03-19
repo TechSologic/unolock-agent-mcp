@@ -6,7 +6,7 @@ description: Guides an AI agent through connecting to a user's UnoLock Safe thro
 # UnoLock Agent Access
 
 Use this skill when a user wants to give their agent access to a UnoLock Safe.
-This skill uses a local UnoLock `stdio` MCP that runs on the user's device. The MCP guides setup and then provides ongoing access to the current Space's notes, checklists, and Cloud files.
+This skill uses a local UnoLock `stdio` MCP that runs on the user's device. The MCP guides setup and then provides ongoing access to Spaces, notes, checklists, and Cloud files.
 
 ## Workflow
 
