@@ -6,6 +6,16 @@ UnoLock was built to protect you. Now it can protect both you and your agent.
 
 UnoLock Agent MCP is currently in alpha. It is available for evaluation and early testing, but it is not ready for broad production rollout yet.
 
+## Start With The Skill
+
+For skill-aware agents, the primary starting point is the UnoLock agent-access skill:
+
+* [skills/unolock-agent-access/SKILL.md](skills/unolock-agent-access/SKILL.md)
+* `https://github.com/TechSologic/unolock-agent-mcp/blob/main/skills/unolock-agent-access/SKILL.md`
+
+That skill is the agent-facing onboarding layer.
+The local UnoLock `stdio` MCP is the implementation layer underneath it.
+
 ## Why Use UnoLock For An Agent
 
 UnoLock Agent MCP is not only about protecting secrets.
@@ -132,9 +142,10 @@ For real MCP hosts, see:
 * [OpenClaw example](examples/openclaw-mcp.json)
 * [Config file example](examples/unolock-agent-config.json)
 
-The preferred path is one executable with one normal MCP-facing behavior:
+For skill-aware agents, start with the skill above.
+For hosts that need direct MCP configuration, the preferred path is one executable with one normal MCP-facing behavior:
 
-* MCP hosts launch `unolock-agent-mcp` with no UnoLock-specific arguments.
+* MCP hosts launch `npx -y @techsologic/unolock-agent-mcp@latest`.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
 * UnoLock manages its own local runtime automatically after launch.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.

@@ -1,6 +1,11 @@
 # Agent MCP Docs
 
-This directory should hold MCP-specific design and implementation documentation.
+This directory holds MCP-specific design and implementation documentation.
+
+For skill-aware agents, start with:
+
+* [../skills/unolock-agent-access/SKILL.md](../skills/unolock-agent-access/SKILL.md)
+* `https://github.com/TechSologic/unolock-agent-mcp/blob/main/skills/unolock-agent-access/SKILL.md`
 
 For the current public agent-first onboarding story, start with:
 
