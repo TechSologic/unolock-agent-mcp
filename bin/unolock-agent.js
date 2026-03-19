@@ -7,8 +7,8 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.29";
-const FALLBACK_BINARY_VERSION = "0.1.29";
+const PACKAGE_VERSION = "0.1.30";
+const FALLBACK_BINARY_VERSION = "0.1.30";
 const REPO = "TechSologic/unolock-agent";
 
 function platformAssetInfo() {
