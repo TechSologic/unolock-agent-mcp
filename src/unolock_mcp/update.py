@@ -10,7 +10,7 @@ from typing import Any
 
 from unolock_mcp import __version__ as MCP_VERSION
 
-GITHUB_REPO = "TechSologic/unolock-agent-mcp"
+GITHUB_REPO = "TechSologic/unolock-agent"
 LATEST_RELEASE_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/releases/latest"
 RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 

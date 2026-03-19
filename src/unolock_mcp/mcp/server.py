@@ -629,7 +629,7 @@ def create_mcp_server() -> FastMCP:
                 "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart the runner.",
                 "python-package": "Upgrade the Python package in the environment that launches the MCP and restart the runner.",
             },
-            "release_url": "https://github.com/TechSologic/unolock-agent-mcp/releases",
+            "release_url": "https://github.com/TechSologic/unolock-agent/releases",
         }
 
     @server.prompt(

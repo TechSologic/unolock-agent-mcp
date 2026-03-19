@@ -11,7 +11,7 @@ UnoLock Agent is currently in alpha. It is available for evaluation and early te
 For skill-aware agents, the primary starting point is the UnoLock agent-access skill:
 
 * [skills/unolock-agent-access/SKILL.md](skills/unolock-agent-access/SKILL.md)
-* `https://github.com/TechSologic/unolock-agent-mcp/blob/main/skills/unolock-agent-access/SKILL.md`
+* `https://github.com/TechSologic/unolock-agent/blob/main/skills/unolock-agent-access/SKILL.md`
 
 That skill is the agent-facing onboarding layer.
 The local UnoLock `stdio` MCP is the implementation layer underneath it.
@@ -75,8 +75,8 @@ These environments are harder to support because they often cannot satisfy UnoLo
 
 Official GitHub repository:
 
-* `https://github.com/TechSologic/unolock-agent-mcp`
-* Releases: `https://github.com/TechSologic/unolock-agent-mcp/releases`
+* `https://github.com/TechSologic/unolock-agent`
+* Releases: `https://github.com/TechSologic/unolock-agent/releases`
 
 Agent-first onboarding site:
 
@@ -184,8 +184,8 @@ Once the local stdio MCP is running, the normal flow is:
 If you prefer manual install from source:
 
 ```bash
-git clone https://github.com/TechSologic/unolock-agent-mcp.git
-cd unolock-agent-mcp
+git clone https://github.com/TechSologic/unolock-agent.git
+cd unolock-agent
 python3 -m pip install --user -e .
 unolock-agent-probe probe
 unolock-agent --help
@@ -236,7 +236,7 @@ The npm package is both:
 
 Project home:
 
-* `https://github.com/TechSologic/unolock-agent-mcp`
+* `https://github.com/TechSologic/unolock-agent`
 
 Use it as a command that OpenClaw can launch, for example:
 

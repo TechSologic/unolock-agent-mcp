@@ -26,18 +26,18 @@ python3 -m pipx ensurepath
 
 Preferred:
 
-* download the latest macOS binary from `https://github.com/TechSologic/unolock-agent-mcp/releases`
+* download the latest macOS binary from `https://github.com/TechSologic/unolock-agent/releases`
 
 Source-install fallback:
 
 ```bash
-pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
+pipx install git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 If you prefer `pip`:
 
 ```bash
-python3 -m pip install git+https://github.com/TechSologic/unolock-agent-mcp.git
+python3 -m pip install git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 ## Verify Secure Enclave Access

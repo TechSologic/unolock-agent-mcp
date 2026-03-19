@@ -34,9 +34,9 @@ dependencies = [
 
 [project.urls]
 Homepage = "https://unolock.ai"
-Repository = "https://github.com/TechSologic/unolock-agent-mcp"
-Documentation = "https://github.com/TechSologic/unolock-agent-mcp/tree/main/docs"
-Issues = "https://github.com/TechSologic/unolock-agent-mcp/issues"
+Repository = "https://github.com/TechSologic/unolock-agent"
+Documentation = "https://github.com/TechSologic/unolock-agent/tree/main/docs"
+Issues = "https://github.com/TechSologic/unolock-agent/issues"
 
 [project.optional-dependencies]
 dev = [

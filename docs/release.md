@@ -4,7 +4,7 @@ This document describes the intended release flow for the UnoLock Agent GitHub r
 
 Official repository:
 
-* `https://github.com/TechSologic/unolock-agent-mcp`
+* `https://github.com/TechSologic/unolock-agent`
 
 ## Goals
 
@@ -70,7 +70,7 @@ That avoids storing a long-lived PyPI token in repository secrets.
 Local build:
 
 ```bash
-cd unolock-agent-mcp
+cd unolock-agent
 python3 -m pip install --user build
 python3 -m build
 ```
@@ -78,7 +78,7 @@ python3 -m build
 Local standalone binary build:
 
 ```bash
-cd unolock-agent-mcp
+cd unolock-agent
 python3 -m pip install --user -e .[dev]
 python3 scripts/build_binary.py --clean
 ```

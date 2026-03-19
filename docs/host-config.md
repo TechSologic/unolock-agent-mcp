@@ -44,7 +44,7 @@ The preferred mode is:
 
 For customer use, prefer a standalone GitHub Release binary:
 
-* `https://github.com/TechSologic/unolock-agent-mcp/releases`
+* `https://github.com/TechSologic/unolock-agent/releases`
 
 If you are integrating with a Node/npm-oriented host, you can also use:
 
@@ -65,7 +65,7 @@ npx -y @techsologic/unolock-agent@latest mcp
 
 Project home:
 
-* `https://github.com/TechSologic/unolock-agent-mcp`
+* `https://github.com/TechSologic/unolock-agent`
 
 For updates, the preferred pattern is:
 
@@ -79,7 +79,7 @@ Do not expect the live MCP process to replace itself in place.
 If you need the source-install fallback instead, install the MCP as a standalone package:
 
 ```bash
-pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
+pipx install git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 If you are running outside a UnoLock monorepo checkout, the MCP can normally derive the UnoLock server origin and PQ validation key from the UnoLock Agent Key URL itself. In most cases, the only host-level setting you should need is:

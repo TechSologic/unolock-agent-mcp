@@ -28,8 +28,8 @@ On Windows and WSL, the MCP now prefers a TPM-backed key first and falls back to
 
 Official GitHub repository:
 
-* `https://github.com/TechSologic/unolock-agent-mcp`
-* Releases: `https://github.com/TechSologic/unolock-agent-mcp/releases`
+* `https://github.com/TechSologic/unolock-agent`
+* Releases: `https://github.com/TechSologic/unolock-agent/releases`
 
 The quickest post-install readiness summary is:
 
@@ -66,7 +66,7 @@ That avoids most local Python packaging and source-build overhead.
 
 Download from:
 
-* `https://github.com/TechSologic/unolock-agent-mcp/releases`
+* `https://github.com/TechSologic/unolock-agent/releases`
 
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
@@ -92,7 +92,7 @@ npx -y @techsologic/unolock-agent@latest list-files
 
 Project home:
 
-* `https://github.com/TechSologic/unolock-agent-mcp`
+* `https://github.com/TechSologic/unolock-agent`
 
 Use it as a command that OpenClaw can launch, for example:
 
@@ -216,13 +216,13 @@ python3 -m pipx ensurepath
 3. Preferred: download the latest macOS release binary from:
 
 ```text
-https://github.com/TechSologic/unolock-agent-mcp/releases
+https://github.com/TechSologic/unolock-agent/releases
 ```
 
 If you need the source-install fallback instead, install the MCP with:
 
 ```bash
-pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
+pipx install git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 4. Verify Secure Enclave readiness:
@@ -248,7 +248,7 @@ The agent should then ask the user for the UnoLock Agent Key URL and PIN togethe
 
 Download the latest platform binary from:
 
-* `https://github.com/TechSologic/unolock-agent-mcp/releases`
+* `https://github.com/TechSologic/unolock-agent/releases`
 
 Expected artifact names:
 
@@ -263,7 +263,7 @@ Then configure your MCP host to run that binary directly.
 Use this when you need a source install rather than a release binary.
 
 ```bash
-pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
+pipx install git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 After install, the MCP command is:
@@ -298,7 +298,7 @@ python3 -m unolock_mcp bootstrap --connection-url '<unoLock connection url>' --p
 ## Option 2: Install From GitHub With `pip`
 
 ```bash
-python3 -m pip install git+https://github.com/TechSologic/unolock-agent-mcp.git
+python3 -m pip install git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 This is acceptable, but `pipx` is preferred for desktop MCP hosts because it avoids mixing MCP dependencies into a user’s main Python environment.
@@ -308,7 +308,7 @@ This is acceptable, but `pipx` is preferred for desktop MCP hosts because it avo
 This is mainly for development and local testing:
 
 ```bash
-git clone https://github.com/TechSologic/unolock-agent-mcp.git
+git clone https://github.com/TechSologic/unolock-agent.git
 cd unolock-agent
 python3 -m pip install --user -e .
 ```
@@ -392,7 +392,7 @@ pipx upgrade unolock-agent
 If installed directly from GitHub with `pip`:
 
 ```bash
-python3 -m pip install --upgrade git+https://github.com/TechSologic/unolock-agent-mcp.git
+python3 -m pip install --upgrade git+https://github.com/TechSologic/unolock-agent.git
 ```
 
 ## Uninstall

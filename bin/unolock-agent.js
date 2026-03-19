@@ -9,7 +9,7 @@ const { spawn } = require("child_process");
 
 const PACKAGE_VERSION = "0.1.29";
 const FALLBACK_BINARY_VERSION = "0.1.29";
-const REPO = "TechSologic/unolock-agent-mcp";
+const REPO = "TechSologic/unolock-agent";
 
 function platformAssetInfo() {
   const platform = process.platform;

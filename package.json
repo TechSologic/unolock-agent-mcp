@@ -6,10 +6,10 @@
   "homepage": "https://unolock.ai",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/TechSologic/unolock-agent-mcp.git"
+    "url": "git+https://github.com/TechSologic/unolock-agent.git"
   },
   "bugs": {
-    "url": "https://github.com/TechSologic/unolock-agent-mcp/issues"
+    "url": "https://github.com/TechSologic/unolock-agent/issues"
   },
   "bin": {
     "unolock-agent": "bin/unolock-agent.js"
