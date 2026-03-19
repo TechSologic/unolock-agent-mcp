@@ -277,6 +277,7 @@ class _FakeAgentAuthForAutoSession:
         self._session_store = session_store
         self._agent_pin: str | None = None
         self.auth_calls = 0
+        self.registration_calls = 0
         self.__class__.instances.append(self)
 
     def set_flow_client(self, _flow_client) -> None:
@@ -318,6 +319,7 @@ class _FakeAgentAuthForAutoSession:
         return {"ok": True, "connection_url": connection_url}
 
     def start_registration_from_stored_url(self) -> dict[str, object]:
+        self.registration_calls += 1
         return {
             "ok": True,
             "authorized": True,
@@ -444,6 +446,21 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertNotIn("session_id", resumed["resumed_operation"]["result"])
             self.assertEqual(resumed["resumed_operation"]["result"]["internal_session_id"], "active")
             self.assertEqual(auth.auth_calls, 2)
+
+    def test_link_agent_key_starts_registration_immediately(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                result = server._tool_manager._tools["unolock_link_agent_key"].fn(
+                    "https://safe.test/#/agent-register/x/y/z",
+                    "1",
+                )
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["completed"])
+            self.assertEqual(auth.registration_calls, 1)
+            self.assertTrue(result["pin"]["has_agent_pin"])
 
     def test_list_spaces_reuses_latest_authorized_session(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

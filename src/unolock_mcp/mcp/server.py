@@ -753,17 +753,20 @@ def create_mcp_server() -> FastMCP:
         if status.get("ok") is False or status.get("blocked"):
             return _strip_session_ids(status)
         try:
-            status = agent_auth.set_agent_pin(pin)
+            pin_status = agent_auth.set_agent_pin(pin)
         except ValueError as exc:
             return _tool_error_response(exc)
-        return _strip_session_ids({
-            "ok": True,
-            "registration": registration_store.load().summary(),
-            "runtime": agent_auth.runtime_status(),
-            "message": (
-                "UnoLock Agent Key URL was accepted. Continue with MCP-guided registration next."
-            ),
-        })
+        registration_status = agent_auth.start_registration_from_stored_url()
+        registration_status = _strip_session_ids(registration_status)
+        if registration_status.get("ok") is False or registration_status.get("blocked"):
+            return {
+                **registration_status,
+                "pin": pin_status,
+            }
+        return {
+            **registration_status,
+            "pin": pin_status,
+        }
 
     @server.tool(
         name="unolock_get_current_space",
