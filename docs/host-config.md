@@ -215,11 +215,8 @@ After the MCP process restarts:
 
 Relevant tools:
 
-* `unolock_get_registration_status`
-* `unolock_get_tpm_diagnostics`
 * `unolock_link_agent_key`
 * `unolock_set_agent_pin`
-* `unolock_bootstrap_agent`
 * `unolock_list_spaces`
 * `unolock_get_current_space`
 * `unolock_set_current_space`

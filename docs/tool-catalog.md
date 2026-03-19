@@ -296,15 +296,11 @@ Return the active host key-storage provider and assurance guidance.
 
 ## Advanced/debug tools
 
-These are not the preferred normal workflow:
+These are support-only tools for diagnostics or cleanup:
 
-* `unolock_get_registration_status`
-* `unolock_bootstrap_agent`
-* `unolock_submit_connection_url`
+* `unolock_get_update_status`
+* `unolock_get_tpm_diagnostics`
+* `unolock_clear_agent_pin`
 * `unolock_clear_connection_url`
-* `unolock_start_registration_from_connection_url`
-* `unolock_continue_agent_session`
-* `unolock_authenticate_agent`
+* `unolock_clear_current_space`
 * `unolock_disconnect_agent`
-
-Agents should ignore these unless the normal guided workflow cannot complete the task.

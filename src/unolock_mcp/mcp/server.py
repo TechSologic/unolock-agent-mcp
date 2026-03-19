@@ -836,15 +836,6 @@ def create_mcp_server() -> FastMCP:
 
     if _advanced_tools_enabled():
         @server.tool(
-            name="unolock_get_registration_status",
-            description=(
-                "Support/debug: return whether this MCP is already registered and what the next step would be."
-            ),
-        )
-        def get_registration_status() -> dict[str, Any]:
-            return _registration_status_payload(registration_store, session_store, agent_auth)
-
-        @server.tool(
             name="unolock_get_update_status",
             description=(
                 "Support/debug: check the installed UnoLock Agent MCP version against the latest GitHub Release "
@@ -874,18 +865,6 @@ def create_mcp_server() -> FastMCP:
             return agent_auth.tpm_diagnostics()
 
         @server.tool(
-            name="unolock_submit_connection_url",
-            description=(
-                "Support/debug: accept a one-time UnoLock Agent Key URL and store it locally without the PIN helper."
-            ),
-        )
-        def submit_connection_url(connection_url: str) -> dict[str, Any]:
-            try:
-                return agent_auth.submit_connection_url(connection_url)
-            except ValueError as exc:
-                return _tool_error_response(exc)
-
-        @server.tool(
             name="unolock_clear_connection_url",
             description="Support/debug: clear the locally stored UnoLock Agent Key URL.",
         )
@@ -908,70 +887,6 @@ def create_mcp_server() -> FastMCP:
         )
         def disconnect_agent() -> dict[str, Any]:
             return agent_auth.disconnect()
-
-        @server.tool(
-            name="unolock_start_registration_from_connection_url",
-            description="Support/debug: start UnoLock registration from the stored one-time Agent Key URL.",
-        )
-        def start_registration_from_connection_url() -> dict[str, Any]:
-            try:
-                ensure_flow_client()
-                return _strip_session_ids(agent_auth.start_registration_from_stored_url())
-            except ValueError as exc:
-                return _tool_error_response(exc)
-
-        @server.tool(
-            name="unolock_continue_agent_session",
-            description="Support/debug: continue a stored UnoLock flow explicitly.",
-        )
-        def continue_agent_session() -> dict[str, Any]:
-            try:
-                ensure_flow_client()
-                return _strip_session_ids(agent_auth.advance_active_flow())
-            except (ValueError, KeyError) as exc:
-                return _tool_error_response(exc)
-
-        @server.tool(
-            name="unolock_authenticate_agent",
-            description="Support/debug: explicitly start UnoLock authentication instead of relying on auto-auth.",
-        )
-        def authenticate_agent() -> dict[str, Any]:
-            try:
-                ensure_flow_client()
-                return _strip_session_ids(agent_auth.authenticate_registered_agent())
-            except ValueError as exc:
-                return _tool_error_response(exc)
-
-        @server.tool(
-            name="unolock_bootstrap_agent",
-            description=(
-                "Support/debug: explicitly run the one-shot UnoLock registration/authentication helper."
-            ),
-        )
-        def bootstrap_agent() -> dict[str, Any]:
-            try:
-                status = _registration_status_payload(registration_store, session_store, agent_auth)
-                ensure_flow_client()
-                if not status.get("has_connection_url"):
-                    return {
-                        "ok": False,
-                        "reason": "missing_connection_url",
-                        "status": status,
-                        "suggested_action": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
-                    }
-                if not status.get("registered"):
-                    return _strip_session_ids({
-                        "ok": True,
-                        "status": status,
-                        "result": agent_auth.start_registration_from_stored_url(),
-                    })
-                return _strip_session_ids({
-                    "ok": True,
-                    "status": status,
-                    "result": agent_auth.authenticate_registered_agent(),
-                })
-            except ValueError as exc:
-                return _tool_error_response(exc)
 
         @server.tool(
             name="unolock_start_flow",
