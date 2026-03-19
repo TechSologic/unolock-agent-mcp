@@ -143,7 +143,6 @@ For real MCP hosts, see:
 * [Cursor example](examples/cursor-mcp.json)
 * [OpenClaw MCP example](examples/openclaw-mcp.json)
 * [OpenClaw plugin config example](examples/openclaw-plugin-config.json)
-* [Config file example](examples/unolock-agent-config.json)
 
 For skill-aware agents, start with the skill above.
 For direct agent use, prefer the CLI:
@@ -189,7 +188,8 @@ git clone https://github.com/TechSologic/unolock-agent-mcp.git
 cd unolock-agent-mcp
 python3 -m pip install --user -e .
 unolock-agent-probe probe
-unolock-agent
+unolock-agent --help
+unolock-agent mcp
 python3 -m unolock_mcp tpm-diagnose
 unolock-agent-tpm-check
 unolock-agent-self-test
@@ -355,7 +355,8 @@ Installed commands:
 * `unolock-agent-probe`
   * run the packaged local probe
 * `unolock-agent`
-  * run the stdio MCP server
+  * run the CLI and print usage with no arguments
+  * use `unolock-agent mcp` for stdio MCP mode
 * `unolock-agent-tpm-check`
   * run the fail-fast production-readiness TPM check
 
@@ -504,7 +505,7 @@ unolock-agent/
 * `src/unolock_mcp/auth/`
   * agent registration and access clients
   * local compatibility probe
-  * generic flow session store
+  * single-flow auth state and local registration state
 * `src/unolock_mcp/api/`
   * authenticated Safe API client
 * `src/unolock_mcp/domain/`
