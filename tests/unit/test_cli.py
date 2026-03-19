@@ -14,6 +14,16 @@ from unolock_mcp.host import (
 
 
 class CliEntryPointTest(unittest.TestCase):
+    def test_help_hides_advanced_daemon_commands(self) -> None:
+        parser = cli.build_parser()
+
+        help_text = parser.format_help()
+
+        self.assertIn("link-agent-key", help_text)
+        self.assertNotIn("tools", help_text)
+        self.assertNotIn("call", help_text)
+        self.assertNotIn("bootstrap", help_text)
+
     def test_main_prints_help_without_subcommand(self) -> None:
         with patch.object(cli.argparse.ArgumentParser, "print_help") as help_mock:
             with patch.object(cli, "proxy_stdio_to_daemon", return_value=0) as proxy_mock:
@@ -259,6 +269,46 @@ class CliEntryPointTest(unittest.TestCase):
 
         self.assertEqual(result, 0)
         self.assertEqual(print_mock.call_args.args[0], "UPDATE_AVAILABLE: restart the runner")
+
+    def test_cli_blocked_result_adds_link_agent_key_guidance(self) -> None:
+        with patch.object(
+            cli,
+            "call_daemon_tool",
+            return_value={
+                "ok": True,
+                "result": {
+                    "ok": False,
+                    "blocked": True,
+                    "reason": "missing_connection_url",
+                    "message": "Need setup.",
+                },
+            },
+        ):
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-spaces"])
+
+        self.assertEqual(result, 1)
+        self.assertIn("link-agent-key", print_mock.call_args.args[0])
+
+    def test_cli_blocked_result_adds_set_agent_pin_guidance(self) -> None:
+        with patch.object(
+            cli,
+            "call_daemon_tool",
+            return_value={
+                "ok": True,
+                "result": {
+                    "ok": False,
+                    "blocked": True,
+                    "reason": "missing_agent_pin",
+                    "message": "Need PIN.",
+                },
+            },
+        ):
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-spaces"])
+
+        self.assertEqual(result, 1)
+        self.assertIn("set-agent-pin", print_mock.call_args.args[0])
 
     def test_start_uses_local_daemon_helper(self) -> None:
         with patch.object(cli, "ensure_daemon_running", return_value={"ok": True, "running": True, "pid": 1234}) as start_mock:

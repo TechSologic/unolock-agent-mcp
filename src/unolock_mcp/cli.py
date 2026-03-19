@@ -259,6 +259,13 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
 }
 
 
+class UnoLockArgumentParser(argparse.ArgumentParser):
+    def format_help(self) -> str:
+        raw = super().format_help()
+        filtered_lines = [line for line in raw.splitlines() if "==SUPPRESS==" not in line]
+        return "\n".join(filtered_lines).rstrip() + "\n"
+
+
 def _add_cli_tool_subcommands(subparsers) -> None:
     for command_name, spec in CLI_TOOL_COMMANDS.items():
         subparser = subparsers.add_parser(
@@ -374,6 +381,18 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
 def _print_cli_payload(payload: dict[str, Any]) -> int:
     if payload.get("ok", True) and "result" in payload:
         result = payload["result"]
+        if isinstance(result, dict) and result.get("blocked"):
+            reason = result.get("reason")
+            if reason == "missing_connection_url":
+                result = {
+                    **result,
+                    "cli_guidance": "Run `unolock-agent link-agent-key '<agent-key-url>' '<pin>'`.",
+                }
+            elif reason == "missing_agent_pin":
+                result = {
+                    **result,
+                    "cli_guidance": "Run `unolock-agent set-agent-pin '<pin>'` and retry the original command.",
+                }
         print(json.dumps(result, indent=2))
         if isinstance(result, dict):
             if result.get("blocked"):
@@ -386,17 +405,28 @@ def _print_cli_payload(payload: dict[str, Any]) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="UnoLock Agent commands.")
+    public_commands = [
+        "mcp",
+        *CLI_TOOL_COMMANDS.keys(),
+        "tpm-diagnose",
+        "tpm-check",
+        "self-test",
+    ]
+    parser = UnoLockArgumentParser(description="UnoLock Agent commands.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {MCP_VERSION}")
     parser.add_argument("--base-url", default=None)
     parser.add_argument("--transparency-origin", default=None)
     parser.add_argument("--app-version", default=None)
     parser.add_argument("--signing-public-key", default=None)
-    subparsers = parser.add_subparsers(dest="command", required=False)
+    subparsers = parser.add_subparsers(
+        dest="command",
+        required=False,
+        metavar="{" + ",".join(public_commands) + "}",
+    )
 
     probe_parser = subparsers.add_parser(
         "probe",
-        help="Run the UnoLock local-server PQ probe.",
+        help=argparse.SUPPRESS,
         description="Run the UnoLock agent probe against a live local server.",
     )
     probe_parser.add_argument("--flow", default="access")
@@ -409,7 +439,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     host_start_parser = subparsers.add_parser(
         "start",
-        help="Start the UnoLock local daemon if it is not already running.",
+        help=argparse.SUPPRESS,
         description=(
             "Start the first-party UnoLock local daemon. If the daemon is already running, "
             "return its current status instead of launching another copy."
@@ -420,13 +450,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "status",
-        help="Show whether the UnoLock local daemon is running.",
+        help=argparse.SUPPRESS,
         description="Inspect the first-party UnoLock local daemon state.",
     )
 
     host_stop_parser = subparsers.add_parser(
         "stop",
-        help="Stop the UnoLock local daemon.",
+        help=argparse.SUPPRESS,
         description="Ask the first-party UnoLock local daemon to stop.",
     )
     host_stop_parser.add_argument("--timeout", type=float, default=5.0)
@@ -434,14 +464,14 @@ def build_parser() -> argparse.ArgumentParser:
 
     host_tools_parser = subparsers.add_parser(
         "tools",
-        help="List UnoLock MCP tools through the local daemon.",
+        help=argparse.SUPPRESS,
         description="List the MCP tool names exposed by the currently running UnoLock local daemon.",
     )
     host_tools_parser.add_argument("--no-auto-start", action="store_true")
 
     host_call_parser = subparsers.add_parser(
         "call",
-        help="Call one UnoLock MCP tool through the local daemon.",
+        help=argparse.SUPPRESS,
         description=(
             "Call one UnoLock MCP tool through the first-party local daemon. "
             "If the daemon is not running yet, this command starts it automatically."
@@ -467,7 +497,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     bootstrap_parser = subparsers.add_parser(
         "bootstrap",
-        help="Advanced/manual: register or authenticate the UnoLock agent using the local registration store.",
+        help=argparse.SUPPRESS,
         description=(
             "Advanced/manual path. Use the stored UnoLock connection URL and PIN to "
             "register/authenticate the agent. For the normal customer or agent flow, prefer an "
@@ -480,7 +510,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "disconnect",
-        help="Permanently disconnect the local UnoLock agent registration from this host.",
+        help=argparse.SUPPRESS,
         description=(
             "Delete the local UnoLock agent TPM key, protected secrets, registration state, in-memory PIN, "
             "and cached sessions. This does not delete the server-side access record."
@@ -516,7 +546,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     update_parser = subparsers.add_parser(
         "check-update",
-        help="Check whether a newer UnoLock Agent release is available.",
+        help=argparse.SUPPRESS,
         description=(
             "Check the installed UnoLock Agent version against the latest GitHub Release and print "
             "runner-specific update guidance."
@@ -526,7 +556,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     subparsers.add_parser(
         "config-check",
-        help="Show the resolved UnoLock runtime configuration and missing values.",
+        help=argparse.SUPPRESS,
         description="Inspect UnoLock MCP configuration sources from arguments, environment, config file, and repo auto-discovery.",
     )
     return parser
