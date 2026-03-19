@@ -124,8 +124,8 @@ def _registration_status_payload(
     elif not registration.get("has_connection_url"):
         next_action = "ask_for_connection_url"
         guidance = (
-            "Ask the user for the one-time UnoLock Agent Key URL in the #/agent-register/... format. If they do not "
-            "have one yet, ask them to open the Safe web app at https://safe.unolock.com/, create a dedicated Agent "
+            "Ask the user for the one-time UnoLock Agent Key URL in the #/agent-register/... format. If they need "
+            "to create one, ask them to open the Safe web app at https://safe.unolock.com/, create a dedicated Agent "
             "Key, and paste the generated URL here along with the PIN."
         )
     else:
@@ -367,10 +367,7 @@ def create_mcp_server() -> FastMCP:
         elif reason == "agent_key_invalid_or_consumed":
             suggested_action = "Ask the user for a fresh UnoLock Agent Key URL, then retry the original request."
         elif reason == "manual_callback_required":
-            suggested_action = (
-                "Retry the original UnoLock request. If you are using advanced support/debug flow tools, "
-                "you can continue the pending flow explicitly, but normal agents should not need to."
-            )
+            suggested_action = "Retry the original UnoLock request."
         elif suggested_action is None:
             suggested_action = "Resolve the reported UnoLock blocker, then retry the original request."
         return {
