@@ -1,0 +1,19 @@
+{
+  "plugins": {
+    "load": {
+      "paths": ["/absolute/path/to/unolock-agent-mcp"]
+    },
+    "entries": {
+      "unolock-agent-access": {
+        "enabled": true
+      }
+    }
+  },
+  "mcpServers": {
+    "unolock-agent": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+    }
+  }
+}

@@ -78,8 +78,7 @@ The wrapper downloads the matching GitHub Release binary for the current platfor
 On restart, the npm wrapper checks GitHub Releases for a newer stable binary and can update its cached binary between tasks.
 
 The npm package is an OpenClaw-friendly install and launch path for the UnoLock executable.
-
-It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
+It can also act as an OpenClaw plugin package that ships the UnoLock skill.
 
 Project home:
 
@@ -90,6 +89,14 @@ Use it as a command that OpenClaw can launch, for example:
 ```bash
 npx -y @techsologic/unolock-agent-mcp@latest
 ```
+
+If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
+
+```bash
+openclaw plugins install @techsologic/unolock-agent-mcp
+```
+
+For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent-access` plugin.
 
 For a host-managed stdio launch, use:
 

@@ -51,9 +51,10 @@ If you are integrating with a Node/npm-oriented host, you can also use:
 npx -y @techsologic/unolock-agent-mcp@latest --version
 ```
 
-This npm package is an OpenClaw-friendly wrapper around the standalone UnoLock MCP binary.
+This npm package is both:
 
-It is **not** an OpenClaw plugin for `openclaw plugins install ...`.
+* the normal UnoLock MCP command package
+* an OpenClaw plugin package that ships the UnoLock skill
 
 For a host-managed stdio launch, prefer:
 
@@ -192,7 +193,20 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 
 ## OpenClaw
 
-Use the same stdio MCP shape for OpenClaw.
+OpenClaw can use UnoLock in two layers:
+
+* as a plugin that ships the UnoLock skill
+* as the local stdio MCP command underneath that skill
+
+The intended published plugin install path is:
+
+```bash
+openclaw plugins install @techsologic/unolock-agent-mcp
+```
+
+For local repo testing before that plugin install path is published, point `plugins.load.paths` at this repo root and enable `unolock-agent-access`. A full example is in [examples/openclaw-plugin-config.json](../examples/openclaw-plugin-config.json).
+
+Use the same stdio MCP shape for the MCP command itself.
 
 Example snippet:
 

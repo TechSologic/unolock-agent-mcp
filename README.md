@@ -16,6 +16,8 @@ For skill-aware agents, the primary starting point is the UnoLock agent-access s
 That skill is the agent-facing onboarding layer.
 The local UnoLock `stdio` MCP is the implementation layer underneath it.
 
+For OpenClaw, this package can also be installed as a plugin so OpenClaw can load the same skill natively.
+
 ## Why Use UnoLock For An Agent
 
 UnoLock Agent MCP is not only about protecting secrets.
@@ -139,7 +141,8 @@ For real MCP hosts, see:
 * [Tool Catalog](docs/tool-catalog.md)
 * [Claude Desktop example](examples/claude-desktop-config.json)
 * [Cursor example](examples/cursor-mcp.json)
-* [OpenClaw example](examples/openclaw-mcp.json)
+* [OpenClaw MCP example](examples/openclaw-mcp.json)
+* [OpenClaw plugin config example](examples/openclaw-plugin-config.json)
 * [Config file example](examples/unolock-agent-config.json)
 
 For skill-aware agents, start with the skill above.
@@ -207,9 +210,10 @@ The wrapper downloads the correct GitHub Release binary for the current platform
 
 On restart, the npm wrapper now checks GitHub Releases for a newer stable binary and will update its cached binary between tasks when a newer release is available.
 
-The npm package is an OpenClaw-friendly install and launch path for the external UnoLock MCP binary.
+The npm package is both:
 
-It is **not** an OpenClaw plugin package for `openclaw plugins install ...`.
+* the normal MCP command package
+* an OpenClaw plugin package that ships the UnoLock skill
 
 Project home:
 
@@ -493,3 +497,10 @@ unolock-agent-mcp/
 
 * Server-side interop probes can still live under `server/safe-server/scripts/` when they are validating server behavior directly.
 * Production agent auth is intended to use TPM/vTPM or equivalent device-backed storage. The software provider is the lower-assurance fallback when stronger host key protection is not available.
+If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
+
+```bash
+openclaw plugins install @techsologic/unolock-agent-mcp
+```
+
+For local testing before publishing that plugin path, point OpenClaw at this repo through `plugins.load.paths` and enable the `unolock-agent-access` plugin. See [examples/openclaw-plugin-config.json](examples/openclaw-plugin-config.json).
