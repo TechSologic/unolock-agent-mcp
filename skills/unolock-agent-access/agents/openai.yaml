@@ -1,0 +1,7 @@
+interface:
+  display_name: "UnoLock Agent Access"
+  short_description: "Connect an agent to a user's UnoLock Safe"
+  default_prompt: "Use $unolock-agent-access to connect this agent to a user's UnoLock Safe and then work in the current Space."
+
+policy:
+  allow_implicit_invocation: true
