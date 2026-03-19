@@ -88,7 +88,7 @@ Agent-first onboarding site:
 Recommended customer install source:
 
 * UnoLock's built-in local daemon/CLI with a GitHub Release binary when available
-* `npx -y @techsologic/unolock-agent@latest` as the Node/npm wrapper path
+* `npx -y @techsologic/unolock-agent@latest` as the easiest Node/npm CLI path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -146,7 +146,16 @@ For real MCP hosts, see:
 * [Config file example](examples/unolock-agent-config.json)
 
 For skill-aware agents, start with the skill above.
-For hosts that need direct MCP configuration, the preferred path is one executable with one normal MCP-facing behavior:
+For direct agent use, prefer the CLI:
+
+```bash
+npx -y @techsologic/unolock-agent@latest link-agent-key 'https://safe.example/#/agent-register/...' 1
+npx -y @techsologic/unolock-agent@latest list-spaces
+npx -y @techsologic/unolock-agent@latest list-notes
+npx -y @techsologic/unolock-agent@latest list-files
+```
+
+For hosts that need MCP configuration, use the same executable in explicit MCP mode:
 
 * MCP hosts launch `npx -y @techsologic/unolock-agent@latest mcp`.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
@@ -155,7 +164,7 @@ For hosts that need direct MCP configuration, the preferred path is one executab
 
 That keeps the user PIN in process memory, keeps the current Space selected, and hides local process details from the agent.
 
-The same executable also supports explicit CLI commands when that is easier for the agent or user to understand, for example:
+The same executable also supports explicit CLI commands, for example:
 
 ```bash
 unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
@@ -200,7 +209,7 @@ For the best customer experience, prefer GitHub Release binaries over source ins
 
 ## Preferred Customer Install
 
-When available, prefer the built-in UnoLock local daemon plus the npm wrapper or release binary instead of a cold-start bare MCP process.
+When available, prefer the built-in UnoLock local daemon plus the npm wrapper or release binary.
 
 For an agent-first public onboarding flow, send users or agents to:
 

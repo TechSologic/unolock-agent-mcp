@@ -49,9 +49,10 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 The preferred path is:
 
-1. let the MCP host launch `unolock-agent mcp`
-2. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
-3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
+1. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
+2. prefer the CLI commands for normal agent use
+3. use `unolock-agent mcp` only when the host specifically requires MCP
+4. let UnoLock handle its local daemon internally so the user PIN can stay in process memory instead of being stored persistently
 
 On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating the MCP as hung.
 
@@ -80,6 +81,15 @@ On restart, the npm wrapper checks GitHub Releases for a newer stable binary and
 The npm package is an OpenClaw-friendly install and launch path for the UnoLock executable.
 It can also act as an OpenClaw plugin package that ships the UnoLock skill.
 
+For normal direct use, prefer commands like:
+
+```bash
+npx -y @techsologic/unolock-agent@latest link-agent-key '<agent-key-url>' '<pin>'
+npx -y @techsologic/unolock-agent@latest list-spaces
+npx -y @techsologic/unolock-agent@latest list-notes
+npx -y @techsologic/unolock-agent@latest list-files
+```
+
 Project home:
 
 * `https://github.com/TechSologic/unolock-agent-mcp`
@@ -106,7 +116,7 @@ npx -y @techsologic/unolock-agent@latest mcp
 
 UnoLock manages its own local daemon automatically after launch, so the agent does not need to manage daemon mode or any separate runner. The `mcp` subcommand uses that daemon-backed runtime. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
 
-If a direct CLI is easier for the host or agent to reason about, the same executable also supports explicit commands such as:
+The same executable also supports explicit CLI commands such as:
 
 ```bash
 unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
