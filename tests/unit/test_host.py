@@ -13,9 +13,13 @@ from unolock_mcp.host import (
     LocalHostError,
     ToolHostController,
     _ensure_state_dir,
+    _status_shows_version_mismatch,
     _write_daemon_state,
+    call_tool,
     daemon_state_path,
+    ensure_daemon_running,
     load_daemon_state,
+    proxy_stdio_to_daemon,
 )
 
 
@@ -220,6 +224,65 @@ class DaemonStateFilesystemTest(unittest.TestCase):
                 loaded = load_daemon_state()
                 self.assertEqual(loaded.port, 4000)
                 self.assertIsNone(loaded.socket_path)
+
+
+class DaemonVersionCompatibilityTest(unittest.TestCase):
+    def test_status_detects_version_mismatch(self) -> None:
+        with patch("unolock_mcp.host.MCP_VERSION", "9.9.9"):
+            self.assertTrue(_status_shows_version_mismatch({"running": True, "version": "0.0.1"}))
+            self.assertFalse(_status_shows_version_mismatch({"running": True, "version": "9.9.9"}))
+            self.assertFalse(_status_shows_version_mismatch({"running": False, "version": "0.0.1"}))
+
+    def test_ensure_daemon_running_restarts_stale_daemon(self) -> None:
+        with (
+            patch("unolock_mcp.host.MCP_VERSION", "9.9.9"),
+            patch("unolock_mcp.host.get_daemon_status", side_effect=[{"ok": True, "running": True, "version": "0.1.0"}, {"ok": True, "running": True, "version": "9.9.9", "pid": 456}]),
+            patch("unolock_mcp.host.stop_daemon", return_value={"ok": True, "running": False, "stopped": True}) as stop_mock,
+            patch("unolock_mcp.host._ensure_state_dir"),
+            patch("unolock_mcp.host.daemon_log_path", return_value=Path("/tmp/unolock-daemon.log")),
+            patch("pathlib.Path.open"),
+            patch("unolock_mcp.host._chmod_if_supported"),
+            patch("subprocess.Popen") as popen_mock,
+        ):
+            popen_mock.return_value.poll.return_value = None
+            status = ensure_daemon_running(timeout=0.1)
+
+        stop_mock.assert_called_once()
+        popen_mock.assert_called_once()
+        self.assertEqual(status["version"], "9.9.9")
+
+    def test_call_tool_auto_restarts_stale_daemon(self) -> None:
+        state = LocalDaemonState(pid=123, token="secret", version="0.1.0", started_at=1.0, socket_path="/tmp/daemon.sock")
+        with (
+            patch("unolock_mcp.host.load_daemon_state", side_effect=[state, state]),
+            patch("unolock_mcp.host.MCP_VERSION", "9.9.9"),
+            patch("unolock_mcp.host.get_daemon_status", return_value={"ok": True, "running": True, "version": "0.1.0"}),
+            patch("unolock_mcp.host.ensure_daemon_running", return_value={"ok": True, "running": True, "version": "9.9.9"}) as ensure_mock,
+            patch("unolock_mcp.host._request_daemon", return_value={"ok": True, "result": {"pong": True}}) as request_mock,
+        ):
+            result = call_tool("ping")
+
+        ensure_mock.assert_called_once()
+        request_mock.assert_called_once()
+        self.assertEqual(result["result"]["pong"], True)
+
+    def test_proxy_stdio_auto_restarts_stale_daemon(self) -> None:
+        state = LocalDaemonState(pid=123, token="secret", version="0.1.0", started_at=1.0, socket_path="/tmp/daemon.sock")
+        stdin_payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
+        with (
+            patch("unolock_mcp.host.load_daemon_state", side_effect=[state, state]),
+            patch("unolock_mcp.host.MCP_VERSION", "9.9.9"),
+            patch("unolock_mcp.host.get_daemon_status", return_value={"ok": True, "running": True, "version": "0.1.0"}),
+            patch("unolock_mcp.host.ensure_daemon_running", return_value={"ok": True, "running": True, "version": "9.9.9"}) as ensure_mock,
+            patch("unolock_mcp.host._request_daemon", return_value={"ok": True, "has_response": True, "response": {"jsonrpc": "2.0", "id": 1, "result": {}}}),
+            patch("sys.stdin", new=iter([stdin_payload])),
+            patch("builtins.print") as print_mock,
+        ):
+            exit_code = proxy_stdio_to_daemon()
+
+        ensure_mock.assert_called_once()
+        print_mock.assert_called_once()
+        self.assertEqual(exit_code, 0)
 
 
 if __name__ == "__main__":

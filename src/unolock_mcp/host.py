@@ -190,6 +190,12 @@ def _request_daemon(
     return response
 
 
+def _status_shows_version_mismatch(status: dict[str, Any] | None) -> bool:
+    if not isinstance(status, dict):
+        return False
+    return bool(status.get("running")) and str(status.get("version") or "") != MCP_VERSION
+
+
 def get_daemon_status(timeout: float = DEFAULT_DAEMON_STATUS_TIMEOUT) -> dict[str, Any]:
     state = load_daemon_state()
     if state is None:
@@ -481,8 +487,14 @@ def serve_local_daemon_forever() -> int:
 
 def ensure_daemon_running(timeout: float = DEFAULT_DAEMON_START_TIMEOUT) -> dict[str, Any]:
     status = get_daemon_status()
-    if status.get("running"):
+    if status.get("running") and not _status_shows_version_mismatch(status):
         return status
+    if _status_shows_version_mismatch(status):
+        stopped = stop_daemon()
+        if not stopped.get("ok") or stopped.get("running"):
+            raise LocalHostError(
+                "A stale UnoLock local daemon is still running after an upgrade. Stop it before retrying."
+            )
 
     _ensure_state_dir()
     log_file = daemon_log_path().open("a", encoding="utf8")
@@ -543,7 +555,8 @@ def stop_daemon(timeout: float = DEFAULT_DAEMON_STOP_TIMEOUT) -> dict[str, Any]:
 
 def list_tools(auto_start: bool = True, timeout: float = DEFAULT_DAEMON_LIST_TIMEOUT) -> dict[str, Any]:
     state = load_daemon_state()
-    if state is None or not get_daemon_status().get("running"):
+    status = get_daemon_status() if state is not None else {"running": False}
+    if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             return {"ok": False, "reason": "daemon_not_running", "message": "UnoLock local daemon is not running."}
         ensure_daemon_running()
@@ -561,7 +574,8 @@ def call_tool(
     timeout: float = DEFAULT_DAEMON_CALL_TIMEOUT,
 ) -> dict[str, Any]:
     state = load_daemon_state()
-    if state is None or not get_daemon_status().get("running"):
+    status = get_daemon_status() if state is not None else {"running": False}
+    if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             return {"ok": False, "reason": "daemon_not_running", "message": "UnoLock local daemon is not running."}
         ensure_daemon_running()
@@ -577,7 +591,8 @@ def call_tool(
 
 def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float | None = None) -> int:
     state = load_daemon_state()
-    if state is None or not get_daemon_status().get("running"):
+    status = get_daemon_status() if state is not None else {"running": False}
+    if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             raise LocalHostError("UnoLock local daemon is not running.")
         ensure_daemon_running()
