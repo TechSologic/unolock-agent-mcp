@@ -158,14 +158,14 @@ That keeps the user PIN in process memory, keeps the current Space selected, and
 The same executable also supports explicit CLI commands when that is easier for the agent or user to understand, for example:
 
 ```bash
-unolock-agent-mcp link-agent-key 'https://safe.example/#/agent-register/...' 1
-unolock-agent-mcp list-spaces
-unolock-agent-mcp list-notes
-unolock-agent-mcp create-note "Todo" "Buy milk"
-unolock-agent-mcp list-files
+unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent list-spaces
+unolock-agent list-notes
+unolock-agent create-note "Todo" "Buy milk"
+unolock-agent list-files
 ```
 
-No-argument launch remains the normal `stdio` MCP behavior. Explicit subcommands are the direct CLI surface.
+No-argument launch remains the normal `stdio` MCP behavior. Explicit subcommands are the direct CLI surface. `unolock-agent-mcp` remains available as a compatibility alias.
 
 Useful support commands still exist for humans and debugging:
 
@@ -182,7 +182,7 @@ git clone https://github.com/TechSologic/unolock-agent-mcp.git
 cd unolock-agent-mcp
 python3 -m pip install --user -e .
 unolock-agent-probe probe
-unolock-agent-mcp
+unolock-agent
 python3 -m unolock_mcp tpm-diagnose
 unolock-agent-tpm-check
 unolock-agent-self-test
@@ -258,7 +258,7 @@ The intended update model is:
 Check update status with:
 
 ```bash
-unolock-agent-mcp check-update --json
+unolock-agent check-update --json
 ```
 
 Or, through the MCP itself, call:

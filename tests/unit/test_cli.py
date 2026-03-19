@@ -23,7 +23,7 @@ class CliEntryPointTest(unittest.TestCase):
 
     def test_mcp_main_passes_top_level_version_through(self) -> None:
         with patch.object(cli, "main", return_value=0) as main_mock:
-            with patch("sys.argv", ["unolock-agent-mcp", "--version"]):
+            with patch("sys.argv", ["unolock-agent", "--version"]):
                 result = cli.mcp_main()
 
         self.assertEqual(result, 0)
@@ -31,7 +31,7 @@ class CliEntryPointTest(unittest.TestCase):
 
     def test_mcp_main_passes_through_empty_argv(self) -> None:
         with patch.object(cli, "main", return_value=0) as main_mock:
-            with patch("sys.argv", ["unolock-agent-mcp"]):
+            with patch("sys.argv", ["unolock-agent"]):
                 result = cli.mcp_main()
 
         self.assertEqual(result, 0)

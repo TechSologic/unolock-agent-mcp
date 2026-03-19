@@ -49,7 +49,7 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 The preferred path is:
 
-1. let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
+1. let the MCP host launch `unolock-agent` with no UnoLock-specific arguments
 2. use a GitHub Release binary or `npx -y @techsologic/unolock-agent-mcp@latest`
 3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
 
@@ -109,14 +109,14 @@ UnoLock manages its own local runtime automatically after launch, so the agent d
 If a direct CLI is easier for the host or agent to reason about, the same executable also supports explicit commands such as:
 
 ```bash
-unolock-agent-mcp link-agent-key 'https://safe.example/#/agent-register/...' 1
-unolock-agent-mcp list-spaces
-unolock-agent-mcp list-notes
-unolock-agent-mcp create-note "Todo" "Buy milk"
-unolock-agent-mcp list-files
+unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent list-spaces
+unolock-agent list-notes
+unolock-agent create-note "Todo" "Buy milk"
+unolock-agent list-files
 ```
 
-No-argument launch remains the normal `stdio` MCP mode. Explicit subcommands are the CLI mode.
+No-argument launch remains the normal `stdio` MCP mode. Explicit subcommands are the CLI mode. `unolock-agent-mcp` remains available as a compatibility alias.
 
 ## Built-in local daemon
 
@@ -125,16 +125,16 @@ The UnoLock executable now includes its own local daemon. That is the preferred 
 Useful support commands:
 
 ```bash
-unolock-agent-mcp start
-unolock-agent-mcp status
-unolock-agent-mcp tools
-unolock-agent-mcp call unolock_list_spaces
-unolock-agent-mcp stop
+unolock-agent start
+unolock-agent status
+unolock-agent tools
+unolock-agent call unolock_list_spaces
+unolock-agent stop
 ```
 
 Notes:
 
-* MCP hosts usually do not need these commands at all; they just launch `unolock-agent-mcp` and speak stdio JSON-RPC.
+* MCP hosts usually do not need these commands at all; they just launch `unolock-agent` and speak stdio JSON-RPC.
 * `start` starts the local daemon only if it is not already running.
 * `tools` and `call` auto-start the daemon if needed.
 * the current Space, auth state, and PIN-in-memory behavior belong to the UnoLock daemon itself
@@ -229,7 +229,7 @@ Expected provider on macOS when the host is working:
 Then configure your MCP host to launch:
 
 ```bash
-unolock-agent-mcp
+unolock-agent
 ```
 
 The agent should then ask the user for the UnoLock Agent Key URL and PIN together.
@@ -259,7 +259,7 @@ pipx install git+https://github.com/TechSologic/unolock-agent-mcp.git
 After install, the MCP command is:
 
 ```bash
-unolock-agent-mcp
+unolock-agent
 ```
 
 Useful extra command:
@@ -308,7 +308,7 @@ python3 -m pip install --user -e .
 Check that the command is available:
 
 ```bash
-unolock-agent-mcp --help
+unolock-agent --help
 python3 -m unolock_mcp --help
 ```
 
@@ -330,7 +330,7 @@ python3 -c "import oqs; print('liboqs-python ok')"
 Once installed, configure your MCP host to run:
 
 ```bash
-unolock-agent-mcp
+unolock-agent
 ```
 
 See:

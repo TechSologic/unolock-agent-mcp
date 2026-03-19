@@ -12,6 +12,7 @@
     "url": "https://github.com/TechSologic/unolock-agent-mcp/issues"
   },
   "bin": {
+    "unolock-agent": "bin/unolock-agent-mcp.js",
     "unolock-agent-mcp": "bin/unolock-agent-mcp.js"
   },
   "openclaw": {

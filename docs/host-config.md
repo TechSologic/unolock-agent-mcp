@@ -37,7 +37,7 @@ Checked against the official host docs on 2026-03-08:
 
 The preferred mode is:
 
-* let the MCP host launch `unolock-agent-mcp` with no UnoLock-specific arguments
+* let the MCP host launch `unolock-agent` with no UnoLock-specific arguments
 * use `npx -y @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
 * let UnoLock manage its own local runtime so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
@@ -68,7 +68,7 @@ Project home:
 
 For updates, the preferred pattern is:
 
-* check status with `unolock_get_update_status` or `unolock-agent-mcp check-update`
+* check status with `unolock_get_update_status` or `unolock-agent check-update`
 * let the current task finish
 * restart the UnoLock MCP
 * let the npm wrapper or replacement binary apply the update between tasks
@@ -151,7 +151,7 @@ Example snippet:
 
 Notes:
 
-* If you already installed `unolock-agent-mcp` locally, you can use `"command": "unolock-agent-mcp"` instead.
+* If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead. `unolock-agent-mcp` remains a compatibility alias.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
 * For normal UnoLock cloud-service use, the Agent Key URL is enough for the MCP to resolve what it needs automatically.
 * Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
@@ -222,7 +222,7 @@ Example snippet:
 }
 ```
 
-If you already installed `unolock-agent-mcp` locally, you can use `"command": "unolock-agent-mcp"` instead.
+If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead. `unolock-agent-mcp` remains a compatibility alias.
 
 ## First-use flow
 

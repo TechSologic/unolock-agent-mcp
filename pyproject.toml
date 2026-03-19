@@ -46,6 +46,7 @@ dev = [
 ]
 
 [project.scripts]
+unolock-agent = "unolock_mcp.cli:mcp_main"
 unolock-agent-probe = "unolock_mcp.cli:probe_main"
 unolock-agent-mcp = "unolock_mcp.cli:mcp_main"
 unolock-agent-tpm-check = "unolock_mcp.cli:tpm_check_main"
