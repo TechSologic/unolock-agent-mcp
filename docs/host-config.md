@@ -37,9 +37,9 @@ Checked against the official host docs on 2026-03-08:
 
 The preferred mode is:
 
-* let the MCP host launch `unolock-agent` with no UnoLock-specific arguments
+* let the MCP host launch `unolock-agent mcp`
 * use `npx -y @techsologic/unolock-agent@latest` or a GitHub Release binary
-* let UnoLock manage its own local runtime so the user PIN can remain in MCP process memory instead of being persisted by the agent
+* let UnoLock manage its own local daemon so the user PIN can remain in process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
 
@@ -53,13 +53,13 @@ npx -y @techsologic/unolock-agent@latest --version
 
 This npm package is both:
 
-* the normal UnoLock MCP command package
+* the normal UnoLock daemon-backed MCP command package
 * an OpenClaw plugin package that ships the UnoLock skill
 
 For a host-managed stdio launch, prefer:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest
+npx -y @techsologic/unolock-agent@latest mcp
 ```
 
 Project home:
@@ -143,7 +143,7 @@ Example snippet:
   "mcpServers": {
     "unolock-agent": {
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
     }
   }
 }
@@ -171,7 +171,7 @@ Example snippet:
     "unolock-agent": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
     }
   }
 }
@@ -185,7 +185,7 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
     "unolock-agent": {
       "type": "stdio",
       "command": "${env:HOME}/.local/bin/npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
     }
   }
 }
@@ -216,7 +216,7 @@ Example snippet:
     "unolock-agent": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
     }
   }
 }

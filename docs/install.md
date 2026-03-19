@@ -49,7 +49,7 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 
 The preferred path is:
 
-1. let the MCP host launch `unolock-agent` with no UnoLock-specific arguments
+1. let the MCP host launch `unolock-agent mcp`
 2. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
 3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
 
@@ -87,7 +87,7 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest
+npx -y @techsologic/unolock-agent@latest mcp
 ```
 
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
@@ -101,10 +101,10 @@ For local testing before publishing that plugin install path, use `plugins.load.
 For a host-managed stdio launch, use:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest
+npx -y @techsologic/unolock-agent@latest mcp
 ```
 
-UnoLock manages its own local runtime automatically after launch, so the agent does not need to understand daemon mode or any separate runner. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
+UnoLock manages its own local daemon automatically after launch, so the agent does not need to manage daemon mode or any separate runner. The `mcp` subcommand uses that daemon-backed runtime. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
 
 If a direct CLI is easier for the host or agent to reason about, the same executable also supports explicit commands such as:
 
@@ -116,7 +116,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-No-argument launch remains the normal `stdio` MCP mode. Explicit subcommands are the CLI mode.
+Use the explicit `mcp` subcommand for daemon-backed stdio MCP mode. Explicit subcommands are daemon-backed CLI mode.
 
 ## Built-in local daemon
 

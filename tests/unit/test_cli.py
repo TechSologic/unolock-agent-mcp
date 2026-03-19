@@ -14,9 +14,18 @@ from unolock_mcp.host import (
 
 
 class CliEntryPointTest(unittest.TestCase):
-    def test_main_defaults_to_stdio_mcp_without_subcommand(self) -> None:
+    def test_main_prints_help_without_subcommand(self) -> None:
+        with patch.object(cli.argparse.ArgumentParser, "print_help") as help_mock:
+            with patch.object(cli, "proxy_stdio_to_daemon", return_value=0) as proxy_mock:
+                result = cli.main([])
+
+        self.assertEqual(result, 0)
+        help_mock.assert_called_once()
+        proxy_mock.assert_not_called()
+
+    def test_main_runs_stdio_mcp_with_explicit_subcommand(self) -> None:
         with patch.object(cli, "proxy_stdio_to_daemon", return_value=0) as proxy_mock:
-            result = cli.main([])
+            result = cli.main(["mcp"])
 
         self.assertEqual(result, 0)
         proxy_mock.assert_called_once_with(auto_start=True, timeout=None)

@@ -615,7 +615,7 @@ def create_mcp_server() -> FastMCP:
                 "server replacing itself mid-session."
             ),
             "preferred_path": [
-                "Prefer the built-in UnoLock local daemon plus a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`.",
+                "Prefer the built-in UnoLock local daemon plus a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest mcp`.",
                 "Use `unolock_get_update_status` or `unolock-agent check-update` to see whether a newer release exists.",
                 "If an update is available, restart the runner between tasks so the wrapper or binary can be replaced cleanly.",
             ],
@@ -625,7 +625,7 @@ def create_mcp_server() -> FastMCP:
                 "Prefer explicit user awareness before applying an update.",
             ],
             "channels": {
-                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent@latest`.",
+                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent@latest mcp`.",
                 "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart the runner.",
                 "python-package": "Upgrade the Python package in the environment that launches the MCP and restart the runner.",
             },

@@ -148,9 +148,9 @@ For real MCP hosts, see:
 For skill-aware agents, start with the skill above.
 For hosts that need direct MCP configuration, the preferred path is one executable with one normal MCP-facing behavior:
 
-* MCP hosts launch `npx -y @techsologic/unolock-agent@latest`.
+* MCP hosts launch `npx -y @techsologic/unolock-agent@latest mcp`.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
-* UnoLock manages its own local runtime automatically after launch.
+* The `mcp` subcommand uses the local UnoLock daemon and auto-starts it if needed.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
 
 That keeps the user PIN in process memory, keeps the current Space selected, and hides local process details from the agent.
@@ -165,7 +165,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-No-argument launch remains the normal `stdio` MCP behavior. Explicit subcommands are the direct CLI surface.
+Use the explicit `mcp` subcommand for daemon-backed stdio MCP mode. All other subcommands are daemon-backed CLI mode. Running `unolock-agent` with no arguments prints usage.
 
 Once the local stdio MCP is running, the normal flow is:
 
@@ -232,13 +232,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest
+npx -y @techsologic/unolock-agent@latest mcp
 ```
 
-With no arguments, the npm wrapper starts the MCP server by default:
+For MCP hosts, use the explicit `mcp` argument:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest
+npx -y @techsologic/unolock-agent@latest mcp
 ```
 
 That is the preferred host-facing launch shape.

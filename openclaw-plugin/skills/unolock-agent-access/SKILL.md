@@ -6,21 +6,22 @@ description: Guides an AI agent through connecting to a user's UnoLock Safe thro
 # UnoLock Agent Access
 
 Use this skill when a user wants to give their agent access to a UnoLock Safe.
-This skill uses a local UnoLock `stdio` MCP that runs on the user's device. The MCP guides setup and then provides ongoing access to Spaces, notes, checklists, and Cloud files.
+This skill uses a local UnoLock `stdio` MCP that runs through the UnoLock daemon on the user's device. The MCP guides setup and then provides ongoing access to Spaces, notes, checklists, and Cloud files.
 
 ## Workflow
 
-1. Use `npx -y @techsologic/unolock-agent@latest` as the MCP command.
-2. Start the MCP normally over `stdio`.
+1. Use `npx -y @techsologic/unolock-agent@latest mcp` as the MCP command.
+2. Start the daemon-backed MCP normally over `stdio`.
 3. On a fresh host, allow extra time for the first start.
 4. Follow the MCP's directions.
 5. Use the current Space for normal note, checklist, and file work.
 
 ## MCP Launch
 
-- The host runs `npx -y @techsologic/unolock-agent@latest` as the MCP command.
+- The host runs `npx -y @techsologic/unolock-agent@latest mcp` as the MCP command.
 - The host writes MCP JSON-RPC to `stdin` and reads MCP JSON-RPC from `stdout`.
-- Launch it with no UnoLock-specific arguments.
+- The `mcp` subcommand auto-starts and proxies through the local UnoLock daemon.
+- Launch it with the explicit `mcp` argument.
 
 ## How To Use The MCP
 

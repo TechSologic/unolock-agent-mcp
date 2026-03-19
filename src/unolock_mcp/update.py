@@ -120,7 +120,7 @@ def _recommended_action(
                 "checking GitHub Releases for newer stable binaries."
             )
         return (
-            "Restart the MCP runner and relaunch with `npx -y @techsologic/unolock-agent@latest` so the npm wrapper "
+            "Restart the MCP runner and relaunch with `npx -y @techsologic/unolock-agent@latest mcp` so the npm wrapper "
             f"can fetch the latest stable binary{latest_suffix}. Prefer doing this between tasks, not during an active flow."
         )
     if runtime.install_channel == "release-binary":
