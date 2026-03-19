@@ -155,6 +155,18 @@ For hosts that need direct MCP configuration, the preferred path is one executab
 
 That keeps the user PIN in process memory, keeps the current Space selected, and hides local process details from the agent.
 
+The same executable also supports explicit CLI commands when that is easier for the agent or user to understand, for example:
+
+```bash
+unolock-agent-mcp link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent-mcp list-spaces
+unolock-agent-mcp list-notes
+unolock-agent-mcp create-note "Todo" "Buy milk"
+unolock-agent-mcp list-files
+```
+
+No-argument launch remains the normal `stdio` MCP behavior. Explicit subcommands are the direct CLI surface.
+
 Useful support commands still exist for humans and debugging:
 
 Once the local stdio MCP is running, the normal flow is:

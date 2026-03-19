@@ -106,6 +106,18 @@ npx -y @techsologic/unolock-agent-mcp@latest
 
 UnoLock manages its own local runtime automatically after launch, so the agent does not need to understand daemon mode or any separate runner. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
 
+If a direct CLI is easier for the host or agent to reason about, the same executable also supports explicit commands such as:
+
+```bash
+unolock-agent-mcp link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent-mcp list-spaces
+unolock-agent-mcp list-notes
+unolock-agent-mcp create-note "Todo" "Buy milk"
+unolock-agent-mcp list-files
+```
+
+No-argument launch remains the normal `stdio` MCP mode. Explicit subcommands are the CLI mode.
+
 ## Built-in local daemon
 
 The UnoLock executable now includes its own local daemon. That is the preferred persistence model and it is normally internal to the executable rather than something the agent needs to manage directly.

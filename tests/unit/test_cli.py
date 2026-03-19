@@ -290,6 +290,101 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(result, 1)
         self.assertIn("--args must decode to a JSON object", print_mock.call_args.args[0])
 
+    def test_link_agent_key_cli_command_calls_matching_tool(self) -> None:
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True, "linked": True}}) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["link-agent-key", "https://safe.test/#/agent-register/x/y/z", "1"])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_link_agent_key",
+            {"connection_url": "https://safe.test/#/agent-register/x/y/z", "pin": "1"},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertIn('"linked": true', print_mock.call_args.args[0])
+
+    def test_list_files_cli_command_calls_matching_tool(self) -> None:
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"space_id": 1, "files": []}}) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-files"])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_list_files",
+            {},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertIn('"space_id": 1', print_mock.call_args.args[0])
+
+    def test_create_note_cli_command_calls_matching_tool(self) -> None:
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"record_ref": "a:b"}}) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["create-note", "todo", "remember this"])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_create_note",
+            {"title": "todo", "text": "remember this"},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertIn('"record_ref": "a:b"', print_mock.call_args.args[0])
+
+    def test_create_checklist_cli_rejects_non_array_items_json(self) -> None:
+        with patch("builtins.print") as print_mock:
+            result = cli.main(["create-checklist", "tasks", "--items", '{"bad":true}'])
+
+        self.assertEqual(result, 1)
+        self.assertIn("--items must decode to a JSON array", print_mock.call_args.args[0])
+
+    def test_subcommand_help_uses_standard_argparse_help(self) -> None:
+        with self.assertRaises(SystemExit) as exc:
+            cli.main(["link-agent-key", "--help"])
+
+        self.assertEqual(exc.exception.code, 0)
+
+    def test_list_notes_cli_returns_nonzero_when_agent_key_is_missing(self) -> None:
+        blocked = {
+            "ok": False,
+            "blocked": True,
+            "reason": "missing_connection_url",
+            "message": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
+        }
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": blocked}) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-notes"])
+
+        self.assertEqual(result, 1)
+        call_mock.assert_called_once_with(
+            "unolock_list_notes",
+            {"pinned": None, "label": None},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertIn('"reason": "missing_connection_url"', print_mock.call_args.args[0])
+
+    def test_list_files_cli_returns_nonzero_when_pin_is_needed(self) -> None:
+        blocked = {
+            "ok": False,
+            "blocked": True,
+            "reason": "missing_agent_pin",
+            "message": "Ask the user for the UnoLock agent PIN and call unolock_set_agent_pin.",
+        }
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": blocked}) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-files"])
+
+        self.assertEqual(result, 1)
+        call_mock.assert_called_once_with(
+            "unolock_list_files",
+            {},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertIn('"reason": "missing_agent_pin"', print_mock.call_args.args[0])
+
 
 if __name__ == "__main__":
     unittest.main()
