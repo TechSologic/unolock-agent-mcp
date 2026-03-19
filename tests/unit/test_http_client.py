@@ -30,8 +30,8 @@ class HttpClientTest(unittest.TestCase):
 
     def test_default_headers_include_app_and_mcp_versions(self) -> None:
         self.assertEqual(self.client.default_headers["x-app-version"], "0.20.21")
-        self.assertEqual(self.client.default_headers["x-unolock-agent-mcp-version"], MCP_VERSION)
-        self.assertEqual(self.client.default_headers["User-Agent"], f"unolock-agent-mcp/{MCP_VERSION}")
+        self.assertEqual(self.client.default_headers["x-unolock-agent-version"], MCP_VERSION)
+        self.assertEqual(self.client.default_headers["User-Agent"], f"unolock-agent/{MCP_VERSION}")
         self.assertEqual(self.client.default_headers["Content-Type"], "application/json")
 
     @patch("urllib.request.urlopen")

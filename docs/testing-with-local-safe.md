@@ -49,7 +49,7 @@ Use the browser test harness for:
 * provisioning browser-side passkeys
 * validating normal human Safe lifecycle behavior
 
-Use `unolock-agent-mcp` for:
+Use `unolock-agent` for:
 
 * probing live `/start` compatibility
 * implementing agent registration

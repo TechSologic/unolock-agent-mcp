@@ -1,1 +1,1 @@
-"""Transport helpers for the UnoLock Agent MCP."""
+"""Transport helpers for UnoLock Agent."""

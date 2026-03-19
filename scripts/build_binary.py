@@ -26,7 +26,7 @@ def platform_suffix() -> str:
 
 
 def binary_name() -> str:
-    return f"unolock-agent-mcp-{platform_suffix()}"
+    return f"unolock-agent-{platform_suffix()}"
 
 
 def _prepare_windows_oqs_runtime(install_root: Path) -> None:
@@ -139,7 +139,7 @@ def build_binary(clean: bool = False) -> Path:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Build a standalone UnoLock Agent MCP binary.")
+    parser = argparse.ArgumentParser(description="Build a standalone UnoLock agent binary.")
     parser.add_argument("--clean", action="store_true")
     args = parser.parse_args()
     artifact = build_binary(clean=args.clean)

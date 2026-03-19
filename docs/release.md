@@ -1,6 +1,6 @@
 # Release Guide
 
-This document describes the intended release flow for the UnoLock Agent MCP GitHub repository.
+This document describes the intended release flow for the UnoLock Agent GitHub repository.
 
 Official repository:
 

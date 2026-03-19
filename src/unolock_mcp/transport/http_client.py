@@ -17,8 +17,8 @@ class HttpClient:
     def default_headers(self) -> dict[str, str]:
         return {
             "x-app-version": self._app_version,
-            "x-unolock-agent-mcp-version": MCP_VERSION,
-            "User-Agent": f"unolock-agent-mcp/{MCP_VERSION}",
+            "x-unolock-agent-version": MCP_VERSION,
+            "User-Agent": f"unolock-agent/{MCP_VERSION}",
             "Content-Type": "application/json",
         }
 

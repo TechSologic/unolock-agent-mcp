@@ -11,8 +11,8 @@ PIN=${E2E_AGENT_PIN:-0123}
 MINIMUM_RECORDS=${E2E_AGENT_MINIMUM_RECORDS:-1}
 
 if [[ ! -d "$CLIENT_E2E_DIR" ]]; then
-  echo "[unolock-agent-mcp] missing client e2e directory: $CLIENT_E2E_DIR" >&2
-  echo "[unolock-agent-mcp] set UNOLOCK_E2E_CLIENT_DIR to a UnoLock client/e2e-playwright checkout to run this script." >&2
+  echo "[unolock-agent] missing client e2e directory: $CLIENT_E2E_DIR" >&2
+  echo "[unolock-agent] set UNOLOCK_E2E_CLIENT_DIR to a UnoLock client/e2e-playwright checkout to run this script." >&2
   exit 1
 fi
 

@@ -1,7 +1,7 @@
 {
   "plugins": {
     "load": {
-      "paths": ["/absolute/path/to/unolock-agent-mcp"]
+      "paths": ["/absolute/path/to/unolock-agent"]
     },
     "entries": {
       "unolock-agent-access": {
@@ -13,7 +13,7 @@
     "unolock-agent": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest"]
     }
   }
 }

@@ -26,9 +26,9 @@ class RuntimeVersionInfo:
 
 def detect_runtime_version_info(env: dict[str, str] | None = None) -> RuntimeVersionInfo:
     current_env = env or os.environ
-    wrapper_version = _normalize_version(current_env.get("UNOLOCK_AGENT_MCP_WRAPPER_VERSION"))
-    binary_release_version = _normalize_version(current_env.get("UNOLOCK_AGENT_MCP_BINARY_VERSION"))
-    install_channel = current_env.get("UNOLOCK_AGENT_MCP_INSTALL_CHANNEL") or _default_install_channel()
+    wrapper_version = _normalize_version(current_env.get("UNOLOCK_AGENT_WRAPPER_VERSION"))
+    binary_release_version = _normalize_version(current_env.get("UNOLOCK_AGENT_BINARY_VERSION"))
+    install_channel = current_env.get("UNOLOCK_AGENT_INSTALL_CHANNEL") or _default_install_channel()
     current_version = binary_release_version or wrapper_version or _normalize_version(MCP_VERSION) or MCP_VERSION
     return RuntimeVersionInfo(
         install_channel=install_channel,
@@ -48,7 +48,7 @@ def fetch_latest_release_version(
         api_url,
         headers={
             "Accept": "application/vnd.github+json",
-            "User-Agent": "unolock-agent-mcp-update-check",
+            "User-Agent": "unolock-agent-update-check",
         },
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
@@ -88,7 +88,7 @@ def get_update_status(
             {
                 "ok": False,
                 "reason": "update_check_failed",
-                "message": f"Could not check the latest UnoLock Agent MCP release: {exc}",
+                "message": f"Could not check the latest UnoLock Agent release: {exc}",
                 "recommended_action": _recommended_action(runtime, update_available=None),
             }
         )
@@ -120,7 +120,7 @@ def _recommended_action(
                 "checking GitHub Releases for newer stable binaries."
             )
         return (
-            "Restart the MCP runner and relaunch with `npx -y @techsologic/unolock-agent-mcp@latest` so the npm wrapper "
+            "Restart the MCP runner and relaunch with `npx -y @techsologic/unolock-agent@latest` so the npm wrapper "
             f"can fetch the latest stable binary{latest_suffix}. Prefer doing this between tasks, not during an active flow."
         )
     if runtime.install_channel == "release-binary":
@@ -135,7 +135,7 @@ def _recommended_action(
             return "No update action is needed. Keep using the current Python package installation."
         return (
             "Upgrade the Python package in the environment that launches the MCP, for example "
-            "`pipx upgrade unolock-agent-mcp`, then restart the MCP runner."
+            "`pipx upgrade unolock-agent`, then restart the MCP runner."
         )
     return (
         "The MCP should not replace itself while running. Update it through the wrapper, package manager, or release "

@@ -1,4 +1,4 @@
-# Agent MCP Docs
+# UnoLock Agent Docs
 
 This directory holds MCP-specific design and implementation documentation.
 

@@ -386,7 +386,7 @@ def _print_cli_payload(payload: dict[str, Any]) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="UnoLock Agent MCP commands.")
+    parser = argparse.ArgumentParser(description="UnoLock Agent commands.")
     parser.add_argument("--version", action="version", version=f"%(prog)s {MCP_VERSION}")
     parser.add_argument("--base-url", default=None)
     parser.add_argument("--transparency-origin", default=None)
@@ -506,9 +506,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     self_test_parser = subparsers.add_parser(
         "self-test",
-        help="Run a one-shot UnoLock Agent MCP readiness check.",
+        help="Run a one-shot UnoLock Agent readiness check.",
         description=(
-            "Check whether this host is suitable for UnoLock Agent MCP bootstrap, summarize the detected "
+            "Check whether this host is suitable for UnoLock Agent bootstrap, summarize the detected "
             "environment, and report the next recommended action."
         ),
     )
@@ -516,9 +516,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     update_parser = subparsers.add_parser(
         "check-update",
-        help="Check whether a newer UnoLock Agent MCP release is available.",
+        help="Check whether a newer UnoLock Agent release is available.",
         description=(
-            "Check the installed UnoLock Agent MCP version against the latest GitHub Release and print "
+            "Check the installed UnoLock Agent version against the latest GitHub Release and print "
             "runner-specific update guidance."
         ),
     )
@@ -838,7 +838,7 @@ def _build_self_test_payload(*, diagnostics: dict, registration: dict, resolved)
             "for your Safe data before continuing."
         )
 
-    summary = str(diagnostics.get("summary") or "UnoLock Agent MCP self-test completed.")
+    summary = str(diagnostics.get("summary") or "UnoLock Agent self-test completed.")
     if ok and environment.get("is_container"):
         summary = f"{summary} Containerized environments still need a real host or VM trust path."
 

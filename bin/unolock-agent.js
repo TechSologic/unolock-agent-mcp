@@ -15,18 +15,18 @@ function platformAssetInfo() {
   const platform = process.platform;
   const arch = process.arch;
   if (platform === "linux" && arch === "x64") {
-    return { asset: "unolock-agent-mcp-linux-x86_64", executable: "unolock-agent-mcp-linux-x86_64" };
+    return { asset: "unolock-agent-linux-x86_64", executable: "unolock-agent-linux-x86_64" };
   }
   if (platform === "darwin" && arch === "arm64") {
-    return { asset: "unolock-agent-mcp-macos-arm64", executable: "unolock-agent-mcp-macos-arm64" };
+    return { asset: "unolock-agent-macos-arm64", executable: "unolock-agent-macos-arm64" };
   }
   if (platform === "darwin" && arch === "x64") {
-    return { asset: "unolock-agent-mcp-macos-x86_64", executable: "unolock-agent-mcp-macos-x86_64" };
+    return { asset: "unolock-agent-macos-x86_64", executable: "unolock-agent-macos-x86_64" };
   }
   if (platform === "win32" && arch === "x64") {
-    return { asset: "unolock-agent-mcp-windows-amd64.exe", executable: "unolock-agent-mcp-windows-amd64.exe" };
+    return { asset: "unolock-agent-windows-amd64.exe", executable: "unolock-agent-windows-amd64.exe" };
   }
-  throw new Error(`Unsupported platform for UnoLock Agent MCP binary: ${platform}/${arch}`);
+  throw new Error(`Unsupported platform for UnoLock agent binary: ${platform}/${arch}`);
 }
 
 function cacheRoot() {
@@ -37,17 +37,17 @@ function cacheRoot() {
 }
 
 function metadataPath() {
-  return path.join(cacheRoot(), "unolock-agent-mcp", "release.json");
+  return path.join(cacheRoot(), "unolock-agent", "release.json");
 }
 
 function binaryPath(releaseVersion) {
   const { executable } = platformAssetInfo();
-  return path.join(cacheRoot(), "unolock-agent-mcp", releaseVersion, executable);
+  return path.join(cacheRoot(), "unolock-agent", releaseVersion, executable);
 }
 
 function binaryUrl(releaseVersion) {
-  if (process.env.UNOLOCK_AGENT_MCP_BINARY_URL) {
-    return process.env.UNOLOCK_AGENT_MCP_BINARY_URL;
+  if (process.env.UNOLOCK_AGENT_BINARY_URL) {
+    return process.env.UNOLOCK_AGENT_BINARY_URL;
   }
   const { asset } = platformAssetInfo();
   return `https://github.com/${REPO}/releases/download/v${releaseVersion}/${asset}`;
@@ -68,7 +68,7 @@ function fetchToFile(url, dest) {
       }
       if (response.statusCode !== 200) {
         response.resume();
-        reject(new Error(`Failed to download UnoLock Agent MCP binary: HTTP ${response.statusCode}`));
+        reject(new Error(`Failed to download UnoLock agent binary: HTTP ${response.statusCode}`));
         return;
       }
       const file = fs.createWriteStream(temp, { mode: 0o755 });
@@ -106,7 +106,7 @@ function fetchJson(url) {
       {
         headers: {
           "Accept": "application/vnd.github+json",
-          "User-Agent": "unolock-agent-mcp-npm-wrapper"
+          "User-Agent": "unolock-agent-npm-wrapper"
         }
       },
       (response) => {
@@ -117,7 +117,7 @@ function fetchJson(url) {
         }
         if (response.statusCode !== 200) {
           response.resume();
-          reject(new Error(`Failed to query UnoLock Agent MCP latest release: HTTP ${response.statusCode}`));
+          reject(new Error(`Failed to query UnoLock agent latest release: HTTP ${response.statusCode}`));
           return;
         }
         let body = "";
@@ -174,7 +174,7 @@ function writeReleaseMetadata(releaseVersion) {
 }
 
 async function resolveReleaseVersion() {
-  const override = normalizeVersion(process.env.UNOLOCK_AGENT_MCP_BINARY_VERSION);
+  const override = normalizeVersion(process.env.UNOLOCK_AGENT_BINARY_VERSION);
   if (override) {
     return override;
   }
@@ -203,7 +203,7 @@ async function ensureBinary() {
     return { dest, releaseVersion };
   }
   ensureDir(path.dirname(dest));
-  process.stderr.write(`Downloading UnoLock Agent MCP ${releaseVersion} for ${process.platform}/${process.arch}...\n`);
+  process.stderr.write(`Downloading UnoLock agent ${releaseVersion} for ${process.platform}/${process.arch}...\n`);
   await fetchToFile(binaryUrl(releaseVersion), dest);
   return { dest, releaseVersion };
 }
@@ -215,9 +215,9 @@ async function main() {
     stdio: "inherit",
     env: {
       ...process.env,
-      UNOLOCK_AGENT_MCP_INSTALL_CHANNEL: "npm-wrapper",
-      UNOLOCK_AGENT_MCP_WRAPPER_VERSION: PACKAGE_VERSION,
-      UNOLOCK_AGENT_MCP_BINARY_VERSION: releaseVersion
+      UNOLOCK_AGENT_INSTALL_CHANNEL: "npm-wrapper",
+      UNOLOCK_AGENT_WRAPPER_VERSION: PACKAGE_VERSION,
+      UNOLOCK_AGENT_BINARY_VERSION: releaseVersion
     }
   });
   child.on("exit", (code, signal) => {

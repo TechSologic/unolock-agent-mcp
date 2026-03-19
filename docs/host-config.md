@@ -1,6 +1,6 @@
 # MCP Host Config
 
-This document shows the current easiest way to run the UnoLock agent MCP in real MCP hosts.
+This document shows the current easiest way to run UnoLock Agent in real MCP hosts.
 
 For the public agent-first onboarding flow, see:
 
@@ -15,7 +15,7 @@ If you need the underlying UnoLock product concepts first, see:
 
 ## Security Requirement
 
-For normal customer use, UnoLock Agent MCP works best with a production-ready:
+For normal customer use, UnoLock Agent works best with a production-ready:
 
 * TPM
 * vTPM
@@ -38,7 +38,7 @@ Checked against the official host docs on 2026-03-08:
 The preferred mode is:
 
 * let the MCP host launch `unolock-agent` with no UnoLock-specific arguments
-* use `npx -y @techsologic/unolock-agent-mcp@latest` or a GitHub Release binary
+* use `npx -y @techsologic/unolock-agent@latest` or a GitHub Release binary
 * let UnoLock manage its own local runtime so the user PIN can remain in MCP process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
@@ -48,7 +48,7 @@ For customer use, prefer a standalone GitHub Release binary:
 If you are integrating with a Node/npm-oriented host, you can also use:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest --version
+npx -y @techsologic/unolock-agent@latest --version
 ```
 
 This npm package is both:
@@ -59,7 +59,7 @@ This npm package is both:
 For a host-managed stdio launch, prefer:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent@latest
 ```
 
 Project home:
@@ -143,7 +143,7 @@ Example snippet:
   "mcpServers": {
     "unolock-agent": {
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest"]
     }
   }
 }
@@ -151,7 +151,7 @@ Example snippet:
 
 Notes:
 
-* If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead. `unolock-agent-mcp` remains a compatibility alias.
+* If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
 * For normal UnoLock cloud-service use, the Agent Key URL is enough for the MCP to resolve what it needs automatically.
 * Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
@@ -171,7 +171,7 @@ Example snippet:
     "unolock-agent": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest"]
     }
   }
 }
@@ -185,7 +185,7 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
     "unolock-agent": {
       "type": "stdio",
       "command": "${env:HOME}/.local/bin/npx",
-      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest"]
     }
   }
 }
@@ -201,7 +201,7 @@ OpenClaw can use UnoLock in two layers:
 The intended published plugin install path is:
 
 ```bash
-openclaw plugins install @techsologic/unolock-agent-mcp
+openclaw plugins install @techsologic/unolock-agent
 ```
 
 For local repo testing before that plugin install path is published, point `plugins.load.paths` at this repo root and enable `unolock-agent-access`. A full example is in [examples/openclaw-plugin-config.json](../examples/openclaw-plugin-config.json).
@@ -216,13 +216,13 @@ Example snippet:
     "unolock-agent": {
       "type": "stdio",
       "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent-mcp@latest"]
+      "args": ["-y", "@techsologic/unolock-agent@latest"]
     }
   }
 }
 ```
 
-If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead. `unolock-agent-mcp` remains a compatibility alias.
+If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead.
 
 ## First-use flow
 

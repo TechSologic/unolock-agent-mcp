@@ -469,7 +469,7 @@ def create_mcp_server() -> FastMCP:
             return _tool_error_response(exc)
 
     server = FastMCP(
-        name="UnoLock Agent MCP",
+        name="UnoLock Agent",
         instructions=(
             "Call the normal UnoLock data tools directly. If the MCP needs the one-time Agent Key URL or the PIN, it "
             "will ask for that concrete input. Prefer unolock_link_agent_key, unolock_list_spaces, "
@@ -532,7 +532,7 @@ def create_mcp_server() -> FastMCP:
 
     @server.resource(
         "unolock://usage/about",
-        name="About UnoLock Agent MCP",
+        name="About UnoLock Agent",
         description="Agent-safe explanation of what UnoLock is and what an Agent Key does.",
         mime_type="application/json",
     )
@@ -604,19 +604,19 @@ def create_mcp_server() -> FastMCP:
 
     @server.resource(
         "unolock://usage/updates",
-        name="UnoLock MCP Updates",
-        description="Agent-safe guidance for how UnoLock Agent MCP updates should be checked and applied.",
+        name="UnoLock Agent Updates",
+        description="Agent-safe guidance for how UnoLock Agent updates should be checked and applied.",
         mime_type="application/json",
     )
     def updates_resource() -> dict[str, Any]:
         return {
             "summary": (
-                "UnoLock Agent MCP should normally be updated by its wrapper or runner, not by the live MCP "
+                "UnoLock Agent should normally be updated by its wrapper or runner, not by the live MCP "
                 "server replacing itself mid-session."
             ),
             "preferred_path": [
-                "Prefer the built-in UnoLock local daemon plus a GitHub Release binary or `npx -y @techsologic/unolock-agent-mcp@latest`.",
-                "Use `unolock_get_update_status` or `unolock-agent-mcp check-update` to see whether a newer release exists.",
+                "Prefer the built-in UnoLock local daemon plus a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`.",
+                "Use `unolock_get_update_status` or `unolock-agent check-update` to see whether a newer release exists.",
                 "If an update is available, restart the runner between tasks so the wrapper or binary can be replaced cleanly.",
             ],
             "rules": [
@@ -625,7 +625,7 @@ def create_mcp_server() -> FastMCP:
                 "Prefer explicit user awareness before applying an update.",
             ],
             "channels": {
-                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent-mcp@latest`.",
+                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent@latest`.",
                 "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart the runner.",
                 "python-package": "Upgrade the Python package in the environment that launches the MCP and restart the runner.",
             },
@@ -686,7 +686,7 @@ def create_mcp_server() -> FastMCP:
             {
                 "role": "user",
                 "content": (
-                    "When a user asks why UnoLock Agent MCP needs an Agent Key URL, PIN, or a stronger host key store, "
+                    "When a user asks why UnoLock Agent needs an Agent Key URL, PIN, or a stronger host key store, "
                     "explain it plainly: UnoLock uses an Agent Key instead of a reusable API key. The one-time "
                     "Agent Key URL is used once to set up that Agent Key on this device. After registration, the agent "
                     "uses the registered local credential and normal authentication. The PIN may be required to "
@@ -835,7 +835,7 @@ def create_mcp_server() -> FastMCP:
         @server.tool(
             name="unolock_get_update_status",
             description=(
-                "Support/debug: check the installed UnoLock Agent MCP version against the latest GitHub Release "
+                "Support/debug: check the installed UnoLock Agent version against the latest GitHub Release "
                 "and return update guidance."
             ),
         )
@@ -1245,18 +1245,14 @@ def create_mcp_server() -> FastMCP:
         description=(
             "Upload a local filesystem file into a UnoLock Cloud archive in the current space. "
             "Only Cloud files are supported; Local and Msg archives are excluded. "
-            "Use title for the uploaded file name in normal agent flows; name is accepted as a compatibility alias. "
             "The response includes the space_id used."
         ),
     )
     def upload_file(
         local_path: str = "",
         title: str | None = None,
-        name: str | None = None,
         mime_type: str | None = None,
     ) -> dict[str, Any]:
-        effective_name = title if isinstance(title, str) and title.strip() else name
-
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1278,7 +1274,7 @@ def create_mcp_server() -> FastMCP:
                     resolved_session_id,
                     space_id=effective_space_id,
                     local_path=local_path,
-                    name=effective_name,
+                    name=title,
                     mime_type=mime_type,
                 ),
                 effective_space_id,
@@ -1289,7 +1285,6 @@ def create_mcp_server() -> FastMCP:
             {
                 "local_path": local_path,
                 "title": title,
-                "name": effective_name,
                 "mime_type": mime_type,
             },
             None,
@@ -1327,19 +1322,15 @@ def create_mcp_server() -> FastMCP:
         name="unolock_replace_file",
         description=(
             "Replace the content of one existing UnoLock Cloud file from a local filesystem path. "
-            "Use unolock_get_file first to confirm writable=true and the target archive_id. "
-            "Use title for the file name in normal agent flows; name is accepted as a compatibility alias."
+            "Use unolock_get_file first to confirm writable=true and the target archive_id."
         ),
     )
     def replace_file(
         archive_id: str = "",
         local_path: str = "",
         title: str | None = None,
-        name: str | None = None,
         mime_type: str | None = None,
     ) -> dict[str, Any]:
-        effective_name = title if isinstance(title, str) and title.strip() else name
-
         def operation(resolved_session_id: str) -> dict[str, Any]:
             writable_files = UnoLockWritableFilesClient(
                 UnoLockApiClient(ensure_flow_client(), session_store),
@@ -1350,7 +1341,7 @@ def create_mcp_server() -> FastMCP:
                 resolved_session_id,
                 archive_id=archive_id,
                 local_path=local_path,
-                name=effective_name,
+                name=title,
                 mime_type=mime_type,
             )
 
@@ -1360,7 +1351,6 @@ def create_mcp_server() -> FastMCP:
                 "archive_id": archive_id,
                 "local_path": local_path,
                 "title": title,
-                "name": effective_name,
                 "mime_type": mime_type,
             },
             None,

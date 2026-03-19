@@ -10,7 +10,7 @@ This skill uses a local UnoLock `stdio` MCP that runs on the user's device. The 
 
 ## Workflow
 
-1. Use `npx -y @techsologic/unolock-agent-mcp@latest` as the MCP command.
+1. Use `npx -y @techsologic/unolock-agent@latest` as the MCP command.
 2. Start the MCP normally over `stdio`.
 3. On a fresh host, allow extra time for the first start.
 4. Follow the MCP's directions.
@@ -18,7 +18,7 @@ This skill uses a local UnoLock `stdio` MCP that runs on the user's device. The 
 
 ## MCP Launch
 
-- The host runs `npx -y @techsologic/unolock-agent-mcp@latest` as the MCP command.
+- The host runs `npx -y @techsologic/unolock-agent@latest` as the MCP command.
 - The host writes MCP JSON-RPC to `stdin` and reads MCP JSON-RPC from `stdout`.
 - Launch it with no UnoLock-specific arguments.
 

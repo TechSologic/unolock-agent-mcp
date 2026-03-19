@@ -1,6 +1,6 @@
 # MCP Tool Catalog
 
-This document describes the current normal UnoLock Agent MCP surface.
+This document describes the current normal UnoLock Agent surface.
 
 ## Normal agent model
 
@@ -235,13 +235,10 @@ Arguments:
 
 * `local_path: str`
 * `title: str | null = None`
-* `name: str | null = None`
 * `mime_type: str | null = None`
 
 Notes:
 
-* Normal agent flows should use `title` for the uploaded file name.
-* `name` is accepted as a compatibility alias.
 * Upload uses the current Space automatically.
 * Only `Cloud` files are supported.
 
@@ -259,13 +256,7 @@ Arguments:
 * `archive_id: str`
 * `local_path: str`
 * `title: str | null = None`
-* `name: str | null = None`
 * `mime_type: str | null = None`
-
-Notes:
-
-* Normal agent flows should use `title` for the replacement file name.
-* `name` is accepted as a compatibility alias.
 
 ### `unolock_delete_file`
 

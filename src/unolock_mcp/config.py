@@ -14,6 +14,7 @@ from unolock_mcp.domain.models import UnoLockConfig, UnoLockResolvedConfig
 # Bundled client/runtime compatibility version used when the deployment host does
 # not publish appVersion metadata. The signing/PQ key remains host-specific.
 BUNDLED_UNOLOCK_APP_VERSION = "0.20.21"
+APP_NAME = "unolock-agent"
 
 
 def repo_root() -> Path:
@@ -24,17 +25,21 @@ def default_state_dir() -> Path:
     override = os.environ.get("UNOLOCK_CONFIG_DIR")
     if override:
         return Path(override).expanduser()
+    return _platform_state_dir(APP_NAME)
+
+
+def _platform_state_dir(app_name: str) -> Path:
     if os.name == "nt":
         base = os.environ.get("LOCALAPPDATA") or os.environ.get("APPDATA")
         if base:
-            return Path(base) / "unolock-agent-mcp"
-        return Path.home() / "AppData" / "Local" / "unolock-agent-mcp"
+            return Path(base) / app_name
+        return Path.home() / "AppData" / "Local" / app_name
     if sys.platform == "darwin":
-        return Path.home() / "Library" / "Application Support" / "unolock-agent-mcp"
+        return Path.home() / "Library" / "Application Support" / app_name
     xdg_config_home = os.environ.get("XDG_CONFIG_HOME")
     if xdg_config_home:
-        return Path(xdg_config_home).expanduser() / "unolock-agent-mcp"
-    return Path.home() / ".config" / "unolock-agent-mcp"
+        return Path(xdg_config_home).expanduser() / app_name
+    return Path.home() / ".config" / app_name
 
 
 def default_config_path() -> Path:

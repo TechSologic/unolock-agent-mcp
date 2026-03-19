@@ -1,6 +1,6 @@
 # Supported Environments
 
-UnoLock Agent MCP is designed to work across a wide range of agent hosts, but some environments can satisfy UnoLock’s preferred key-storage requirements more easily than others.
+UnoLock Agent is designed to work across a wide range of agent hosts, but some environments can satisfy UnoLock’s preferred key-storage requirements more easily than others.
 
 ## Best fit today
 
@@ -18,7 +18,7 @@ UnoLock Agent MCP is designed to work across a wide range of agent hosts, but so
 * fully remote or unattended agent sandboxes
 * environments where the user cannot provide an Agent Key URL and PIN
 
-These environments are harder to support because UnoLock Agent MCP is designed around non-exportable host-bound keys, not reusable secrets. They may still work, but the MCP should report the reduced assurance clearly.
+These environments are harder to support because UnoLock Agent is designed around non-exportable host-bound keys, not reusable secrets. They may still work, but the MCP should report the reduced assurance clearly.
 
 ## Quick rule
 

@@ -1,8 +1,8 @@
 # Install Guide
 
-This guide explains the recommended ways for customers to install the UnoLock Agent MCP.
+This guide explains the recommended ways for customers to install UnoLock Agent.
 
-UnoLock Agent MCP is currently in alpha. The install flow is available for evaluation and early testing, but it is not ready for broad production rollout yet.
+UnoLock Agent is currently in alpha. The install flow is available for evaluation and early testing, but it is not ready for broad production rollout yet.
 
 If you want the current public agent-first onboarding path, start with:
 
@@ -11,7 +11,7 @@ If you want the current public agent-first onboarding path, start with:
 
 ## Security Requirement
 
-UnoLock Agent MCP is intended for high-security AI access to Safe data.
+UnoLock Agent is intended for high-security AI access to Safe data.
 
 For normal customer use, the preferred deployment uses a production-ready:
 
@@ -22,7 +22,7 @@ For normal customer use, the preferred deployment uses a production-ready:
 
 If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance and makes that tradeoff visible instead of pretending it met UnoLock’s preferred key-storage requirements.
 
-This is deliberate. The point of the Agent MCP is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
+This is deliberate. The point of UnoLock Agent is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
 
 On Windows and WSL, the MCP now prefers a TPM-backed key first and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable.
 
@@ -50,7 +50,7 @@ If you are new to UnoLock, these docs explain the product concepts behind the MC
 The preferred path is:
 
 1. let the MCP host launch `unolock-agent` with no UnoLock-specific arguments
-2. use a GitHub Release binary or `npx -y @techsologic/unolock-agent-mcp@latest`
+2. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
 3. let UnoLock handle its local daemon internally so the user PIN can stay in MCP process memory instead of being stored persistently
 
 On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating the MCP as hung.
@@ -70,7 +70,7 @@ Download from:
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest --version
+npx -y @techsologic/unolock-agent@latest --version
 ```
 
 The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
@@ -87,13 +87,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent@latest
 ```
 
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
 
 ```bash
-openclaw plugins install @techsologic/unolock-agent-mcp
+openclaw plugins install @techsologic/unolock-agent
 ```
 
 For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent-access` plugin.
@@ -101,7 +101,7 @@ For local testing before publishing that plugin install path, use `plugins.load.
 For a host-managed stdio launch, use:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent@latest
 ```
 
 UnoLock manages its own local runtime automatically after launch, so the agent does not need to understand daemon mode or any separate runner. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
@@ -116,7 +116,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-No-argument launch remains the normal `stdio` MCP mode. Explicit subcommands are the CLI mode. `unolock-agent-mcp` remains available as a compatibility alias.
+No-argument launch remains the normal `stdio` MCP mode. Explicit subcommands are the CLI mode.
 
 ## Built-in local daemon
 
@@ -141,7 +141,7 @@ Notes:
 
 ## Updates
 
-UnoLock Agent MCP updates should normally be handled by the install channel, not by the live MCP process replacing itself mid-session.
+UnoLock Agent updates should normally be handled by the install channel, not by the live MCP process replacing itself mid-session.
 
 Recommended update flow:
 
@@ -153,7 +153,7 @@ Recommended update flow:
 Check update status locally:
 
 ```bash
-unolock-agent-mcp check-update --json
+unolock-agent check-update --json
 ```
 
 Or through the MCP:
@@ -162,7 +162,7 @@ Or through the MCP:
 
 Preferred behavior by channel:
 
-* built-in local daemon + `npx -y @techsologic/unolock-agent-mcp@latest`
+* built-in local daemon + `npx -y @techsologic/unolock-agent@latest`
   * preferred path
   * daemon restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
 * direct GitHub Release binary
@@ -178,9 +178,9 @@ Do not update in the middle of:
 
 Expected artifact names:
 
-* `unolock-agent-mcp-macos-arm64`
-* `unolock-agent-mcp-windows-amd64.exe`
-* `unolock-agent-mcp-linux-x86_64`
+* `unolock-agent-macos-arm64`
+* `unolock-agent-windows-amd64.exe`
+* `unolock-agent-linux-x86_64`
 
 Then configure your MCP host to run that binary directly.
 
@@ -242,9 +242,9 @@ Download the latest platform binary from:
 
 Expected artifact names:
 
-* `unolock-agent-mcp-macos-arm64`
-* `unolock-agent-mcp-windows-amd64.exe`
-* `unolock-agent-mcp-linux-x86_64`
+* `unolock-agent-macos-arm64`
+* `unolock-agent-windows-amd64.exe`
+* `unolock-agent-linux-x86_64`
 
 Then configure your MCP host to run that binary directly.
 
@@ -299,7 +299,7 @@ This is mainly for development and local testing:
 
 ```bash
 git clone https://github.com/TechSologic/unolock-agent-mcp.git
-cd unolock-agent-mcp
+cd unolock-agent
 python3 -m pip install --user -e .
 ```
 
@@ -376,7 +376,7 @@ For most customers:
 If installed with `pipx`:
 
 ```bash
-pipx upgrade unolock-agent-mcp
+pipx upgrade unolock-agent
 ```
 
 If installed directly from GitHub with `pip`:
@@ -390,13 +390,13 @@ python3 -m pip install --upgrade git+https://github.com/TechSologic/unolock-agen
 If installed with `pipx`:
 
 ```bash
-pipx uninstall unolock-agent-mcp
+pipx uninstall unolock-agent
 ```
 
 If installed with `pip`:
 
 ```bash
-python3 -m pip uninstall unolock-agent-mcp
+python3 -m pip uninstall unolock-agent
 ```
 
 If you also want to remove the local UnoLock registration from the host before uninstalling, run:
@@ -407,7 +407,7 @@ python3 -m unolock_mcp disconnect
 
 ## Troubleshooting `liboqs-python`
 
-The UnoLock Agent MCP currently depends on `liboqs-python` `0.14.x`.
+UnoLock Agent currently depends on `liboqs-python` `0.14.x`.
 
 If your environment already has a working local `liboqs` installation, you can point Python at it with:
 

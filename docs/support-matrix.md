@@ -2,7 +2,7 @@
 
 This document defines which agent-host environments UnoLock should support first and which TPM DAO should be used in each environment.
 
-UnoLock Agent MCP is currently an alpha feature. This matrix describes the current evaluation state, not a final GA support commitment.
+UnoLock Agent is currently an alpha feature. This matrix describes the current evaluation state, not a final GA support commitment.
 
 Checked against current host/platform docs on 2026-03-08:
 
@@ -22,7 +22,7 @@ Use the strongest non-exportable key provider available on the current host.
 
 ## Product Fit
 
-UnoLock Agent MCP is primarily designed for **user-adjacent desktop agents**:
+UnoLock Agent is primarily designed for **user-adjacent desktop agents**:
 
 * local AI assistants
 * desktop MCP hosts

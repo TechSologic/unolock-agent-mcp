@@ -22,7 +22,7 @@ class UnoLockConfigTest(unittest.TestCase):
                     with patch("unolock_mcp.config.Path", PureWindowsPath):
                         self.assertEqual(
                             default_state_dir(),
-                            PureWindowsPath(r"C:\Users\mike\AppData\Local") / "unolock-agent-mcp",
+                            PureWindowsPath(r"C:\Users\mike\AppData\Local") / "unolock-agent",
                         )
 
     def test_default_state_dir_defaults_to_macos_application_support(self) -> None:
@@ -32,7 +32,7 @@ class UnoLockConfigTest(unittest.TestCase):
                     with patch("pathlib.Path.home", return_value=Path("/Users/mike")):
                         self.assertEqual(
                             default_state_dir(),
-                            Path("/Users/mike/Library/Application Support/unolock-agent-mcp"),
+                            Path("/Users/mike/Library/Application Support/unolock-agent"),
                         )
 
     def test_default_config_path_uses_platform_state_dir(self) -> None:

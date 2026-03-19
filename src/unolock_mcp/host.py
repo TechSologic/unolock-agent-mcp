@@ -275,7 +275,7 @@ class ToolHostController:
             "protocolVersion": protocol_version,
             "capabilities": MCP_CAPABILITIES,
             "serverInfo": {
-                "name": "UnoLock Agent MCP",
+                "name": "UnoLock Agent",
                 "version": MCP_VERSION,
             },
             "instructions": str(getattr(self._server, "instructions", "") or ""),

@@ -507,7 +507,7 @@ class MacSecureEnclaveDao(TpmDao):
             source_path.unlink(missing_ok=True)
 
     def _cache_dir(self) -> Path:
-        return Path.home() / "Library" / "Caches" / "unolock-agent-mcp"
+        return Path.home() / "Library" / "Caches" / "unolock-agent"
 
     def _helper_hash(self) -> str:
         return hashlib.sha256(MACOS_SECURE_ENCLAVE_HELPER.encode("utf8")).hexdigest()[:12]

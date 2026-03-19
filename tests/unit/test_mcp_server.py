@@ -516,7 +516,7 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(result["space_id_filter"], 1773)
             self.assertEqual(current["current_space_id"], 1773)
 
-    def test_upload_file_accepts_title_alias_for_name(self) -> None:
+    def test_upload_file_uses_title(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with ExitStack() as stack:
                 server = self._create_server(tmpdir, stack)
@@ -526,14 +526,13 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                 result = server._tool_manager._tools["unolock_upload_file"].fn(
                     "/tmp/example.txt",
                     "agent-upload.txt",
-                    None,
                 )
 
             self.assertTrue(result["ok"])
             self.assertEqual(result["space_id"], 1773)
             self.assertEqual(result["file"]["name"], "agent-upload.txt")
 
-    def test_replace_file_accepts_title_alias_for_name(self) -> None:
+    def test_replace_file_uses_title(self) -> None:
         class _FakeReplaceFilesClient(_FakeWritableFilesClient):
             def replace_file(
                 self,
@@ -593,7 +592,6 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                     "archive-1",
                     "/tmp/example.txt",
                     "agent-replace.txt",
-                    None,
                     None,
                 )
 

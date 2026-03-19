@@ -1,7 +1,7 @@
 {
-  "name": "@techsologic/unolock-agent-mcp",
+  "name": "@techsologic/unolock-agent",
   "version": "0.1.27",
-  "description": "npx wrapper for the official UnoLock Agent MCP release binaries",
+  "description": "npx wrapper for the official UnoLock Agent release binaries",
   "license": "UNLICENSED",
   "homepage": "https://unolock.ai",
   "repository": {
@@ -12,8 +12,7 @@
     "url": "https://github.com/TechSologic/unolock-agent-mcp/issues"
   },
   "bin": {
-    "unolock-agent": "bin/unolock-agent-mcp.js",
-    "unolock-agent-mcp": "bin/unolock-agent-mcp.js"
+    "unolock-agent": "bin/unolock-agent.js"
   },
   "openclaw": {
     "extensions": [

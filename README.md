@@ -1,10 +1,10 @@
-# UnoLock Agent MCP
+# UnoLock Agent
 
-This repository is the dedicated home for UnoLock's Python agent/MCP client.
+This repository is the dedicated home for UnoLock's local agent client.
 
 UnoLock was built to protect you. Now it can protect both you and your agent.
 
-UnoLock Agent MCP is currently in alpha. It is available for evaluation and early testing, but it is not ready for broad production rollout yet.
+UnoLock Agent is currently in alpha. It is available for evaluation and early testing, but it is not ready for broad production rollout yet.
 
 ## Start With The Skill
 
@@ -20,7 +20,7 @@ For OpenClaw, this package can also be installed as a plugin so OpenClaw can loa
 
 ## Why Use UnoLock For An Agent
 
-UnoLock Agent MCP is not only about protecting secrets.
+UnoLock Agent is not only about protecting secrets.
 
 It gives an agent a safer place to keep and use:
 
@@ -40,7 +40,7 @@ Compared to local memory files or plaintext secret storage, UnoLock gives the ag
 
 ## Security Requirement
 
-UnoLock Agent MCP is built for customers who want the strongest practical protection for AI-accessed secrets.
+UnoLock Agent is built for customers who want the strongest practical protection for AI-accessed secrets.
 
 For normal customer use, the strongest deployment uses a production-ready:
 
@@ -55,7 +55,7 @@ That tradeoff is intentional. Agentic Safe Access exists to keep AI access as cl
 
 ## Intended Environment
 
-UnoLock Agent MCP is designed to work across a wide range of agent environments.
+UnoLock Agent is designed to work across a wide range of agent environments.
 
 The strongest deployments are environments that can provide device-bound, non-exportable key storage in a normal user-controlled session. That includes:
 
@@ -88,7 +88,7 @@ Agent-first onboarding site:
 Recommended customer install source:
 
 * UnoLock's built-in local daemon/CLI with a GitHub Release binary when available
-* `npx -y @techsologic/unolock-agent-mcp@latest` as the Node/npm wrapper path
+* `npx -y @techsologic/unolock-agent@latest` as the Node/npm wrapper path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -104,7 +104,7 @@ Prerequisite:
 * Free and Inheritance can share their single included Safe space with one extra Agent Key.
 * Sovereign and HighRisk are still the right tiers for broader multi-Space and collaboration-heavy agent workflows.
 
-The current MCP proves the hardest integration seam first:
+The current MCP layer proves the hardest integration seam first:
 
 * live local `/start` flow compatibility
 * ML-DSA signature verification
@@ -148,7 +148,7 @@ For real MCP hosts, see:
 For skill-aware agents, start with the skill above.
 For hosts that need direct MCP configuration, the preferred path is one executable with one normal MCP-facing behavior:
 
-* MCP hosts launch `npx -y @techsologic/unolock-agent-mcp@latest`.
+* MCP hosts launch `npx -y @techsologic/unolock-agent@latest`.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
 * UnoLock manages its own local runtime automatically after launch.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
@@ -165,9 +165,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-No-argument launch remains the normal `stdio` MCP behavior. Explicit subcommands are the direct CLI surface. `unolock-agent-mcp` remains available as a compatibility alias.
-
-Useful support commands still exist for humans and debugging:
+No-argument launch remains the normal `stdio` MCP behavior. Explicit subcommands are the direct CLI surface.
 
 Once the local stdio MCP is running, the normal flow is:
 
@@ -215,7 +213,7 @@ That avoids most of the Python packaging and source-build overhead for customers
 If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest --version
+npx -y @techsologic/unolock-agent@latest --version
 ```
 
 The wrapper downloads the correct GitHub Release binary for the current platform on first use and then reuses the cached copy.
@@ -234,20 +232,20 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent@latest
 ```
 
 With no arguments, the npm wrapper starts the MCP server by default:
 
 ```bash
-npx -y @techsologic/unolock-agent-mcp@latest
+npx -y @techsologic/unolock-agent@latest
 ```
 
 That is the preferred host-facing launch shape.
 
 ## Update Policy
 
-UnoLock Agent MCP should not replace itself in the middle of an active session or write flow.
+UnoLock Agent should not replace itself in the middle of an active session or write flow.
 
 The intended update model is:
 
@@ -267,7 +265,7 @@ Or, through the MCP itself, call:
 
 Preferred channel behavior:
 
-* built-in daemon + `npx -y @techsologic/unolock-agent-mcp@latest`
+* built-in daemon + `npx -y @techsologic/unolock-agent@latest`
   * preferred low-friction path
   * on restart, the npm wrapper checks GitHub Releases and can fetch the latest stable binary
   * npm publishing is only needed when the wrapper itself changes
@@ -347,7 +345,7 @@ Installed commands:
 
 * `unolock-agent-probe`
   * run the packaged local probe
-* `unolock-agent-mcp`
+* `unolock-agent`
   * run the stdio MCP server
 * `unolock-agent-tpm-check`
   * run the fail-fast production-readiness TPM check
@@ -467,7 +465,7 @@ That script:
 ## Package layout
 
 ```text
-unolock-agent-mcp/
+unolock-agent/
   docs/
   scripts/
   src/
@@ -512,7 +510,7 @@ unolock-agent-mcp/
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
 
 ```bash
-openclaw plugins install @techsologic/unolock-agent-mcp
+openclaw plugins install @techsologic/unolock-agent
 ```
 
 For local testing before publishing that plugin path, point OpenClaw at this repo through `plugins.load.paths` and enable the `unolock-agent-access` plugin. See [examples/openclaw-plugin-config.json](examples/openclaw-plugin-config.json).

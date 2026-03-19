@@ -1,4 +1,4 @@
-# Agent MCP Source
+# UnoLock Agent Source
 
 Python source should live under `src/unolock_mcp/` using a package layout.
 

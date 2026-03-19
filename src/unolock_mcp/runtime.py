@@ -88,7 +88,7 @@ def configure_frozen_oqs_runtime() -> None:
     if not candidates:
         return
 
-    install_root = Path(tempfile.mkdtemp(prefix="unolock-agent-mcp-oqs-"))
+    install_root = Path(tempfile.mkdtemp(prefix="unolock-agent-oqs-"))
     runtime_dir = install_root / _platform_lib_dir_name()
     runtime_dir.mkdir(parents=True, exist_ok=True)
 

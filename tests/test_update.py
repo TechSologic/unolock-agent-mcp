@@ -14,9 +14,9 @@ class UpdateStatusTest(unittest.TestCase):
     def test_detect_runtime_version_info_prefers_wrapper_binary_version(self) -> None:
         runtime = detect_runtime_version_info(
             {
-                "UNOLOCK_AGENT_MCP_INSTALL_CHANNEL": "npm-wrapper",
-                "UNOLOCK_AGENT_MCP_WRAPPER_VERSION": "0.1.13",
-                "UNOLOCK_AGENT_MCP_BINARY_VERSION": "0.1.11",
+                "UNOLOCK_AGENT_INSTALL_CHANNEL": "npm-wrapper",
+                "UNOLOCK_AGENT_WRAPPER_VERSION": "0.1.13",
+                "UNOLOCK_AGENT_BINARY_VERSION": "0.1.11",
             }
         )
 
@@ -27,7 +27,7 @@ class UpdateStatusTest(unittest.TestCase):
 
     def test_get_update_status_reports_update_for_release_binary(self) -> None:
         with patch("unolock_mcp.update.fetch_latest_release_version", return_value=("0.2.0", "https://example.test/release")):
-            payload = get_update_status(env={"UNOLOCK_AGENT_MCP_INSTALL_CHANNEL": "release-binary"})
+            payload = get_update_status(env={"UNOLOCK_AGENT_INSTALL_CHANNEL": "release-binary"})
 
         self.assertTrue(payload["ok"])
         self.assertTrue(payload["update_available"])
@@ -38,15 +38,15 @@ class UpdateStatusTest(unittest.TestCase):
         with patch("unolock_mcp.update.fetch_latest_release_version", side_effect=RuntimeError("boom")):
             payload = get_update_status(
                 env={
-                    "UNOLOCK_AGENT_MCP_INSTALL_CHANNEL": "npm-wrapper",
-                    "UNOLOCK_AGENT_MCP_WRAPPER_VERSION": "0.1.13",
-                    "UNOLOCK_AGENT_MCP_BINARY_VERSION": "0.1.11",
+                    "UNOLOCK_AGENT_INSTALL_CHANNEL": "npm-wrapper",
+                    "UNOLOCK_AGENT_WRAPPER_VERSION": "0.1.13",
+                    "UNOLOCK_AGENT_BINARY_VERSION": "0.1.11",
                 }
             )
 
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["reason"], "update_check_failed")
-        self.assertIn("npx -y @techsologic/unolock-agent-mcp@latest", payload["recommended_action"])
+        self.assertIn("npx -y @techsologic/unolock-agent@latest", payload["recommended_action"])
 
 
 if __name__ == "__main__":

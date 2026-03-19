@@ -927,7 +927,7 @@ class AgentAuthClient:
             "reason": "insecure_tpm_provider",
             "message": (
                 f"The active TPM provider '{provider_name}' is not production-ready. "
-                "UnoLock Agent MCP will still work, but this host could not satisfy the preferred "
+                "UnoLock Agent will still work, but this host could not satisfy the preferred "
                 "device-bound, non-exportable key-storage requirements and is operating at reduced assurance."
             ),
             "tpm_provider": provider_name,

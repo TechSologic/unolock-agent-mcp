@@ -1,4 +1,4 @@
-# Agent MCP Scripts
+# UnoLock Agent Scripts
 
 This directory contains MCP-side utility scripts only.
 

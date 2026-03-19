@@ -1,1 +1,1 @@
-"""Domain models for the UnoLock Agent MCP."""
+"""Domain models for UnoLock Agent."""
