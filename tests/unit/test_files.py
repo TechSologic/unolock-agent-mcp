@@ -79,6 +79,7 @@ class UnoLockFilesClientTest(unittest.TestCase):
         self.assertEqual(result["count"], 1)
         self.assertEqual(result["files"][0]["archive_id"], "cloud-1")
         self.assertEqual(result["files"][0]["name"], "report.pdf")
+        self.assertNotIn("space_name", result["files"][0])
         self.assertEqual(
             result["files"][0]["allowed_operations"],
             ["get_file", "download_file", "rename_file", "replace_file", "delete_file"],

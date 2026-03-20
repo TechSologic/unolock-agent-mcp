@@ -391,15 +391,15 @@ class CliEntryPointTest(unittest.TestCase):
         )
         self.assertIn('"record_ref": "a:b"', print_mock.call_args.args[0])
 
-    def test_update_note_cli_command_omits_expected_version_by_default(self) -> None:
+    def test_update_note_cli_command_allows_text_only_by_default(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True}}) as call_mock:
             with patch("builtins.print"):
-                result = cli.main(["update-note", "a:b", "title", "text"])
+                result = cli.main(["update-note", "a:b", "--text", "text"])
 
         self.assertEqual(result, 0)
         call_mock.assert_called_once_with(
             "unolock_update_note",
-            {"record_ref": "a:b", "title": "title", "text": "text"},
+            {"record_ref": "a:b", "text": "text"},
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
@@ -407,7 +407,9 @@ class CliEntryPointTest(unittest.TestCase):
     def test_update_note_cli_command_accepts_optional_expected_version_flag(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True}}) as call_mock:
             with patch("builtins.print"):
-                result = cli.main(["update-note", "a:b", "--expected-version", "7", "title", "text"])
+                result = cli.main(
+                    ["update-note", "a:b", "--expected-version", "7", "--title", "title", "--text", "text"]
+                )
 
         self.assertEqual(result, 0)
         call_mock.assert_called_once_with(
@@ -416,6 +418,13 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
+
+    def test_update_note_cli_command_rejects_missing_title_and_text(self) -> None:
+        with patch("builtins.print") as print_mock:
+            result = cli.main(["update-note", "a:b"])
+
+        self.assertEqual(result, 1)
+        self.assertIn("requires --title and/or --text", print_mock.call_args.args[0])
 
     def test_create_checklist_cli_rejects_non_array_items_json(self) -> None:
         with patch("builtins.print") as print_mock:

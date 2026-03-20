@@ -70,7 +70,7 @@ Choose the object that matches the work:
 - `unolock-agent register '<agent-key-url>' '<pin>'`: first setup on this device
 - `unolock-agent set-agent-pin '<pin>'`: provide the PIN again after restart or re-authentication
 - `unolock-agent list-spaces`, `unolock-agent get-current-space`, `unolock-agent set-current-space <space_id>`: inspect and switch the current Space
-- `unolock-agent list-notes`, `unolock-agent create-note <title> <text>`, `unolock-agent update-note ...`, `unolock-agent append-note ...`: read and write notes
+- `unolock-agent list-notes`, `unolock-agent create-note <title> <text>`, `unolock-agent update-note <record_ref> [--title <title>] [--text <text>]`, `unolock-agent append-note ...`: read and write notes
 - `unolock-agent list-checklists`, `unolock-agent create-checklist ...`, `unolock-agent set-checklist-item-done ...`, `unolock-agent add-checklist-item ...`, `unolock-agent remove-checklist-item ...`: read and write checklists
 - `unolock-agent list-files`, `unolock-agent get-file <archive_id>`, `unolock-agent download-file ...`, `unolock-agent upload-file ...`, `unolock-agent rename-file ...`, `unolock-agent replace-file ...`, `unolock-agent delete-file ...`: read and manage Cloud files
 - `unolock-agent get-record <record_ref>` and `unolock-agent rename-record ...`: inspect or rename an existing note or checklist

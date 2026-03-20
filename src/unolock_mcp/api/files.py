@@ -140,7 +140,7 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
     def _project_cloud_file(
         self,
         archive: dict[str, Any],
-        spaces: dict[int, dict[str, Any]],
+        _spaces: dict[int, dict[str, Any]],
         *,
         session_id: str | None = None,
     ) -> dict[str, Any]:
@@ -150,7 +150,6 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
         return {
             "archive_id": str(archive.get("id", "")),
             "space_id": sid,
-            "space_name": str(metadata.get("spaceName", spaces.get(sid, {}).get("spaceName", ""))),
             "kind": "file",
             "name": str(metadata.get("name", "")),
             "mime_type": str(metadata.get("type", "application/octet-stream")),
@@ -320,11 +319,11 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
                 if isinstance(existing_metadata.get("type"), str) and existing_metadata.get("type")
                 else mimetypes.guess_type(file_name)[0] or "application/octet-stream"
             )
-
         archive_metadata = dict(existing_metadata)
         archive_metadata["name"] = file_name
         archive_metadata["type"] = resolved_mime
         archive_id = str(existing_archive.get("id", "")) if existing_archive else ""
+        archive_metadata.pop("spaceName", None)
         upload_id = ""
         upload_completed = False
 

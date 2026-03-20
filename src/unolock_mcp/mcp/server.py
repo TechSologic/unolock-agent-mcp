@@ -336,6 +336,28 @@ def create_mcp_server() -> FastMCP:
             raise ValueError("record_not_found: Could not determine the current record version.")
         return version
 
+    def _get_record_projection(resolved_session_id: str, record_ref: str) -> dict[str, Any]:
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        return readonly_records.get_record(resolved_session_id, record_ref)
+
+    def _resolve_note_update_fields(
+        resolved_session_id: str,
+        record_ref: str,
+        *,
+        title: str | None,
+        text: str | None,
+    ) -> tuple[str, str]:
+        if title is not None and text is not None:
+            return title, text
+        record = _get_record_projection(resolved_session_id, record_ref)
+        resolved_title = title if title is not None else str(record.get("title", ""))
+        resolved_text = text if text is not None else str(record.get("plain_text", ""))
+        return resolved_title, resolved_text
+
     def _decorate_spaces_payload(payload: dict[str, Any]) -> dict[str, Any]:
         current_space_id = _current_space_id()
         spaces = payload.get("spaces")
@@ -1218,7 +1240,10 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
-            return readonly_files.get_file(resolved_session_id, archive_id)
+            return {
+                "ok": True,
+                "file": readonly_files.get_file(resolved_session_id, archive_id),
+            }
 
         return _run_with_auto_session(
             "unolock_get_file",
@@ -1416,12 +1441,10 @@ def create_mcp_server() -> FastMCP:
     )
     def get_record(record_ref: str = "") -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
-            readonly_records = UnoLockReadonlyRecordsClient(
-                UnoLockApiClient(ensure_flow_client(), session_store),
-                agent_auth,
-                session_store,
-            )
-            return readonly_records.get_record(resolved_session_id, record_ref)
+            return {
+                "ok": True,
+                "record": _get_record_projection(resolved_session_id, record_ref),
+            }
 
         return _run_with_auto_session(
             "unolock_get_record",
@@ -1525,14 +1548,15 @@ def create_mcp_server() -> FastMCP:
         description=(
             "Update an existing UnoLock note from raw text. "
             "Read the note first, then use the returned record_ref, version, and allowed_operations metadata. "
+            "If title or text is omitted, the MCP keeps the current value for that field. "
             "If the note is locked, read-only, or changed since the last read, the MCP will reject the update."
         ),
     )
     def update_note(
         record_ref: str = "",
         expected_version: int = 0,
-        title: str = "",
-        text: str = "",
+        title: str | None = None,
+        text: str | None = None,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             writable_records = UnoLockWritableRecordsClient(
@@ -1540,13 +1564,21 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            if title is None and text is None:
+                raise ValueError("invalid_input: update_note requires title and/or text.")
             resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
+            resolved_title, resolved_text = _resolve_note_update_fields(
+                resolved_session_id,
+                record_ref,
+                title=title,
+                text=text,
+            )
             return writable_records.update_note(
                 resolved_session_id,
                 record_ref=record_ref,
                 expected_version=resolved_version,
-                title=title,
-                text=text,
+                title=resolved_title,
+                text=resolved_text,
             )
 
         return _run_with_auto_session(

@@ -126,12 +126,15 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
     "update-note": {
         "tool": "unolock_update_note",
         "help": "Update an existing note.",
-        "description": "Update an existing UnoLock note by record_ref. If --expected-version is omitted, the CLI uses the latest version.",
+        "description": (
+            "Update an existing UnoLock note by record_ref. "
+            "Pass --title and/or --text. If --expected-version is omitted, the CLI uses the latest version."
+        ),
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-notes output."}),
             (("--expected-version",), {"type": int, "default": None, "help": "Expected current note version."}),
-            (("title",), {"help": "Updated note title."}),
-            (("text",), {"help": "Updated note body text."}),
+            (("--title",), {"default": None, "help": "Updated note title. If omitted, keep the current title."}),
+            (("--text",), {"default": None, "help": "Updated note body text. If omitted, keep the current text."}),
         ],
     },
     "append-note": {
@@ -303,13 +306,15 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
     if command == "create-note":
         return "unolock_create_note", {"title": args.title, "text": args.text}
     if command == "update-note":
-        payload = {
-            "record_ref": args.record_ref,
-            "title": args.title,
-            "text": args.text,
-        }
+        if args.title is None and args.text is None:
+            raise ValueError("update-note requires --title and/or --text.")
+        payload = {"record_ref": args.record_ref}
         if args.expected_version is not None:
             payload["expected_version"] = args.expected_version
+        if args.title is not None:
+            payload["title"] = args.title
+        if args.text is not None:
+            payload["text"] = args.text
         return "unolock_update_note", payload
     if command == "append-note":
         payload = {
