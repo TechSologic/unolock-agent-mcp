@@ -7,8 +7,8 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.35";
-const FALLBACK_BINARY_VERSION = "0.1.35";
+const PACKAGE_VERSION = "0.1.36";
+const FALLBACK_BINARY_VERSION = "0.1.36";
 const REPO = "TechSologic/unolock-agent";
 const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {link-agent-key,set-agent-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,tpm-diagnose,tpm-check,self-test,mcp} ...
 
