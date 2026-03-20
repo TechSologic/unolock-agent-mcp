@@ -22,10 +22,19 @@ UnoLock is useful for:
 ## Core Concepts
 
 - `Safe`: the user's protected storage area in UnoLock
-- `Space`: the current working area inside the Safe for one project, customer, or task context
+- `Space`: a working area inside the Safe for one project, customer, or task context
 - `note`: durable freeform text for summaries, plans, research, decisions, and reusable context
 - `checklist`: durable structured task tracking with item completion state
 - `file`: durable document or binary storage for attachments, exports, references, and other non-text artifacts
+
+## Current Working Space
+
+UnoLock keeps one current working Space as the default context.
+
+- list available Spaces with `unolock-agent list-spaces`
+- choose the working Space with `unolock-agent set-current-space <space_id>`
+- after that, normal note, checklist, and file commands work in that current Space by default
+- select a new Space when the work moves to a different project, customer, or context
 
 Choose the object that matches the work:
 
@@ -36,16 +45,25 @@ Choose the object that matches the work:
 ## Preferred Workflow
 
 1. Load this skill if the host supports skills.
-2. If `unolock-agent` is already installed, run that directly. Only use `npx -y @techsologic/unolock-agent@latest` when `unolock-agent` is not installed yet.
-3. Run the `unolock-agent` command you need directly.
-4. On a fresh host, allow extra time for the first start.
-5. Ask the user for the one-time Agent Key URL and the PIN together.
-6. Register this device to the Safe:
+2. If `unolock-agent` is not installed yet, install the UnoLock Agent CLI with `npx -y @techsologic/unolock-agent@latest`. If it is already installed, run `unolock-agent` directly.
+3. Run `unolock-agent` without arguments to get a usage statement when needed.
+4. Run the `unolock-agent` command you need directly.
+5. On a fresh host, allow extra time for the first start.
+6. Ask the user for the one-time Agent Key URL and the PIN together.
+7. Register this device to the Safe:
    `unolock-agent register '<agent-key-url>' '<pin>'`
-7. List spaces and select the working space when needed:
+8. List spaces and select the working space when needed:
    `unolock-agent list-spaces`
    `unolock-agent set-current-space <space_id>`
-8. Use the normal note, checklist, and file commands for day-to-day work.
+9. Use the normal note, checklist, and file commands for day-to-day work.
+
+## Registration And PIN Model
+
+- registration normally happens once on a device for a given Agent Key
+- after registration, use normal UnoLock commands directly
+- the one-time Agent Key URL is for registration, not for everyday use
+- the CLI may ask for the PIN later when the local UnoLock process restarts or needs to authenticate again
+- if that happens, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 
 ## Main CLI Commands
 
@@ -65,7 +83,7 @@ Choose the object that matches the work:
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 - if unsure which command to use next, run `unolock-agent --help`
 - keep the PIN in UnoLock process memory only
-- if `unolock-agent` is not installed yet, use `npx -y @techsologic/unolock-agent@latest`
+- if `unolock-agent` is not installed yet, install the UnoLock Agent CLI with `npx -y @techsologic/unolock-agent@latest`
 
 ## User-Facing Model
 
