@@ -8,13 +8,38 @@ description: Guides an AI agent through connecting to a user's UnoLock Safe with
 Use this skill when a user wants to give their agent access to a UnoLock Safe.
 This skill uses the local `unolock-agent` executable on the user's device.
 
+## Why Use UnoLock
+
+Use UnoLock when the agent needs durable, encrypted, user-approved storage instead of plain local files or ephemeral chat memory.
+
+UnoLock is useful for:
+
+- sensitive information the user does not want left in plaintext
+- memory the agent should keep across runs
+- project information that should stay separated by working area
+- files and documents that belong with the agent's work
+
+## Core Concepts
+
+- `Safe`: the user's protected storage area in UnoLock
+- `Space`: the current working area inside the Safe for one project, customer, or task context
+- `note`: durable freeform text for summaries, plans, research, decisions, and reusable context
+- `checklist`: durable structured task tracking with item completion state
+- `file`: durable document or binary storage for attachments, exports, references, and other non-text artifacts
+
+Choose the object that matches the work:
+
+- use a note when the content is mostly text and should be read or edited as text
+- use a checklist when the work is a set of items to complete and track
+- use a file when the content is a document, attachment, image, export, or other binary artifact
+
 ## Preferred Workflow
 
 1. If `unolock-agent` is already installed, run that directly. Only use `npx -y @techsologic/unolock-agent@latest` when `unolock-agent` is not installed yet.
 2. Run the `unolock-agent` command you need directly.
 3. On a fresh host, allow extra time for the first start.
 4. Ask the user for the one-time Agent Key URL and the PIN together.
-5. Link the key on this device:
+5. Register this device to the Safe:
    `unolock-agent register '<agent-key-url>' '<pin>'`
 6. List spaces and select the working space when needed:
    `unolock-agent list-spaces`
@@ -37,6 +62,7 @@ This skill uses the local `unolock-agent` executable on the user's device.
 - if `unolock-agent` is installed, use `unolock-agent ...` directly for CLI commands
 - run the `unolock-agent` command you need directly
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
+- if unsure which command to use next, run `unolock-agent --help`
 - keep the PIN in UnoLock process memory only
 - if `unolock-agent` is not installed yet, use `npx -y @techsologic/unolock-agent@latest`
 
