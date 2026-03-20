@@ -144,18 +144,24 @@ For host configuration and implementation details, see:
 * [OpenClaw plugin config example](examples/openclaw-plugin-config.json)
 
 For skill-aware agents, start with the skill above.
-For direct agent use, prefer the CLI:
+For direct agent use, prefer the CLI. If `unolock-agent` is already installed, use it directly. Only use `npx -y @techsologic/unolock-agent@latest ...` when the executable is not installed yet. Run the command you need directly.
+
+```bash
+unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent list-spaces
+unolock-agent list-notes
+unolock-agent list-files
+```
+
+Only if the executable is not installed yet, use the same commands through:
 
 ```bash
 npx -y @techsologic/unolock-agent@latest link-agent-key 'https://safe.example/#/agent-register/...' 1
-npx -y @techsologic/unolock-agent@latest list-spaces
-npx -y @techsologic/unolock-agent@latest list-notes
-npx -y @techsologic/unolock-agent@latest list-files
 ```
 
-Only if a host needs the explicit host-command form, use the same executable with:
+Only if a host needs the explicit host-command form, use:
 
-* Hosts that require this command shape launch `npx -y @techsologic/unolock-agent@latest mcp`.
+* `npx -y @techsologic/unolock-agent@latest mcp`
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
 * The `mcp` subcommand starts and uses the local UnoLock runtime automatically.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.

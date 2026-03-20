@@ -10,15 +10,16 @@ This skill uses the local `unolock-agent` executable on the user's device.
 
 ## Preferred Workflow
 
-1. If `unolock-agent` is not already installed, use `npx -y @techsologic/unolock-agent@latest`.
-2. On a fresh host, allow extra time for the first start.
-3. Ask the user for the one-time Agent Key URL and the PIN together.
-4. Link the key on this device:
+1. If `unolock-agent` is already installed, run that directly. Only use `npx -y @techsologic/unolock-agent@latest` when `unolock-agent` is not installed yet.
+2. Run the `unolock-agent` command you need directly.
+3. On a fresh host, allow extra time for the first start.
+4. Ask the user for the one-time Agent Key URL and the PIN together.
+5. Link the key on this device:
    `unolock-agent link-agent-key '<agent-key-url>' '<pin>'`
-5. List spaces and select the working space when needed:
+6. List spaces and select the working space when needed:
    `unolock-agent list-spaces`
    `unolock-agent set-current-space <space_id>`
-6. Use the normal note, checklist, and file commands for day-to-day work.
+7. Use the normal note, checklist, and file commands for day-to-day work.
 
 ## Main CLI Commands
 
@@ -33,6 +34,8 @@ This skill uses the local `unolock-agent` executable on the user's device.
 ## Key Rules
 
 - give the agent the Agent Key URL and PIN together for first setup
+- if `unolock-agent` is installed, use `unolock-agent ...` directly for CLI commands
+- run the `unolock-agent` command you need directly
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 - keep the PIN in UnoLock process memory only
 - if a host explicitly requires the host-command form, use `npx -y @techsologic/unolock-agent@latest mcp`
