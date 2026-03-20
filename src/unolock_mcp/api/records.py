@@ -185,7 +185,7 @@ class _UnoLockRecordsBase:
             done = self._coerce_bool(checkbox.get("done"))
             items.append(
                 {
-                    "id": numeric_id,
+                    "item_id": numeric_id,
                     "text": text,
                     "done": done,
                     "checked": done,

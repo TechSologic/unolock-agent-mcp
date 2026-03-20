@@ -38,7 +38,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
             items,
             [
                 {
-                    "id": 4,
+                    "item_id": 4,
                     "text": "First item",
                     "done": False,
                     "checked": False,
@@ -46,7 +46,7 @@ class UnoLockReadonlyRecordsClientTest(unittest.TestCase):
                     "order": 0,
                 },
                 {
-                    "id": 5,
+                    "item_id": 5,
                     "text": "Second",
                     "done": True,
                     "checked": True,
@@ -516,8 +516,8 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(
             result["record"]["checklist_items"],
             [
-                {"id": 0, "text": "first", "done": False, "checked": False, "state": "unchecked", "order": 0},
-                {"id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 1},
+                {"item_id": 0, "text": "first", "done": False, "checked": False, "state": "unchecked", "order": 0},
+                {"item_id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 1},
             ],
         )
 
@@ -541,10 +541,10 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(
             result["record"]["checklist_items"],
             [
-                {"id": 0, "text": "first", "done": True, "checked": True, "state": "checked", "order": 0},
-                {"id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 1},
-                {"id": 2, "text": "third", "done": True, "checked": True, "state": "checked", "order": 2},
-                {"id": 3, "text": "fourth", "done": False, "checked": False, "state": "unchecked", "order": 3},
+                {"item_id": 0, "text": "first", "done": True, "checked": True, "state": "checked", "order": 0},
+                {"item_id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 1},
+                {"item_id": 2, "text": "third", "done": True, "checked": True, "state": "checked", "order": 2},
+                {"item_id": 3, "text": "fourth", "done": False, "checked": False, "state": "unchecked", "order": 3},
             ],
         )
 
@@ -955,9 +955,9 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(
             result["record"]["checklist_items"],
             [
-                {"id": 0, "text": "first", "done": False, "checked": False, "state": "unchecked", "order": 0},
-                {"id": 2, "text": "third", "done": False, "checked": False, "state": "unchecked", "order": 1},
-                {"id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 2},
+                {"item_id": 0, "text": "first", "done": False, "checked": False, "state": "unchecked", "order": 0},
+                {"item_id": 2, "text": "third", "done": False, "checked": False, "state": "unchecked", "order": 1},
+                {"item_id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 2},
             ],
         )
         self.api_client.http_client.get_text_with_headers_absolute.assert_not_called()
@@ -1055,7 +1055,7 @@ class UnoLockWritableRecordsClientTest(unittest.TestCase):
         self.assertEqual(
             result["record"]["checklist_items"],
             [
-                {"id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 0},
+                {"item_id": 1, "text": "second", "done": False, "checked": False, "state": "unchecked", "order": 0},
             ],
         )
         self.api_client.http_client.get_text_with_headers_absolute.assert_not_called()
