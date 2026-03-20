@@ -270,6 +270,39 @@ class _FakeWritableFilesClient:
         }
 
 
+class _FakeWritableRecordsClient:
+    last_update_note: dict[str, object] | None = None
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        pass
+
+    def update_note(
+        self,
+        session_id: str,
+        *,
+        record_ref: str,
+        expected_version: int,
+        title: str,
+        text: str,
+    ) -> dict[str, object]:
+        self.__class__.last_update_note = {
+            "session_id": session_id,
+            "record_ref": record_ref,
+            "expected_version": expected_version,
+            "title": title,
+            "text": text,
+        }
+        return {
+            "ok": True,
+            "record": {
+                "record_ref": record_ref,
+                "version": expected_version + 1,
+                "title": title,
+                "plain_text": text,
+            },
+        }
+
+
 class _FakeAgentAuthForAutoSession:
     instances: list["_FakeAgentAuthForAutoSession"] = []
 
@@ -369,6 +402,7 @@ class _FakeAgentAuthForAutoSession:
 class AutoSessionToolFlowTest(unittest.TestCase):
     def setUp(self) -> None:
         _FakeAgentAuthForAutoSession.instances.clear()
+        _FakeWritableRecordsClient.last_update_note = None
 
     def _seed_registered_state(self, tmpdir: str) -> None:
         with patch.dict(os.environ, {"HOME": tmpdir}, clear=False):
@@ -400,6 +434,12 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             patch(
                 "unolock_mcp.mcp.server.UnoLockWritableFilesClient",
                 _FakeWritableFilesClient,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "unolock_mcp.mcp.server.UnoLockWritableRecordsClient",
+                _FakeWritableRecordsClient,
             )
         )
         stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
@@ -521,6 +561,60 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertEqual(result["space_id"], 1773)
             self.assertEqual(result["space_id_filter"], 1773)
+
+    def test_update_note_uses_latest_version_when_expected_version_is_omitted(self) -> None:
+        class _FakeReadonlyRecordsWithVersion(_FakeReadonlyRecordsClient):
+            def get_record(self, session_id: str, record_ref: str) -> dict[str, object]:
+                return {
+                    "record_ref": record_ref,
+                    "version": 9,
+                    "plain_text": "existing",
+                    "space_id": 1773,
+                }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                self._seed_registered_state(tmpdir)
+                stack.enter_context(patch.dict(os.environ, {"HOME": tmpdir}, clear=False))
+                stack.enter_context(patch("unolock_mcp.mcp.server.AgentAuthClient", _FakeAgentAuthForAutoSession))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockReadonlyRecordsClient",
+                        _FakeReadonlyRecordsWithVersion,
+                    )
+                )
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockWritableFilesClient",
+                        _FakeWritableFilesClient,
+                    )
+                )
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockWritableRecordsClient",
+                        _FakeWritableRecordsClient,
+                    )
+                )
+                stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.resolve_unolock_config",
+                        return_value=UnoLockResolvedConfig(
+                            base_url="https://api.safe.test.1two.be",
+                            transparency_origin="https://safe.test.1two.be",
+                            app_version="0.20.21",
+                            signing_public_key_b64="ZmFrZQ==",
+                            sources={},
+                        ),
+                    )
+                )
+                server = create_mcp_server()
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_update_note"].fn("archive:1", 0, "new", "body")
+
+        self.assertTrue(result["ok"])
+        self.assertEqual(_FakeWritableRecordsClient.last_update_note["expected_version"], 9)
 
     def test_list_records_auto_selects_first_space_when_none_selected(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

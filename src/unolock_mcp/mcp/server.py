@@ -322,6 +322,20 @@ def create_mcp_server() -> FastMCP:
             payload["space_id"] = space_id
         return payload
 
+    def _resolve_record_version(resolved_session_id: str, record_ref: str, expected_version: int) -> int:
+        if isinstance(expected_version, int) and expected_version > 0:
+            return expected_version
+        readonly_records = UnoLockReadonlyRecordsClient(
+            UnoLockApiClient(ensure_flow_client(), session_store),
+            agent_auth,
+            session_store,
+        )
+        record = readonly_records.get_record(resolved_session_id, record_ref)
+        version = int(record.get("version") or 0)
+        if version <= 0:
+            raise ValueError("record_not_found: Could not determine the current record version.")
+        return version
+
     def _decorate_spaces_payload(payload: dict[str, Any]) -> dict[str, Any]:
         current_space_id = _current_space_id()
         spaces = payload.get("spaces")
@@ -1526,10 +1540,11 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
             return writable_records.update_note(
                 resolved_session_id,
                 record_ref=record_ref,
-                expected_version=expected_version,
+                expected_version=resolved_version,
                 title=title,
                 text=text,
             )
@@ -1565,10 +1580,11 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
             return writable_records.append_note(
                 resolved_session_id,
                 record_ref=record_ref,
-                expected_version=expected_version,
+                expected_version=resolved_version,
                 append_text=append_text,
             )
 
@@ -1602,10 +1618,11 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
             return writable_records.rename_record(
                 resolved_session_id,
                 record_ref=record_ref,
-                expected_version=expected_version,
+                expected_version=resolved_version,
                 title=title,
             )
 
@@ -1640,10 +1657,11 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
             return writable_records.set_checklist_item_done(
                 resolved_session_id,
                 record_ref=record_ref,
-                expected_version=expected_version,
+                expected_version=resolved_version,
                 item_id=item_id,
                 done=done,
             )
@@ -1679,10 +1697,11 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
             return writable_records.add_checklist_item(
                 resolved_session_id,
                 record_ref=record_ref,
-                expected_version=expected_version,
+                expected_version=resolved_version,
                 text=text,
             )
 
@@ -1716,10 +1735,11 @@ def create_mcp_server() -> FastMCP:
                 agent_auth,
                 session_store,
             )
+            resolved_version = _resolve_record_version(resolved_session_id, record_ref, expected_version)
             return writable_records.remove_checklist_item(
                 resolved_session_id,
                 record_ref=record_ref,
-                expected_version=expected_version,
+                expected_version=resolved_version,
                 item_id=item_id,
             )
 

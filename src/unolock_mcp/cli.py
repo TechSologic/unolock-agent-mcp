@@ -126,10 +126,10 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
     "update-note": {
         "tool": "unolock_update_note",
         "help": "Update an existing note.",
-        "description": "Update an existing UnoLock note by record_ref and expected version.",
+        "description": "Update an existing UnoLock note by record_ref. If --expected-version is omitted, the CLI uses the latest version.",
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-notes output."}),
-            (("expected_version",), {"type": int, "help": "Expected current note version."}),
+            (("--expected-version",), {"type": int, "default": None, "help": "Expected current note version."}),
             (("title",), {"help": "Updated note title."}),
             (("text",), {"help": "Updated note body text."}),
         ],
@@ -137,20 +137,20 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
     "append-note": {
         "tool": "unolock_append_note",
         "help": "Append text to an existing note.",
-        "description": "Append text to an existing UnoLock note by record_ref and expected version.",
+        "description": "Append text to an existing UnoLock note by record_ref. If --expected-version is omitted, the CLI uses the latest version.",
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-notes output."}),
-            (("expected_version",), {"type": int, "help": "Expected current note version."}),
+            (("--expected-version",), {"type": int, "default": None, "help": "Expected current note version."}),
             (("append_text",), {"help": "Text to append."}),
         ],
     },
     "rename-record": {
         "tool": "unolock_rename_record",
         "help": "Rename a note or checklist.",
-        "description": "Rename an existing UnoLock note or checklist.",
+        "description": "Rename an existing UnoLock note or checklist. If --expected-version is omitted, the CLI uses the latest version.",
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-records output."}),
-            (("expected_version",), {"type": int, "help": "Expected current record version."}),
+            (("--expected-version",), {"type": int, "default": None, "help": "Expected current record version."}),
             (("title",), {"help": "New title."}),
         ],
     },
@@ -160,16 +160,16 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
         "description": "Create a checklist in the current UnoLock space.",
         "arguments": [
             (("title",), {"help": "Checklist title."}),
-            (("--items",), {"default": "[]", "help": "JSON array of checklist items."}),
+            (("--items",), {"default": "[]", "help": "JSON array of checklist item objects, for example '[{\"text\":\"first item\"}]'."}),
         ],
     },
     "set-checklist-item-done": {
         "tool": "unolock_set_checklist_item_done",
         "help": "Set one checklist item's done state.",
-        "description": "Set one checklist item's done state.",
+        "description": "Set one checklist item's done state. If --expected-version is omitted, the CLI uses the latest version.",
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-checklists output."}),
-            (("expected_version",), {"type": int, "help": "Expected current checklist version."}),
+            (("--expected-version",), {"type": int, "default": None, "help": "Expected current checklist version."}),
             (("item_id",), {"type": int, "help": "Checklist item ID."}),
             (("done",), {"type": _parse_bool, "help": "true or false"}),
         ],
@@ -177,20 +177,20 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
     "add-checklist-item": {
         "tool": "unolock_add_checklist_item",
         "help": "Add an item to a checklist.",
-        "description": "Add an item to an existing checklist.",
+        "description": "Add an item to an existing checklist. If --expected-version is omitted, the CLI uses the latest version.",
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-checklists output."}),
-            (("expected_version",), {"type": int, "help": "Expected current checklist version."}),
+            (("--expected-version",), {"type": int, "default": None, "help": "Expected current checklist version."}),
             (("text",), {"help": "Checklist item text."}),
         ],
     },
     "remove-checklist-item": {
         "tool": "unolock_remove_checklist_item",
         "help": "Remove an item from a checklist.",
-        "description": "Remove an item from an existing checklist.",
+        "description": "Remove an item from an existing checklist. If --expected-version is omitted, the CLI uses the latest version.",
         "arguments": [
             (("record_ref",), {"help": "record_ref from get-record/list-checklists output."}),
-            (("expected_version",), {"type": int, "help": "Expected current checklist version."}),
+            (("--expected-version",), {"type": int, "default": None, "help": "Expected current checklist version."}),
             (("item_id",), {"type": int, "help": "Checklist item ID."}),
         ],
     },
@@ -303,24 +303,30 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
     if command == "create-note":
         return "unolock_create_note", {"title": args.title, "text": args.text}
     if command == "update-note":
-        return "unolock_update_note", {
+        payload = {
             "record_ref": args.record_ref,
-            "expected_version": args.expected_version,
             "title": args.title,
             "text": args.text,
         }
+        if args.expected_version is not None:
+            payload["expected_version"] = args.expected_version
+        return "unolock_update_note", payload
     if command == "append-note":
-        return "unolock_append_note", {
+        payload = {
             "record_ref": args.record_ref,
-            "expected_version": args.expected_version,
             "append_text": args.append_text,
         }
+        if args.expected_version is not None:
+            payload["expected_version"] = args.expected_version
+        return "unolock_append_note", payload
     if command == "rename-record":
-        return "unolock_rename_record", {
+        payload = {
             "record_ref": args.record_ref,
-            "expected_version": args.expected_version,
             "title": args.title,
         }
+        if args.expected_version is not None:
+            payload["expected_version"] = args.expected_version
+        return "unolock_rename_record", payload
     if command == "create-checklist":
         try:
             items = json.loads(args.items)
@@ -330,24 +336,30 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
             raise ValueError("--items must decode to a JSON array.")
         return "unolock_create_checklist", {"title": args.title, "items": items}
     if command == "set-checklist-item-done":
-        return "unolock_set_checklist_item_done", {
+        payload = {
             "record_ref": args.record_ref,
-            "expected_version": args.expected_version,
             "item_id": args.item_id,
             "done": args.done,
         }
+        if args.expected_version is not None:
+            payload["expected_version"] = args.expected_version
+        return "unolock_set_checklist_item_done", payload
     if command == "add-checklist-item":
-        return "unolock_add_checklist_item", {
+        payload = {
             "record_ref": args.record_ref,
-            "expected_version": args.expected_version,
             "text": args.text,
         }
+        if args.expected_version is not None:
+            payload["expected_version"] = args.expected_version
+        return "unolock_add_checklist_item", payload
     if command == "remove-checklist-item":
-        return "unolock_remove_checklist_item", {
+        payload = {
             "record_ref": args.record_ref,
-            "expected_version": args.expected_version,
             "item_id": args.item_id,
         }
+        if args.expected_version is not None:
+            payload["expected_version"] = args.expected_version
+        return "unolock_remove_checklist_item", payload
     if command == "list-files":
         return "unolock_list_files", {}
     if command == "get-file":
