@@ -14,7 +14,7 @@ The normal agent workflow is:
 
 The MCP now keeps one current Space. If no current Space was selected yet, it auto-selects the first accessible Space and uses that as the default.
 
-### `unolock_link_agent_key`
+### `unolock_register`
 
 Purpose:
 Store the one-time Agent Key URL and PIN together.

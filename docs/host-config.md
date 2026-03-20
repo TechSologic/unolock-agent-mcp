@@ -228,7 +228,7 @@ Once the host can launch the MCP:
 
 1. Launch the local stdio MCP.
 2. Ask the user for the one-time UnoLock Agent Key URL and the agent PIN together when the MCP says setup is needed.
-3. Submit them to the MCP with `unolock_link_agent_key`.
+3. Submit them to the MCP with `unolock_register`.
 4. Let the MCP continue registration or authentication automatically.
 5. Start using read and write tools as permitted by the Agent Key.
 
@@ -241,7 +241,7 @@ After the MCP process restarts:
 
 Relevant tools:
 
-* `unolock_link_agent_key`
+* `unolock_register`
 * `unolock_set_agent_pin`
 * `unolock_list_spaces`
 * `unolock_get_current_space`

@@ -19,7 +19,7 @@ class CliEntryPointTest(unittest.TestCase):
 
         help_text = parser.format_help()
 
-        self.assertIn("link-agent-key", help_text)
+        self.assertIn("register", help_text)
         self.assertNotIn("tools", help_text)
         self.assertNotIn("call", help_text)
         self.assertNotIn("bootstrap", help_text)
@@ -288,7 +288,7 @@ class CliEntryPointTest(unittest.TestCase):
                 result = cli.main(["list-spaces"])
 
         self.assertEqual(result, 1)
-        self.assertIn("link-agent-key", print_mock.call_args.args[0])
+        self.assertIn("register", print_mock.call_args.args[0])
 
     def test_cli_blocked_result_adds_set_agent_pin_guidance(self) -> None:
         with patch.object(
@@ -352,11 +352,11 @@ class CliEntryPointTest(unittest.TestCase):
     def test_link_agent_key_cli_command_calls_matching_tool(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True, "linked": True}}) as call_mock:
             with patch("builtins.print") as print_mock:
-                result = cli.main(["link-agent-key", "https://safe.test/#/agent-register/x/y/z", "1"])
+                result = cli.main(["register", "https://safe.test/#/agent-register/x/y/z", "1"])
 
         self.assertEqual(result, 0)
         call_mock.assert_called_once_with(
-            "unolock_link_agent_key",
+            "unolock_register",
             {"connection_url": "https://safe.test/#/agent-register/x/y/z", "pin": "1"},
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
@@ -400,7 +400,7 @@ class CliEntryPointTest(unittest.TestCase):
 
     def test_subcommand_help_uses_standard_argparse_help(self) -> None:
         with self.assertRaises(SystemExit) as exc:
-            cli.main(["link-agent-key", "--help"])
+            cli.main(["register", "--help"])
 
         self.assertEqual(exc.exception.code, 0)
 
@@ -409,7 +409,7 @@ class CliEntryPointTest(unittest.TestCase):
             "ok": False,
             "blocked": True,
             "reason": "missing_connection_url",
-            "message": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
+            "message": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_register.",
         }
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": blocked}) as call_mock:
             with patch("builtins.print") as print_mock:

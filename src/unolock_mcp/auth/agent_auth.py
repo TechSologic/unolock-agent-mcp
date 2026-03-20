@@ -259,7 +259,7 @@ class AgentAuthClient:
             return {
                 "started": False,
                 "reason": "missing_connection_url",
-                "message": "Ask the user for a UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
+                "message": "Ask the user for a UnoLock Agent Key URL and PIN, then call unolock_register.",
             }
 
         flow = registration.connection_url.flow or "agentRegister"

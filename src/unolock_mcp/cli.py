@@ -41,10 +41,10 @@ def _parse_bool(raw: str) -> bool:
 
 
 CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
-    "link-agent-key": {
-        "tool": "unolock_link_agent_key",
-        "help": "Link a one-time UnoLock Agent Key URL and PIN to this device.",
-        "description": "Set up UnoLock access on this device from the one-time Agent Key URL and PIN.",
+    "register": {
+        "tool": "unolock_register",
+        "help": "Register a one-time UnoLock Agent Key URL and PIN on this device.",
+        "description": "Register UnoLock access on this device from the one-time Agent Key URL and PIN.",
         "arguments": [
             (("connection_url",), {"help": "One-time UnoLock Agent Key URL."}),
             (("pin",), {"help": "Agent PIN as a string using only 0-9 and a-f."}),
@@ -282,8 +282,8 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
     command = getattr(args, "cli_tool_command", None)
     if command is None:
         raise ValueError("missing cli tool command")
-    if command == "link-agent-key":
-        return "unolock_link_agent_key", {"connection_url": args.connection_url, "pin": args.pin}
+    if command == "register":
+        return "unolock_register", {"connection_url": args.connection_url, "pin": args.pin}
     if command == "set-agent-pin":
         return "unolock_set_agent_pin", {"pin": args.pin}
     if command == "list-spaces":
@@ -386,7 +386,7 @@ def _print_cli_payload(payload: dict[str, Any]) -> int:
             if reason == "missing_connection_url":
                 result = {
                     **result,
-                    "cli_guidance": "Run `unolock-agent link-agent-key '<agent-key-url>' '<pin>'`.",
+                    "cli_guidance": "Run `unolock-agent register '<agent-key-url>' '<pin>'`.",
                 }
             elif reason == "missing_agent_pin":
                 result = {

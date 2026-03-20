@@ -83,7 +83,7 @@ The npm package is an OpenClaw-friendly install path for the UnoLock executable 
 For normal direct use, prefer `unolock-agent ...` if it is already installed. Run the command you need directly:
 
 ```bash
-unolock-agent link-agent-key '<agent-key-url>' '<pin>'
+unolock-agent register '<agent-key-url>' '<pin>'
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent list-files
@@ -92,7 +92,7 @@ unolock-agent list-files
 Only if `unolock-agent` is not installed yet, run the same commands through:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest link-agent-key '<agent-key-url>' '<pin>'
+npx -y @techsologic/unolock-agent@latest register '<agent-key-url>' '<pin>'
 npx -y @techsologic/unolock-agent@latest list-spaces
 npx -y @techsologic/unolock-agent@latest list-notes
 npx -y @techsologic/unolock-agent@latest list-files

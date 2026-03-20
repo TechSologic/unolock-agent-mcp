@@ -68,7 +68,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
             self.assertFalse(payload["needs_connection_url"])
             self.assertEqual(payload["registration_state"], "registered")
             self.assertNotIn("registration_mode", payload)
-            self.assertIn("unolock_link_agent_key", payload["primary_tools"])
+            self.assertIn("unolock_register", payload["primary_tools"])
             self.assertIn("unolock_list_records", payload["primary_tools"])
             self.assertIn("unolock_list_files", payload["primary_tools"])
             self.assertEqual(payload["advanced_tools"], [])
@@ -129,7 +129,7 @@ class RegistrationStatusPayloadTest(unittest.TestCase):
 
             self.assertEqual(payload["recommended_next_action"], "ask_for_connection_url")
             self.assertIn("Warning: reduced assurance", payload["guidance"])
-            self.assertIn("unolock_link_agent_key", payload["primary_tools"])
+            self.assertIn("unolock_register", payload["primary_tools"])
 
     def test_pending_getpin_guidance_prefers_retrying_original_request(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -452,7 +452,7 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             with ExitStack() as stack:
                 server = self._create_server(tmpdir, stack)
                 auth = _FakeAgentAuthForAutoSession.instances[0]
-                result = server._tool_manager._tools["unolock_link_agent_key"].fn(
+                result = server._tool_manager._tools["unolock_register"].fn(
                     "https://safe.test/#/agent-register/x/y/z",
                     "1",
                 )

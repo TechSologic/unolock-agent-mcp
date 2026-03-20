@@ -147,7 +147,7 @@ For skill-aware agents, start with the skill above.
 For direct agent use, prefer the CLI. If `unolock-agent` is already installed, use it directly. Only use `npx -y @techsologic/unolock-agent@latest ...` when the executable is not installed yet. Run the command you need directly.
 
 ```bash
-unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent register 'https://safe.example/#/agent-register/...' 1
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent list-files
@@ -156,7 +156,7 @@ unolock-agent list-files
 Only if the executable is not installed yet, use the same commands through:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest link-agent-key 'https://safe.example/#/agent-register/...' 1
+npx -y @techsologic/unolock-agent@latest register 'https://safe.example/#/agent-register/...' 1
 ```
 
 Only if a host needs the explicit host-command form, use:
@@ -171,7 +171,7 @@ That keeps the user PIN in process memory and keeps the current Space selected.
 The same executable also supports explicit CLI commands, for example:
 
 ```bash
-unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
+unolock-agent register 'https://safe.example/#/agent-register/...' 1
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent create-note "Todo" "Buy milk"
@@ -368,7 +368,7 @@ Installed commands:
 Current MCP tools:
 
 * `unolock_set_agent_pin`
-* `unolock_link_agent_key`
+* `unolock_register`
 * `unolock_list_spaces`
 * `unolock_get_current_space`
 * `unolock_set_current_space`

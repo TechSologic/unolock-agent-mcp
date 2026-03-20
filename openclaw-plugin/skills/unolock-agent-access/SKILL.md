@@ -15,7 +15,7 @@ This skill uses the local `unolock-agent` executable on the user's device.
 3. On a fresh host, allow extra time for the first start.
 4. Ask the user for the one-time Agent Key URL and the PIN together.
 5. Link the key on this device:
-   `unolock-agent link-agent-key '<agent-key-url>' '<pin>'`
+   `unolock-agent register '<agent-key-url>' '<pin>'`
 6. List spaces and select the working space when needed:
    `unolock-agent list-spaces`
    `unolock-agent set-current-space <space_id>`
@@ -23,7 +23,7 @@ This skill uses the local `unolock-agent` executable on the user's device.
 
 ## Main CLI Commands
 
-- `unolock-agent link-agent-key '<agent-key-url>' '<pin>'`: first setup on this device
+- `unolock-agent register '<agent-key-url>' '<pin>'`: first setup on this device
 - `unolock-agent set-agent-pin '<pin>'`: provide the PIN again after restart or re-authentication
 - `unolock-agent list-spaces`, `unolock-agent get-current-space`, `unolock-agent set-current-space <space_id>`: inspect and switch the current Space
 - `unolock-agent list-notes`, `unolock-agent create-note <title> <text>`, `unolock-agent update-note ...`, `unolock-agent append-note ...`: read and write notes
