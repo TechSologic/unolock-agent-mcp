@@ -80,7 +80,16 @@ On restart, the npm wrapper checks GitHub Releases for a newer stable binary and
 
 The npm package is an OpenClaw-friendly install path for the UnoLock executable and plugin.
 
-For normal direct use, prefer commands like:
+For normal direct use, prefer `unolock-agent ...` if it is already installed. Run the command you need directly:
+
+```bash
+unolock-agent link-agent-key '<agent-key-url>' '<pin>'
+unolock-agent list-spaces
+unolock-agent list-notes
+unolock-agent list-files
+```
+
+Only if `unolock-agent` is not installed yet, run the same commands through:
 
 ```bash
 npx -y @techsologic/unolock-agent@latest link-agent-key '<agent-key-url>' '<pin>'
@@ -88,10 +97,6 @@ npx -y @techsologic/unolock-agent@latest list-spaces
 npx -y @techsologic/unolock-agent@latest list-notes
 npx -y @techsologic/unolock-agent@latest list-files
 ```
-
-Project home:
-
-* `https://github.com/TechSologic/unolock-agent`
 
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
 
@@ -108,16 +113,6 @@ npx -y @techsologic/unolock-agent@latest mcp
 ```
 
 UnoLock manages its own local runtime automatically after launch. On a fresh host, that first start can be slower because local cryptographic code may need to be compiled or prepared.
-
-The same executable also supports explicit CLI commands such as:
-
-```bash
-unolock-agent link-agent-key 'https://safe.example/#/agent-register/...' 1
-unolock-agent list-spaces
-unolock-agent list-notes
-unolock-agent create-note "Todo" "Buy milk"
-unolock-agent list-files
-```
 
 Use the explicit `mcp` subcommand only for hosts that require that command form.
 

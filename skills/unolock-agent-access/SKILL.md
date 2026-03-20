@@ -39,7 +39,7 @@ This skill uses the local `unolock-agent` executable on the user's device.
 - run the `unolock-agent` command you need directly
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 - keep the PIN in UnoLock process memory only
-- if a host explicitly requires the host-command form, use `npx -y @techsologic/unolock-agent@latest mcp`
+- if `unolock-agent` is not installed yet, use `npx -y @techsologic/unolock-agent@latest`
 
 ## User-Facing Model
 
