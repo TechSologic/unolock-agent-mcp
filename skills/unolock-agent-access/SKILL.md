@@ -36,7 +36,7 @@ This skill uses the local `unolock-agent` executable on the user's device.
 - give the agent the Agent Key URL and PIN together for first setup
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 - keep the PIN in UnoLock process memory only
-- if a host explicitly requires an MCP command instead of direct CLI commands, use `npx -y @techsologic/unolock-agent@latest mcp`
+- if a host explicitly requires the host-command form, use `npx -y @techsologic/unolock-agent@latest mcp`
 
 ## User-Facing Model
 

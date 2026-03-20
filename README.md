@@ -48,7 +48,7 @@ For normal customer use, the strongest deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the host cannot provide one of those, the MCP can still fall back to a lower-assurance software provider. When that happens, the MCP reports the reduced assurance clearly and makes the reduced-assurance tradeoff visible instead of pretending it met UnoLock's preferred key-storage requirements.
+If the host cannot provide one of those, UnoLock Agent can still fall back to a lower-assurance software provider. When that happens, UnoLock reports the reduced assurance clearly and makes the reduced-assurance tradeoff visible instead of pretending it met UnoLock's preferred key-storage requirements.
 
 That tradeoff is intentional. Agentic Safe Access exists to keep AI access as close as possible to UnoLock's normal device-bound security model without pretending every host can satisfy the same storage guarantees.
 
@@ -59,7 +59,7 @@ UnoLock Agent is designed to work across a wide range of agent environments.
 The strongest deployments are environments that can provide device-bound, non-exportable key storage in a normal user-controlled session. That includes:
 
 * desktop AI assistants
-* local stdio MCP hosts such as Claude Desktop or Cursor
+* local AI hosts such as Claude Desktop or Cursor
 * user-controlled workstations, laptops, and VMs with TPM/vTPM access
 * macOS hosts that can use either Secure Enclave or a non-exportable Keychain-backed key
 * Windows or WSL hosts that can use either TPM-backed keys or the non-exportable Windows CNG fallback
@@ -103,7 +103,7 @@ Prerequisite:
 * Free and Inheritance can share their single included Safe space with one extra Agent Key.
 * Sovereign and HighRisk are still the right tiers for broader multi-Space and collaboration-heavy agent workflows.
 
-The current MCP layer proves the hardest integration seam first:
+The current agent runtime proves the hardest integration seam first:
 
 * live local `/start` flow compatibility
 * ML-DSA signature verification
@@ -116,8 +116,8 @@ Safe creation remains a human/browser responsibility, matching the product model
 
 * human admin creates a Safe
 * human admin creates an agent access key for that Safe
-* MCP registers to the existing Safe
-* MCP later authenticates and uses the shared Safe API surface for agent memory, notes, checklists, and secrets
+* UnoLock Agent registers to the existing Safe
+* UnoLock Agent later authenticates and uses the shared Safe API surface for agent memory, notes, checklists, and secrets
 
 ## Quick start
 
@@ -130,7 +130,7 @@ Run this from the repo root after the local server is up on `http://127.0.0.1:30
 ./scripts/run_local_e2e_readonly.sh
 ```
 
-For real MCP hosts, see:
+For host configuration and implementation details, see:
 
 * [Install Guide](docs/install.md)
 * [macOS Quick Start](docs/macos.md)
@@ -153,9 +153,9 @@ npx -y @techsologic/unolock-agent@latest list-notes
 npx -y @techsologic/unolock-agent@latest list-files
 ```
 
-Only if a host needs MCP configuration, use the same executable in explicit MCP mode:
+Only if a host needs the explicit host-command form, use the same executable with:
 
-* MCP hosts launch `npx -y @techsologic/unolock-agent@latest mcp`.
+* Hosts that require this command shape launch `npx -y @techsologic/unolock-agent@latest mcp`.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
 * The `mcp` subcommand starts and uses the local UnoLock runtime automatically.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
@@ -172,13 +172,13 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-Use the explicit `mcp` subcommand only for hosts that require MCP. Running `unolock-agent` with no arguments prints usage.
+Use the explicit `mcp` subcommand only for hosts that require that command shape. Running `unolock-agent` with no arguments prints usage.
 
-Once the local stdio MCP is running, the normal flow is:
+Once the local UnoLock Agent is running, the normal flow is:
 
 * call normal UnoLock tools
-* provide the one-time Agent Key URL and PIN together when the MCP asks for setup
-* let the MCP keep and use the current Space by default for normal work
+* provide the one-time Agent Key URL and PIN together when UnoLock asks for setup
+* let UnoLock keep and use the current Space by default for normal work
 
 If you prefer manual install from source:
 
@@ -196,9 +196,9 @@ python3 -m unolock_mcp config-check
 ```
 
 For normal customer and agent onboarding, do not drive the CLI `bootstrap` command directly.
-Let the MCP guide the normal flow.
+Let UnoLock guide the normal flow.
 
-macOS support is still alpha. The MCP now prefers Secure Enclave when it works cleanly and otherwise falls back to a non-exportable macOS Keychain key for broader compatibility. If you are evaluating it on Apple Silicon, start with:
+macOS support is still alpha. UnoLock Agent now prefers Secure Enclave when it works cleanly and otherwise falls back to a non-exportable macOS Keychain key for broader compatibility. If you are evaluating it on Apple Silicon, start with:
 
 * [macOS Quick Start](docs/macos.md)
 
@@ -243,7 +243,7 @@ Use it as a command that OpenClaw can launch, for example:
 npx -y @techsologic/unolock-agent@latest mcp
 ```
 
-For MCP hosts, use the explicit `mcp` argument:
+For hosts that require the command form, use the explicit `mcp` argument:
 
 ```bash
 npx -y @techsologic/unolock-agent@latest mcp

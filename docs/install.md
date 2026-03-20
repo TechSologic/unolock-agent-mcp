@@ -20,11 +20,11 @@ For normal customer use, the preferred deployment uses a production-ready:
 * Secure Enclave
 * or equivalent platform-backed non-exportable key store
 
-If the MCP cannot find one, it can still fall back to the software provider. When that happens, the MCP reports that the host is operating at reduced assurance and makes that tradeoff visible instead of pretending it met UnoLock’s preferred key-storage requirements.
+If UnoLock Agent cannot find one, it can still fall back to the software provider. When that happens, UnoLock reports that the host is operating at reduced assurance and makes that tradeoff visible instead of pretending it met UnoLock’s preferred key-storage requirements.
 
 This is deliberate. The point of UnoLock Agent is to keep AI access as device-bound and resistant to secret export as the host allows, without hiding when it had to fall back.
 
-On Windows and WSL, the MCP now prefers a TPM-backed key first and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable.
+On Windows and WSL, UnoLock Agent now prefers a TPM-backed key first and falls back to a non-exportable Windows CNG key when TPM-backed creation is unavailable.
 
 Official GitHub repository:
 
@@ -37,7 +37,7 @@ The quickest post-install readiness summary is:
 unolock-agent-self-test
 ```
 
-If you are new to UnoLock, these docs explain the product concepts behind the MCP:
+If you are new to UnoLock, these docs explain the product concepts behind agent access:
 
 * UnoLock Knowledge Base: `https://docs.unolock.com/index.html`
 * Agentic Safe Access: `https://docs.unolock.com/features/agentic-safe-access.html`
@@ -51,10 +51,10 @@ The preferred path is:
 
 1. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
 2. prefer the CLI commands for normal agent use
-3. use `unolock-agent mcp` only when the host specifically requires MCP
+3. use `unolock-agent mcp` only when the host specifically requires that command form
 4. let UnoLock handle its local daemon internally so the user PIN can stay in process memory instead of being stored persistently
 
-On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating the MCP as hung.
+On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating UnoLock as hung.
 
 If you need the public-facing explanation of this path, see:
 
@@ -101,7 +101,7 @@ openclaw plugins install @techsologic/unolock-agent
 
 For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent-access` plugin.
 
-Only if a host explicitly requires an MCP command, use:
+Only if a host explicitly requires that command form, use:
 
 ```bash
 npx -y @techsologic/unolock-agent@latest mcp
@@ -119,7 +119,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-Use the explicit `mcp` subcommand only for hosts that require MCP.
+Use the explicit `mcp` subcommand only for hosts that require that command form.
 
 ## Built-in local daemon
 
