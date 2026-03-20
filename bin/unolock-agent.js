@@ -10,6 +10,9 @@ const { spawn } = require("child_process");
 const PACKAGE_VERSION = "0.1.38";
 const FALLBACK_BINARY_VERSION = "0.1.38";
 const REPO = "TechSologic/unolock-agent";
+const INSTALL_LOCK_TIMEOUT_MS = 120000;
+const INSTALL_LOCK_STALE_MS = 300000;
+const INSTALL_LOCK_POLL_MS = 100;
 const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {register,set-agent-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,tpm-diagnose,tpm-check,self-test,mcp} ...
 
 UnoLock Agent commands.
@@ -79,6 +82,10 @@ function metadataPath() {
   return path.join(cacheRoot(), "unolock-agent", "release.json");
 }
 
+function installLockPath() {
+  return path.join(cacheRoot(), "unolock-agent", "install.lock");
+}
+
 function binaryPath(releaseVersion) {
   const { executable } = platformAssetInfo();
   return path.join(cacheRoot(), "unolock-agent", releaseVersion, executable);
@@ -94,6 +101,12 @@ function binaryUrl(releaseVersion) {
 
 function ensureDir(dir) {
   fs.mkdirSync(dir, { recursive: true, mode: 0o755 });
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }
 
 function fetchToFile(url, dest) {
@@ -215,8 +228,10 @@ function readReleaseMetadata() {
 
 function writeReleaseMetadata(releaseVersion) {
   ensureDir(path.dirname(metadataPath()));
+  const dest = metadataPath();
+  const temp = `${dest}.tmp-${process.pid}`;
   fs.writeFileSync(
-    metadataPath(),
+    temp,
     JSON.stringify(
       {
         releaseVersion,
@@ -227,6 +242,7 @@ function writeReleaseMetadata(releaseVersion) {
     ),
     "utf8"
   );
+  fs.renameSync(temp, dest);
 }
 
 function cachedReleaseVersion() {
@@ -266,16 +282,88 @@ async function resolveReleaseVersion() {
   return FALLBACK_BINARY_VERSION;
 }
 
-async function ensureBinary() {
-  const releaseVersion = await resolveReleaseVersion();
-  const dest = binaryPath(releaseVersion);
-  if (fs.existsSync(dest)) {
-    return { dest, releaseVersion };
+function removeIfStale(lockPath) {
+  let stats;
+  try {
+    stats = fs.statSync(lockPath);
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return false;
+    }
+    throw error;
   }
-  ensureDir(path.dirname(dest));
-  process.stderr.write(`Downloading UnoLock agent ${releaseVersion} for ${process.platform}/${process.arch}...\n`);
-  await fetchToFile(binaryUrl(releaseVersion), dest);
-  return { dest, releaseVersion };
+  if (Date.now() - stats.mtimeMs < INSTALL_LOCK_STALE_MS) {
+    return false;
+  }
+  try {
+    fs.unlinkSync(lockPath);
+    return true;
+  } catch (error) {
+    if (error && error.code === "ENOENT") {
+      return true;
+    }
+    if (error && error.code === "EPERM") {
+      return false;
+    }
+    throw error;
+  }
+}
+
+async function acquireInstallLock() {
+  const lockPath = installLockPath();
+  ensureDir(path.dirname(lockPath));
+  const deadline = Date.now() + INSTALL_LOCK_TIMEOUT_MS;
+  while (true) {
+    try {
+      const fd = fs.openSync(lockPath, "wx", 0o600);
+      fs.writeFileSync(
+        fd,
+        JSON.stringify({ pid: process.pid, createdAt: Date.now() }),
+        "utf8"
+      );
+      return () => {
+        try {
+          fs.closeSync(fd);
+        } catch {}
+        try {
+          fs.unlinkSync(lockPath);
+        } catch {}
+      };
+    } catch (error) {
+      if (!error || error.code !== "EEXIST") {
+        throw error;
+      }
+      removeIfStale(lockPath);
+      if (Date.now() >= deadline) {
+        throw new Error("Timed out waiting for the UnoLock agent install lock");
+      }
+      await sleep(INSTALL_LOCK_POLL_MS);
+    }
+  }
+}
+
+async function ensureBinary() {
+  const cached = cachedReleaseVersion();
+  if (cached) {
+    const dest = binaryPath(cached);
+    if (fs.existsSync(dest)) {
+      return { dest, releaseVersion: cached };
+    }
+  }
+  const releaseLock = await acquireInstallLock();
+  try {
+    const releaseVersion = await resolveReleaseVersion();
+    const dest = binaryPath(releaseVersion);
+    if (fs.existsSync(dest)) {
+      return { dest, releaseVersion };
+    }
+    ensureDir(path.dirname(dest));
+    process.stderr.write(`Downloading UnoLock agent ${releaseVersion} for ${process.platform}/${process.arch}...\n`);
+    await fetchToFile(binaryUrl(releaseVersion), dest);
+    return { dest, releaseVersion };
+  } finally {
+    releaseLock();
+  }
 }
 
 async function main() {
@@ -311,7 +399,19 @@ async function main() {
   });
 }
 
-main().catch((error) => {
-  process.stderr.write(`${error.message}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((error) => {
+    process.stderr.write(`${error.message}\n`);
+    process.exit(1);
+  });
+} else {
+  module.exports = {
+    acquireInstallLock,
+    compareVersions,
+    ensureBinary,
+    installLockPath,
+    metadataPath,
+    sleep,
+    writeReleaseMetadata,
+  };
+}
