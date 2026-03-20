@@ -6,7 +6,7 @@ description: Guides an AI agent through connecting to a user's UnoLock Safe with
 # UnoLock Agent Access
 
 Use this skill when a user wants to give their agent access to a UnoLock Safe.
-This skill uses the local `unolock-agent` executable on the user's device. The CLI is the simplest way to work with UnoLock. The same executable also supports MCP for hosts that specifically require it.
+This skill uses the local `unolock-agent` executable on the user's device.
 
 ## Preferred Workflow
 
@@ -31,20 +31,12 @@ This skill uses the local `unolock-agent` executable on the user's device. The C
 - `unolock-agent list-files`, `unolock-agent get-file <archive_id>`, `unolock-agent download-file ...`, `unolock-agent upload-file ...`, `unolock-agent rename-file ...`, `unolock-agent replace-file ...`, `unolock-agent delete-file ...`: read and manage Cloud files
 - `unolock-agent get-record <record_ref>` and `unolock-agent rename-record ...`: inspect or rename an existing note or checklist
 
-## MCP Fallback
-
-If the host specifically requires MCP instead of CLI:
-
-- run `npx -y @techsologic/unolock-agent@latest mcp`
-- write MCP JSON-RPC to `stdin` and read it from `stdout`
-- let the `mcp` subcommand auto-start and proxy through the local UnoLock daemon
-
 ## Key Rules
 
-- prefer CLI commands over MCP when the host supports direct command execution
 - give the agent the Agent Key URL and PIN together for first setup
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 - keep the PIN in UnoLock process memory only
+- if a host explicitly requires an MCP command instead of direct CLI commands, use `npx -y @techsologic/unolock-agent@latest mcp`
 
 ## User-Facing Model
 

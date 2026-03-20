@@ -78,8 +78,7 @@ The wrapper downloads the matching GitHub Release binary for the current platfor
 
 On restart, the npm wrapper checks GitHub Releases for a newer stable binary and can update its cached binary between tasks.
 
-The npm package is an OpenClaw-friendly install and launch path for the UnoLock executable.
-It can also act as an OpenClaw plugin package that ships the UnoLock skill.
+The npm package is an OpenClaw-friendly install path for the UnoLock executable and plugin.
 
 For normal direct use, prefer commands like:
 
@@ -94,12 +93,6 @@ Project home:
 
 * `https://github.com/TechSologic/unolock-agent`
 
-Use it as a command that OpenClaw can launch, for example:
-
-```bash
-npx -y @techsologic/unolock-agent@latest mcp
-```
-
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
 
 ```bash
@@ -108,13 +101,13 @@ openclaw plugins install @techsologic/unolock-agent
 
 For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent-access` plugin.
 
-For a host-managed stdio launch, use:
+Only if a host explicitly requires an MCP command, use:
 
 ```bash
 npx -y @techsologic/unolock-agent@latest mcp
 ```
 
-UnoLock manages its own local daemon automatically after launch, so the agent does not need to manage daemon mode or any separate runner. The `mcp` subcommand uses that daemon-backed runtime. On a fresh host, that first start can also be slower because local cryptographic code may need to be compiled or prepared.
+UnoLock manages its own local runtime automatically after launch. On a fresh host, that first start can be slower because local cryptographic code may need to be compiled or prepared.
 
 The same executable also supports explicit CLI commands such as:
 
@@ -126,7 +119,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-Use the explicit `mcp` subcommand for daemon-backed stdio MCP mode. Explicit subcommands are daemon-backed CLI mode.
+Use the explicit `mcp` subcommand only for hosts that require MCP.
 
 ## Built-in local daemon
 

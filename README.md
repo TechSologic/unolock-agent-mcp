@@ -14,7 +14,6 @@ For skill-aware agents, the primary starting point is the UnoLock agent-access s
 * `https://github.com/TechSologic/unolock-agent/blob/main/skills/unolock-agent-access/SKILL.md`
 
 That skill is the agent-facing onboarding layer.
-The local UnoLock `stdio` MCP is the implementation layer underneath it.
 
 For OpenClaw, this package can also be installed as a plugin so OpenClaw can load the same skill natively.
 
@@ -154,14 +153,14 @@ npx -y @techsologic/unolock-agent@latest list-notes
 npx -y @techsologic/unolock-agent@latest list-files
 ```
 
-For hosts that need MCP configuration, use the same executable in explicit MCP mode:
+Only if a host needs MCP configuration, use the same executable in explicit MCP mode:
 
 * MCP hosts launch `npx -y @techsologic/unolock-agent@latest mcp`.
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
-* The `mcp` subcommand uses the local UnoLock daemon and auto-starts it if needed.
+* The `mcp` subcommand starts and uses the local UnoLock runtime automatically.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
 
-That keeps the user PIN in process memory, keeps the current Space selected, and hides local process details from the agent.
+That keeps the user PIN in process memory and keeps the current Space selected.
 
 The same executable also supports explicit CLI commands, for example:
 
@@ -173,7 +172,7 @@ unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
 ```
 
-Use the explicit `mcp` subcommand for daemon-backed stdio MCP mode. All other subcommands are daemon-backed CLI mode. Running `unolock-agent` with no arguments prints usage.
+Use the explicit `mcp` subcommand only for hosts that require MCP. Running `unolock-agent` with no arguments prints usage.
 
 Once the local stdio MCP is running, the normal flow is:
 
@@ -231,7 +230,7 @@ On restart, the npm wrapper now checks GitHub Releases for a newer stable binary
 
 The npm package is both:
 
-* the normal MCP command package
+* the normal UnoLock executable package
 * an OpenClaw plugin package that ships the UnoLock skill
 
 Project home:

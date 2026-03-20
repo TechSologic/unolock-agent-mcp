@@ -1,7 +1,7 @@
 {
   "id": "unolock-agent-access",
   "name": "UnoLock Agent Access",
-  "description": "Ships the UnoLock agent-access skill for OpenClaw. The skill uses the local UnoLock stdio MCP.",
+  "description": "Ships the UnoLock agent-access skill for OpenClaw.",
   "configSchema": {
     "type": "object",
     "additionalProperties": false,

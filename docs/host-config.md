@@ -194,10 +194,7 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 
 ## OpenClaw
 
-OpenClaw can use UnoLock in two layers:
-
-* as a plugin that ships the UnoLock skill
-* as the local stdio MCP command underneath that skill
+For OpenClaw, prefer the UnoLock plugin and skill.
 
 The intended published plugin install path is:
 
@@ -207,7 +204,7 @@ openclaw plugins install @techsologic/unolock-agent
 
 For local repo testing before that plugin install path is published, point `plugins.load.paths` at this repo root and enable `unolock-agent-access`. A full example is in [examples/openclaw-plugin-config.json](../examples/openclaw-plugin-config.json).
 
-Use the same stdio MCP shape for the MCP command itself.
+If OpenClaw needs an MCP command in config, use the local stdio command below.
 
 Example snippet:
 
