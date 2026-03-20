@@ -46,7 +46,7 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
         "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_link_agent_key.",
         "wrong_connection_url_type": "Ask the user for a UnoLock Agent Key URL in the #/agent-register/... format.",
         "session_not_found": "Authenticate again or restart the UnoLock bootstrap flow, then retry the request.",
-        "runtime_metadata_missing": "Submit a UnoLock Agent Key URL from the target Safe first. If this is a non-standard deployment, confirm that deployment metadata is published correctly.",
+        "runtime_metadata_missing": "Submit a UnoLock Agent Key URL from the target Safe first. If this is a non-standard deployment, confirm that the Safe deployment is published correctly.",
     }
     return {
         "ok": False,
@@ -245,8 +245,8 @@ def create_mcp_server() -> FastMCP:
         )
         if not resolved.is_complete():
             raise ValueError(
-                "runtime_metadata_missing: UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key "
-                "Agent Key URL from the target Safe first."
+                "runtime_metadata_missing: UnoLock does not know which Safe deployment to use yet. Submit a "
+                "UnoLock Agent Key URL from the target Safe first."
             )
         return UnoLockConfig(
             base_url=resolved.base_url or "http://127.0.0.1:3000",
@@ -611,13 +611,12 @@ def create_mcp_server() -> FastMCP:
     def updates_resource() -> dict[str, Any]:
         return {
             "summary": (
-                "UnoLock Agent should normally be updated by its wrapper or runner, not by the live MCP "
-                "server replacing itself mid-session."
+                "UnoLock Agent should normally be updated between tasks, not by replacing itself mid-session."
             ),
             "preferred_path": [
-                "Prefer the built-in UnoLock local daemon plus a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest mcp`.",
+                "Prefer an installed `unolock-agent` executable, a GitHub Release binary, or `npx -y @techsologic/unolock-agent@latest`.",
                 "Use `unolock_get_update_status` or `unolock-agent check-update` to see whether a newer release exists.",
-                "If an update is available, restart the runner between tasks so the wrapper or binary can be replaced cleanly.",
+                "If an update is available, restart UnoLock between tasks so the wrapper or binary can be replaced cleanly.",
             ],
             "rules": [
                 "Do not attempt in-place self-replacement while an active UnoLock session or write flow is in progress.",
@@ -625,9 +624,9 @@ def create_mcp_server() -> FastMCP:
                 "Prefer explicit user awareness before applying an update.",
             ],
             "channels": {
-                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent@latest mcp`.",
-                "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart the runner.",
-                "python-package": "Upgrade the Python package in the environment that launches the MCP and restart the runner.",
+                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent@latest`.",
+                "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart UnoLock.",
+                "python-package": "Upgrade the Python package in the environment that launches UnoLock and restart it.",
             },
             "release_url": "https://github.com/TechSologic/unolock-agent/releases",
         }

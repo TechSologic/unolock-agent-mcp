@@ -412,8 +412,8 @@ class AgentAuthClient:
     def require_flow_client(self) -> UnoLockFlowClient:
         if self._flow_client is None:
             raise ValueError(
-                "runtime_metadata_missing: UnoLock runtime metadata is not resolved yet. Submit a UnoLock Agent Key "
-                "URL from the target Safe first."
+                "runtime_metadata_missing: UnoLock does not know which Safe deployment to use yet. Submit a "
+                "UnoLock Agent Key URL from the target Safe first."
             )
         return self._flow_client
 

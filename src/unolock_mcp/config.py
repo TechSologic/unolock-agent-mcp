@@ -348,12 +348,12 @@ def load_unolock_config(
 
     if not resolved.app_version:
         raise ValueError(
-            "UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key connection URL from the "
+            "UnoLock does not know which Safe deployment to use yet. Submit a UnoLock Agent Key URL from the "
             "target Safe first, or configure a custom deployment override."
         )
     if not resolved.signing_public_key_b64:
         raise ValueError(
-            "UnoLock runtime metadata is not resolved yet. Submit a UnoLock agent key connection URL from the "
+            "UnoLock does not know which Safe deployment to use yet. Submit a UnoLock Agent Key URL from the "
             "target Safe first, or configure a custom deployment override."
         )
 

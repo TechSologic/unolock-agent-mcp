@@ -52,7 +52,7 @@ The preferred path is:
 1. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
 2. prefer the CLI commands for normal agent use
 3. use `unolock-agent mcp` only when the host specifically requires that command form
-4. let UnoLock handle its local daemon internally so the user PIN can stay in process memory instead of being stored persistently
+4. let UnoLock handle its local runtime internally so the user PIN can stay in process memory instead of being stored persistently
 
 On a fresh host, the first start can take longer than later launches because local cryptographic code may need to be compiled or prepared. Agents should allow for that before treating UnoLock as hung.
 
@@ -116,9 +116,9 @@ UnoLock manages its own local runtime automatically after launch. On a fresh hos
 
 Use the explicit `mcp` subcommand only for hosts that require that command form.
 
-## Built-in local daemon
+## Built-in local runtime
 
-The UnoLock executable now includes its own local daemon. That is the preferred persistence model and it is normally internal to the executable rather than something the agent needs to manage directly.
+The UnoLock executable now includes its own local runtime. That is the preferred persistence model and it is normally internal to the executable rather than something the agent needs to manage directly.
 
 Useful support commands:
 
@@ -133,9 +133,9 @@ unolock-agent stop
 Notes:
 
 * MCP hosts usually do not need these commands at all; they just launch `unolock-agent` and speak stdio JSON-RPC.
-* `start` starts the local daemon only if it is not already running.
-* `tools` and `call` auto-start the daemon if needed.
-* the current Space, auth state, and PIN-in-memory behavior belong to the UnoLock daemon itself
+* `start` starts the local UnoLock runtime only if it is not already running.
+* `tools` and `call` auto-start UnoLock if needed.
+* the current Space, auth state, and PIN-in-memory behavior belong to UnoLock itself
 
 ## Updates
 
@@ -160,9 +160,9 @@ Or through the MCP:
 
 Preferred behavior by channel:
 
-* built-in local daemon + `npx -y @techsologic/unolock-agent@latest`
+* built-in local runtime + `npx -y @techsologic/unolock-agent@latest`
   * preferred path
-  * daemon restart lets the npm wrapper check GitHub Releases and fetch a newer stable binary
+  * restarting UnoLock lets the npm wrapper check GitHub Releases and fetch a newer stable binary
 * direct GitHub Release binary
   * download the latest binary, replace the current executable, restart the UnoLock MCP
 * source/Python install

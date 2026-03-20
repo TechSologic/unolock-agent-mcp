@@ -181,7 +181,7 @@ class UnoLockConfigTest(unittest.TestCase):
         try:
             with self.assertRaisesRegex(
                 ValueError,
-                "UnoLock runtime metadata is not resolved yet\\. Submit a UnoLock agent key connection URL from the target Safe first, or configure a custom deployment override\\.",
+                "UnoLock does not know which Safe deployment to use yet\\. Submit a UnoLock Agent Key URL from the target Safe first, or configure a custom deployment override\\.",
             ):
                 load_unolock_config(base_url="https://arg.example")
         finally:

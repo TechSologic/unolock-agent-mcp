@@ -86,7 +86,7 @@ Agent-first onboarding site:
 
 Recommended customer install source:
 
-* UnoLock's built-in local daemon/CLI with a GitHub Release binary when available
+* UnoLock's built-in local runtime/CLI with a GitHub Release binary when available
 * `npx -y @techsologic/unolock-agent@latest` as the easiest Node/npm CLI path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
@@ -163,7 +163,7 @@ Only if a host needs the explicit host-command form, use:
 
 * `npx -y @techsologic/unolock-agent@latest mcp`
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
-* The `mcp` subcommand starts and uses the local UnoLock runtime automatically.
+* The `mcp` subcommand starts and uses UnoLock automatically.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
 
 That keeps the user PIN in process memory and keeps the current Space selected.
@@ -214,7 +214,7 @@ For the best customer experience, prefer GitHub Release binaries over source ins
 
 ## Preferred Customer Install
 
-When available, prefer the built-in UnoLock local daemon plus the npm wrapper or release binary.
+When available, prefer the built-in UnoLock local runtime plus the npm wrapper or release binary.
 
 For an agent-first public onboarding flow, send users or agents to:
 

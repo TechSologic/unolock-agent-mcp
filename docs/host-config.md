@@ -40,7 +40,7 @@ The preferred mode is:
 * use `npx -y @techsologic/unolock-agent@latest` or a GitHub Release binary
 * prefer the CLI commands for normal direct agent use
 * use `unolock-agent mcp` only for hosts that specifically require MCP
-* let UnoLock manage its own local daemon so the user PIN can remain in process memory instead of being persisted by the agent
+* let UnoLock manage its own local runtime so the user PIN can remain in process memory instead of being persisted by the agent
 
 For customer use, prefer a standalone GitHub Release binary:
 
