@@ -7,8 +7,8 @@ const path = require("path");
 const https = require("https");
 const { spawn } = require("child_process");
 
-const PACKAGE_VERSION = "0.1.37";
-const FALLBACK_BINARY_VERSION = "0.1.37";
+const PACKAGE_VERSION = "0.1.38";
+const FALLBACK_BINARY_VERSION = "0.1.38";
 const REPO = "TechSologic/unolock-agent";
 const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {register,set-agent-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,tpm-diagnose,tpm-check,self-test,mcp} ...
 
@@ -188,6 +188,23 @@ function normalizeVersion(value) {
   return trimmed.startsWith("v") ? trimmed.slice(1) : trimmed;
 }
 
+function compareVersions(left, right) {
+  const leftParts = String(left || "").split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const rightParts = String(right || "").split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const leftValue = leftParts[index] || 0;
+    const rightValue = rightParts[index] || 0;
+    if (leftValue > rightValue) {
+      return 1;
+    }
+    if (leftValue < rightValue) {
+      return -1;
+    }
+  }
+  return 0;
+}
+
 function readReleaseMetadata() {
   try {
     return JSON.parse(fs.readFileSync(metadataPath(), "utf8"));
@@ -218,8 +235,11 @@ function cachedReleaseVersion() {
     return override;
   }
   const metadata = readReleaseMetadata();
-  if (metadata && typeof metadata.releaseVersion === "string" && fs.existsSync(binaryPath(metadata.releaseVersion))) {
-    return metadata.releaseVersion;
+  const cached = metadata && typeof metadata.releaseVersion === "string" ? normalizeVersion(metadata.releaseVersion) : null;
+  if (cached && fs.existsSync(binaryPath(cached))) {
+    if (compareVersions(cached, FALLBACK_BINARY_VERSION) >= 0) {
+      return cached;
+    }
   }
   if (fs.existsSync(binaryPath(FALLBACK_BINARY_VERSION))) {
     return FALLBACK_BINARY_VERSION;
