@@ -278,9 +278,11 @@ class _FakeAgentAuthForAutoSession:
         self._agent_pin: str | None = None
         self.auth_calls = 0
         self.registration_calls = 0
+        self.flow_client_sets = 0
         self.__class__.instances.append(self)
 
     def set_flow_client(self, _flow_client) -> None:
+        self.flow_client_sets += 1
         return None
 
     def runtime_status(self) -> dict[str, object]:
@@ -460,6 +462,7 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertTrue(result["ok"])
             self.assertTrue(result["completed"])
             self.assertEqual(auth.registration_calls, 1)
+            self.assertEqual(auth.flow_client_sets, 1)
             self.assertTrue(result["pin"]["has_agent_pin"])
 
     def test_list_spaces_reuses_latest_authorized_session(self) -> None:

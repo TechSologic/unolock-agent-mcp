@@ -755,6 +755,13 @@ def create_mcp_server() -> FastMCP:
             pin_status = agent_auth.set_agent_pin(pin)
         except ValueError as exc:
             return _tool_error_response(exc)
+        try:
+            ensure_flow_client()
+        except ValueError as exc:
+            return {
+                **_tool_error_response(exc),
+                "pin": pin_status,
+            }
         registration_status = agent_auth.start_registration_from_stored_url()
         registration_status = _strip_session_ids(registration_status)
         if registration_status.get("ok") is False or registration_status.get("blocked"):
