@@ -318,8 +318,11 @@ class AgentAuthClient:
             due_time = max(due_time, float(last_activity_at) + float(leeway_seconds))
         if due_time > current_time:
             return None
+        if self._session_store.keepalive_attempted_for_exp() == session.exp:
+            return None
 
         flow_client = self.require_flow_client()
+        self._session_store.mark_keepalive_attempt(session.exp)
         try:
             updated_session, callback = flow_client.call_api(session, action="Ping")
         except Exception as exc:

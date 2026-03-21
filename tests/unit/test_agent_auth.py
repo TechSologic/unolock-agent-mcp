@@ -506,6 +506,51 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertIsNone(result)
             flow_client.call_api.assert_not_called()
 
+    def test_keep_authorized_session_alive_attempts_only_once_per_expiry_window(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="software",
+            )
+            flow_client = Mock()
+            flow_client.call_api.return_value = (
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentAccess",
+                    state="state-2",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                    exp=150,
+                    authorized=True,
+                ),
+                CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+            )
+            session_store = SessionStore()
+            with patch("unolock_mcp.auth.session_store.time.time", return_value=0):
+                session_store.put(
+                    FlowSession(
+                        session_id="session-1",
+                        flow="agentAccess",
+                        state="state",
+                        shared_secret=b"secret",
+                        current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                        exp=150,
+                        authorized=True,
+                    )
+                )
+            client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
+
+            first = client.keep_authorized_session_alive(now=95)
+            second = client.keep_authorized_session_alive(now=105)
+
+            self.assertTrue(first["ok"])
+            self.assertIsNone(second)
+            flow_client.call_api.assert_called_once()
+
 
 if __name__ == "__main__":
     unittest.main()

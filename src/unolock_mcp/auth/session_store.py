@@ -16,11 +16,15 @@ class SessionStore:
         self._records_archive_snapshots: dict[str, dict] = {}
         self._auth_context: dict | None = None
         self._last_activity_at: float | None = None
+        self._keepalive_attempted_for_exp: int | None = None
 
     def put(self, session: FlowSession) -> FlowSession:
         stored = replace(session, session_id=self.ACTIVE_SESSION_ID)
+        previous_exp = self._active_session.exp if self._active_session is not None else None
         self._active_session = stored
         self._last_activity_at = time.time()
+        if stored.exp != previous_exp:
+            self._keepalive_attempted_for_exp = None
         if stored.authorized and stored.current_callback.type == "SUCCESS" and isinstance(stored.current_callback.result, dict):
             self._auth_context = copy.deepcopy(stored.current_callback.result)
         return stored
@@ -35,6 +39,7 @@ class SessionStore:
         self._records_archive_snapshots.clear()
         self._auth_context = None
         self._last_activity_at = None
+        self._keepalive_attempted_for_exp = None
 
     def list(self) -> list[dict]:
         if self._active_session is None:
@@ -46,6 +51,7 @@ class SessionStore:
         self._records_archive_snapshots.clear()
         self._auth_context = None
         self._last_activity_at = None
+        self._keepalive_attempted_for_exp = None
 
     def has_active_flow(self, *, authorized: bool | None = None, incomplete_only: bool = False) -> bool:
         session = self._active_session
@@ -64,6 +70,12 @@ class SessionStore:
 
     def last_activity_at(self) -> float | None:
         return self._last_activity_at
+
+    def keepalive_attempted_for_exp(self) -> int | None:
+        return self._keepalive_attempted_for_exp
+
+    def mark_keepalive_attempt(self, exp: int | None) -> None:
+        self._keepalive_attempted_for_exp = exp
 
     def put_records_archive_snapshot(self, archive_id: str, snapshot: dict) -> None:
         stored = copy.deepcopy(snapshot)
