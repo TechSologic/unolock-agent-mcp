@@ -5,6 +5,7 @@ import hashlib
 import json
 import re
 import secrets
+import time
 from datetime import datetime, timezone
 from typing import Any
 
@@ -19,6 +20,7 @@ from unolock_mcp.tpm.factory import create_tpm_dao
 
 class AgentAuthClient:
     _AGENT_PIN_PATTERN = re.compile(r"^[0-9a-f]+$")
+    _KEEPALIVE_LEEWAY_SECONDS = 60
 
     def __init__(
         self,
@@ -295,6 +297,37 @@ class AgentAuthClient:
 
     def advance_active_flow(self) -> dict[str, Any]:
         return self._advance_active_flow()
+
+    def keep_authorized_session_alive(
+        self,
+        *,
+        now: float | None = None,
+        leeway_seconds: int = _KEEPALIVE_LEEWAY_SECONDS,
+    ) -> dict[str, Any] | None:
+        try:
+            session = self._session_store.get()
+        except KeyError:
+            return None
+        if not session.authorized or session.exp is None:
+            return None
+        current_time = time.time() if now is None else now
+        if float(session.exp) - float(leeway_seconds) > current_time:
+            return None
+
+        flow_client = self.require_flow_client()
+        updated_session, callback = flow_client.call_api(session, action="Ping")
+        self._session_store.put(updated_session)
+        if callback.type == "SUCCESS":
+            return {
+                "ok": True,
+                "authorized": True,
+                "completed": True,
+                "keepalive": True,
+                "session": updated_session.summary(),
+            }
+        result = self._advance_active_flow()
+        result["keepalive"] = True
+        return result
 
     def _advance_active_flow(self) -> dict[str, Any]:
         flow_client = self.require_flow_client()

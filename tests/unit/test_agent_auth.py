@@ -400,6 +400,80 @@ class AgentAuthClientTest(unittest.TestCase):
             status = client.set_agent_pin("1a2b")
             self.assertTrue(status["has_agent_pin"])
 
+    def test_keep_authorized_session_alive_pings_when_session_nears_expiry(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="software",
+            )
+            flow_client = Mock()
+            flow_client.call_api.return_value = (
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentAccess",
+                    state="state-2",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                    exp=180,
+                    authorized=True,
+                ),
+                CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+            )
+            session_store = SessionStore()
+            session_store.put(
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentAccess",
+                    state="state",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                    exp=150,
+                    authorized=True,
+                )
+            )
+            client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
+
+            result = client.keep_authorized_session_alive(now=95)
+
+            self.assertTrue(result["ok"])
+            self.assertTrue(result["keepalive"])
+            flow_client.call_api.assert_called_once()
+            self.assertEqual(flow_client.call_api.call_args.kwargs["action"], "Ping")
+
+    def test_keep_authorized_session_alive_skips_when_not_due(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="software",
+            )
+            flow_client = Mock()
+            session_store = SessionStore()
+            session_store.put(
+                FlowSession(
+                    session_id="session-1",
+                    flow="agentAccess",
+                    state="state",
+                    shared_secret=b"secret",
+                    current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                    exp=300,
+                    authorized=True,
+                )
+            )
+            client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
+
+            result = client.keep_authorized_session_alive(now=100)
+
+            self.assertIsNone(result)
+            flow_client.call_api.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "unolock-agent"
-version = "0.1.47"
+version = "0.1.48"
 description = "Official UnoLock MCP for AI agents with TPM-backed authentication and zero-knowledge Safe access"
 readme = "README.md"
 license = "LicenseRef-Proprietary"

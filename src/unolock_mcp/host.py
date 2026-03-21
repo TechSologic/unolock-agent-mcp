@@ -38,6 +38,7 @@ DEFAULT_DAEMON_START_TIMEOUT = 300.0
 DEFAULT_DAEMON_STOP_TIMEOUT = 15.0
 DEFAULT_DAEMON_LIST_TIMEOUT = 60.0
 DEFAULT_DAEMON_CALL_TIMEOUT = 300.0
+DAEMON_KEEPALIVE_POLL_SECONDS = 10.0
 
 
 @dataclass
@@ -229,6 +230,16 @@ class ToolHostController:
         self._server = create_mcp_server()
         self._tools = self._server._tool_manager._tools
         self._started_at = time.time()
+        self._keepalive_stop = threading.Event()
+        self._keepalive_hook = getattr(self._server, "unolock_keepalive", None)
+        self._keepalive_thread: threading.Thread | None = None
+        if callable(self._keepalive_hook):
+            self._keepalive_thread = threading.Thread(
+                target=self._keepalive_loop,
+                name="unolock-daemon-keepalive",
+                daemon=True,
+            )
+            self._keepalive_thread.start()
 
     def status_payload(self) -> dict[str, Any]:
         return {
@@ -237,6 +248,22 @@ class ToolHostController:
             "started_at": self._started_at,
             "tool_count": len(self._tools),
         }
+
+    def close(self) -> None:
+        self._keepalive_stop.set()
+        if self._keepalive_thread and self._keepalive_thread.is_alive():
+            self._keepalive_thread.join(timeout=0.5)
+
+    def _run_keepalive_once(self) -> None:
+        if callable(self._keepalive_hook):
+            self._keepalive_hook()
+
+    def _keepalive_loop(self) -> None:
+        while not self._keepalive_stop.wait(DAEMON_KEEPALIVE_POLL_SECONDS):
+            try:
+                self._run_keepalive_once()
+            except Exception:
+                continue
 
     def list_tools(self) -> dict[str, Any]:
         return {
@@ -481,6 +508,7 @@ def serve_local_daemon_forever() -> int:
         try:
             server.serve_forever()
         finally:
+            controller.close()
             _clear_daemon_state()
     return 0
 

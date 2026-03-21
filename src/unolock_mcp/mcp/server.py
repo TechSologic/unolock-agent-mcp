@@ -260,6 +260,13 @@ def create_mcp_server() -> FastMCP:
         agent_auth.set_flow_client(flow_client)
         return flow_client
 
+    def daemon_keepalive() -> dict[str, Any] | None:
+        try:
+            ensure_flow_client()
+        except ValueError:
+            return None
+        return agent_auth.keep_authorized_session_alive()
+
     def _normalize_tool_args(tool_args: dict[str, Any]) -> dict[str, Any]:
         return {key: value for key, value in tool_args.items() if value is not None}
 
@@ -535,6 +542,7 @@ def create_mcp_server() -> FastMCP:
             "If the host is operating at reduced assurance, treat that as warning-only information; there is no separate acknowledgment step."
         ),
     )
+    server.unolock_keepalive = daemon_keepalive
 
     @server.resource(
         "unolock://registration/status",
