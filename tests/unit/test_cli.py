@@ -288,7 +288,10 @@ class CliEntryPointTest(unittest.TestCase):
                 result = cli.main(["list-spaces"])
 
         self.assertEqual(result, 1)
-        self.assertIn("register", print_mock.call_args.args[0])
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            "Registration required.\nAsk the user for the one-time UnoLock Agent Key URL and PIN.\nRun: unolock-agent register '<agent-key-url>' '<pin>'",
+        )
 
     def test_cli_blocked_result_adds_set_agent_pin_guidance(self) -> None:
         with patch.object(
@@ -308,7 +311,10 @@ class CliEntryPointTest(unittest.TestCase):
                 result = cli.main(["list-spaces"])
 
         self.assertEqual(result, 1)
-        self.assertIn("set-agent-pin", print_mock.call_args.args[0])
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            "PIN required.\nAsk the user for the UnoLock PIN.\nRun: unolock-agent set-pin '<pin>'",
+        )
 
     def test_start_uses_local_daemon_helper(self) -> None:
         with patch.object(cli, "ensure_daemon_running", return_value={"ok": True, "running": True, "pid": 1234}) as start_mock:
@@ -361,7 +367,7 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
-        self.assertIn('"linked": true', print_mock.call_args.args[0])
+        self.assertEqual(print_mock.call_args.args[0], json.dumps({"linked": True}, indent=2))
 
     def test_list_files_cli_command_calls_matching_tool(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"space_id": 1, "files": []}}) as call_mock:
@@ -375,7 +381,22 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
-        self.assertIn('"space_id": 1', print_mock.call_args.args[0])
+        self.assertEqual(print_mock.call_args.args[0], json.dumps({"space_id": 1, "files": []}, indent=2))
+
+    def test_list_files_cli_command_verbose_prints_full_payload(self) -> None:
+        payload = {"ok": True, "result": {"space_id": 1, "files": []}}
+        with patch.object(cli, "call_daemon_tool", return_value=payload) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-files", "--verbose"])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_list_files",
+            {},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertEqual(print_mock.call_args.args[0], json.dumps(payload, indent=2))
 
     def test_create_note_cli_command_calls_matching_tool(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"record_ref": "a:b"}}) as call_mock:
@@ -389,7 +410,7 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
-        self.assertIn('"record_ref": "a:b"', print_mock.call_args.args[0])
+        self.assertEqual(print_mock.call_args.args[0], json.dumps({"record": {"record_ref": "a:b"}}, indent=2))
 
     def test_update_note_cli_command_allows_text_only_by_default(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True}}) as call_mock:
@@ -457,7 +478,10 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
-        self.assertIn('"reason": "missing_connection_url"', print_mock.call_args.args[0])
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            "Registration required.\nAsk the user for the one-time UnoLock Agent Key URL and PIN.\nRun: unolock-agent register '<agent-key-url>' '<pin>'",
+        )
 
     def test_list_files_cli_returns_nonzero_when_pin_is_needed(self) -> None:
         blocked = {
@@ -477,7 +501,28 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
-        self.assertIn('"reason": "missing_agent_pin"', print_mock.call_args.args[0])
+        self.assertEqual(print_mock.call_args.args[0], "PIN required.\nAsk the user for the UnoLock PIN.\nRun: unolock-agent set-pin '<pin>'")
+
+    def test_list_files_cli_verbose_returns_full_blocked_payload(self) -> None:
+        blocked = {
+            "ok": False,
+            "blocked": True,
+            "reason": "missing_agent_pin",
+            "message": "Ask the user for the UnoLock agent PIN and call unolock_set_agent_pin.",
+        }
+        payload = {"ok": True, "result": blocked}
+        with patch.object(cli, "call_daemon_tool", return_value=payload) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-files", "--verbose"])
+
+        self.assertEqual(result, 1)
+        call_mock.assert_called_once_with(
+            "unolock_list_files",
+            {},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertEqual(print_mock.call_args.args[0], json.dumps(payload, indent=2))
 
 
 if __name__ == "__main__":

@@ -62,12 +62,12 @@ Choose the object that matches the work:
 - after registration, use normal UnoLock commands directly
 - the one-time Agent Key URL is for registration, not for everyday use
 - the CLI may ask for the PIN later when the local UnoLock process restarts or needs to authenticate again
-- if that happens, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
+- if that happens, run `unolock-agent set-pin '<pin>'` and retry the original command
 
 ## Main CLI Commands
 
 - `unolock-agent register '<agent-key-url>' '<pin>'`: first setup on this device
-- `unolock-agent set-agent-pin '<pin>'`: provide the PIN again after restart or re-authentication
+- `unolock-agent set-pin '<pin>'`: provide the PIN again after restart or re-authentication
 - `unolock-agent list-spaces`, `unolock-agent get-current-space`, `unolock-agent set-current-space <space_id>`: inspect and switch the current Space
 - `unolock-agent list-notes`, `unolock-agent create-note <title> <text>`, `unolock-agent update-note <record_ref> [--title <title>] [--text <text>]`, `unolock-agent append-note ...`: read and write notes
 - `unolock-agent list-checklists`, `unolock-agent create-checklist ...`, `unolock-agent set-checklist-item-done ...`, `unolock-agent add-checklist-item ...`, `unolock-agent remove-checklist-item ...`: read and write checklists
@@ -79,7 +79,7 @@ Choose the object that matches the work:
 - give the agent the Agent Key URL and PIN together for first setup
 - if `unolock-agent` is installed, use `unolock-agent ...` directly for CLI commands
 - run the `unolock-agent` command you need directly
-- if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
+- if a command reports that the PIN is needed, run `unolock-agent set-pin '<pin>'` and retry the original command
 - if unsure which command to use next, run `unolock-agent --help`
 - keep the PIN in UnoLock process memory only
 - install the UnoLock Agent CLI with `npm install -g @techsologic/unolock-agent`

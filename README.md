@@ -161,10 +161,10 @@ Only if a host needs the explicit host-command form, use:
 
 * `unolock-agent mcp`
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
-* The `mcp` subcommand starts and uses UnoLock automatically.
+* The `mcp` subcommand uses the same local UnoLock runtime as the CLI.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
 
-That keeps the user PIN in process memory and keeps the current Space selected.
+UnoLock keeps the user PIN in process memory and keeps the current Space selected across normal CLI and host-driven use.
 
 The same executable also supports explicit CLI commands, for example:
 
@@ -190,7 +190,7 @@ If you prefer manual install from source:
 git clone https://github.com/TechSologic/unolock-agent.git
 cd unolock-agent
 python3 -m pip install --user -e .
-unolock-agent-probe probe
+unolock-agent-probe
 unolock-agent --help
 unolock-agent mcp
 python3 -m unolock_mcp tpm-diagnose
@@ -199,8 +199,7 @@ unolock-agent-self-test
 python3 -m unolock_mcp config-check
 ```
 
-For normal customer and agent onboarding, do not drive the CLI `bootstrap` command directly.
-Let UnoLock guide the normal flow.
+For normal customer and agent onboarding, use the normal UnoLock commands and follow UnoLock's directions.
 
 macOS support is still alpha. UnoLock Agent now prefers Secure Enclave when it works cleanly and otherwise falls back to a non-exportable macOS Keychain key for broader compatibility. If you are evaluating it on Apple Silicon, start with:
 
@@ -238,19 +237,13 @@ Project home:
 
 * `https://github.com/TechSologic/unolock-agent`
 
-Use it as a command that OpenClaw can launch, for example:
+After install, run UnoLock directly:
 
 ```bash
-unolock-agent mcp
+unolock-agent --help
 ```
 
-For hosts that require the command form, use the explicit `mcp` argument:
-
-```bash
-unolock-agent mcp
-```
-
-That is the preferred host-facing launch shape.
+Use the CLI for normal registration and Safe access work.
 
 ## Update Policy
 
@@ -258,7 +251,7 @@ UnoLock Agent should not replace itself in the middle of an active session or wr
 
 The intended update model is:
 
-* the MCP reports update status
+* UnoLock reports update status
 * the install channel applies updates
 * the UnoLock process restarts between tasks so in-memory PINs and sessions can be re-established cleanly
 

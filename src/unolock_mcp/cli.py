@@ -50,10 +50,10 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
             (("pin",), {"help": "Agent PIN as a string using only 0-9 and a-f."}),
         ],
     },
-    "set-agent-pin": {
+    "set-pin": {
         "tool": "unolock_set_agent_pin",
         "help": "Set the in-memory UnoLock agent PIN.",
-        "description": "Store the UnoLock agent PIN in MCP process memory for authentication.",
+        "description": "Store the UnoLock agent PIN in UnoLock's local runtime for authentication.",
         "arguments": [
             (("pin",), {"help": "Agent PIN as a string using only 0-9 and a-f."}),
         ],
@@ -276,6 +276,12 @@ def _add_cli_tool_subcommands(subparsers) -> None:
             help=spec["help"],
             description=spec["description"],
         )
+        subparser.add_argument(
+            "-v",
+            "--verbose",
+            action="store_true",
+            help="Print the full underlying UnoLock response for troubleshooting.",
+        )
         for names, kwargs in spec["arguments"]:
             subparser.add_argument(*names, **kwargs)
         subparser.set_defaults(cli_tool_command=command_name)
@@ -287,7 +293,7 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
         raise ValueError("missing cli tool command")
     if command == "register":
         return "unolock_register", {"connection_url": args.connection_url, "pin": args.pin}
-    if command == "set-agent-pin":
+    if command == "set-pin":
         return "unolock_set_agent_pin", {"pin": args.pin}
     if command == "list-spaces":
         return "unolock_list_spaces", {}
@@ -395,30 +401,108 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
     raise ValueError(f"Unknown CLI tool command: {command}")
 
 
-def _print_cli_payload(payload: dict[str, Any]) -> int:
+def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
+    if tool_name in {"unolock_list_spaces", "unolock_list_records", "unolock_list_notes", "unolock_list_checklists", "unolock_list_files"}:
+        return {k: v for k, v in result.items() if k != "ok"}
+    if tool_name in {"unolock_get_record", "unolock_create_note", "unolock_create_checklist", "unolock_update_note", "unolock_append_note", "unolock_rename_record", "unolock_set_checklist_item_done", "unolock_add_checklist_item", "unolock_remove_checklist_item"}:
+        return {"record": result.get("record", result)}
+    if tool_name in {"unolock_get_file", "unolock_upload_file", "unolock_rename_file", "unolock_replace_file", "unolock_delete_file"}:
+        payload = {"file": result.get("file", result)}
+        if "space_id" in result:
+            payload["space_id"] = result.get("space_id")
+        if "deleted" in result:
+            payload["deleted"] = result.get("deleted")
+        return payload
+    if tool_name == "unolock_get_current_space":
+        return {
+            "selected": result.get("selected"),
+            "current_space_id": result.get("current_space_id"),
+        }
+    if tool_name == "unolock_set_current_space":
+        return {
+            "current_space_id": result.get("current_space_id"),
+            "space": result.get("space"),
+        }
+    if tool_name == "unolock_download_file":
+        return {
+            "file": result.get("file"),
+            "output_path": result.get("output_path"),
+            "bytes_written": result.get("bytes_written"),
+        }
+    if tool_name in {"unolock_register", "unolock_set_agent_pin"} and "ok" in result:
+        return {k: v for k, v in result.items() if k != "ok"}
+    return {k: v for k, v in result.items() if k != "ok"} if "ok" in result else result
+
+
+def _print_cli_payload(tool_name: str, payload: dict[str, Any], *, verbose: bool = False) -> int:
+    if verbose:
+        print(json.dumps(payload, indent=2))
+        if payload.get("ok", True) and "result" in payload:
+            result = payload["result"]
+            if isinstance(result, dict):
+                if result.get("blocked"):
+                    return 1
+                if result.get("ok") is False:
+                    return 1
+            return 0
+        return 0 if payload.get("ok", True) else 1
     if payload.get("ok", True) and "result" in payload:
         result = payload["result"]
         if isinstance(result, dict) and result.get("blocked"):
-            reason = result.get("reason")
-            if reason == "missing_connection_url":
-                result = {
-                    **result,
-                    "cli_guidance": "Run `unolock-agent register '<agent-key-url>' '<pin>'`.",
-                }
-            elif reason == "missing_agent_pin":
-                result = {
-                    **result,
-                    "cli_guidance": "Run `unolock-agent set-agent-pin '<pin>'` and retry the original command.",
-                }
-        print(json.dumps(result, indent=2))
-        if isinstance(result, dict):
-            if result.get("blocked"):
-                return 1
-            if result.get("ok") is False:
-                return 1
+            print(_format_blocked_cli_result(result))
+            return 1
+        if isinstance(result, dict) and result.get("ok") is False:
+            print(_format_cli_error(result))
+            return 1
+        print(json.dumps(_cli_success_value(tool_name, result), indent=2))
         return 0
+    if payload.get("ok") is False:
+        print(_format_cli_error(payload))
+        return 1
     print(json.dumps(payload, indent=2))
     return 0 if payload.get("ok", True) else 1
+
+
+def _format_cli_error(payload: dict[str, Any]) -> str:
+    message = str(payload.get("message") or "UnoLock command failed.")
+    return f"Error: {message}"
+
+
+def _format_blocked_cli_result(result: dict[str, Any]) -> str:
+    reason = str(result.get("reason") or "operation_blocked")
+    if reason == "missing_agent_pin":
+        return "\n".join(
+            [
+                "PIN required.",
+                "Ask the user for the UnoLock PIN.",
+                "Run: unolock-agent set-pin '<pin>'",
+            ]
+        )
+    if reason == "missing_connection_url":
+        return "\n".join(
+            [
+                "Registration required.",
+                "Ask the user for the one-time UnoLock Agent Key URL and PIN.",
+                "Run: unolock-agent register '<agent-key-url>' '<pin>'",
+            ]
+        )
+
+    message = str(result.get("message") or "UnoLock needs another step before this command can continue.")
+    suggested_action = result.get("suggested_action")
+    if suggested_action:
+        return "\n".join(
+            [
+                f"UnoLock blocked: {reason}",
+                message,
+                f"Next step: {suggested_action}",
+            ]
+        )
+    return "\n".join(
+        [
+            f"UnoLock blocked: {reason}",
+            message,
+        ]
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -429,7 +513,12 @@ def build_parser() -> argparse.ArgumentParser:
         "self-test",
         "mcp",
     ]
-    parser = UnoLockArgumentParser(description="UnoLock Agent commands.")
+    parser = UnoLockArgumentParser(
+        description=(
+            "UnoLock Agent commands. Direct CLI commands return the requested data as one JSON object, "
+            "ask for the PIN when needed, or print a compact error."
+        )
+    )
     parser.add_argument("--version", action="version", version=f"%(prog)s {MCP_VERSION}")
     parser.add_argument("--base-url", default=None)
     parser.add_argument("--transparency-origin", default=None)
@@ -530,7 +619,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     diagnose_parser = subparsers.add_parser(
         "tpm-diagnose",
-        help="Diagnose TPM/vTPM readiness for the UnoLock agent MCP.",
+        help="Diagnose TPM/vTPM readiness for UnoLock Agent.",
         description="Inspect the active TPM DAO and host TPM/vTPM signals and print advice.",
     )
     diagnose_parser.add_argument("--json", action="store_true", help="Print full JSON diagnostics.")
@@ -557,8 +646,8 @@ def build_parser() -> argparse.ArgumentParser:
 
     mcp_parser = subparsers.add_parser(
         "mcp",
-        help="Run the UnoLock stdio MCP server.",
-        description="Run the UnoLock agent stdio MCP server.",
+        help="Run the UnoLock stdio server for MCP hosts.",
+        description="Run the UnoLock stdio server for MCP hosts.",
     )
 
     update_parser = subparsers.add_parser(
@@ -668,7 +757,7 @@ def main(argv: list[str] | None = None) -> int:
         except LocalHostError as exc:
             print(json.dumps({"ok": False, "reason": "daemon_call_failed", "message": str(exc)}, indent=2))
             return 1
-        return _print_cli_payload(payload)
+        return _print_cli_payload(tool_name, payload, verbose=getattr(args, "verbose", False))
 
     if command == "config-check":
         registration = RegistrationStore().load()
