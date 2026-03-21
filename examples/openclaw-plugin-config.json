@@ -12,8 +12,8 @@
   "mcpServers": {
     "unolock-agent": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
+      "command": "unolock-agent",
+      "args": ["mcp"]
     }
   }
 }

@@ -46,7 +46,7 @@ class UpdateStatusTest(unittest.TestCase):
 
         self.assertFalse(payload["ok"])
         self.assertEqual(payload["reason"], "update_check_failed")
-        self.assertIn("npx -y @techsologic/unolock-agent@latest", payload["recommended_action"])
+        self.assertIn("npm install -g @techsologic/unolock-agent@latest", payload["recommended_action"])
 
 
 if __name__ == "__main__":

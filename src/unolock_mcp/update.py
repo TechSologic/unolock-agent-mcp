@@ -116,12 +116,11 @@ def _recommended_action(
     if runtime.install_channel == "npm-wrapper":
         if update_available is False:
             return (
-                "No update action is needed. Restart the MCP runner when convenient; the npm wrapper will keep "
-                "checking GitHub Releases for newer stable binaries."
+                "No update action is needed. Keep using the current global npm install."
             )
         return (
-            "Restart the MCP runner and relaunch with `npx -y @techsologic/unolock-agent@latest mcp` so the npm wrapper "
-            f"can fetch the latest stable binary{latest_suffix}. Prefer doing this between tasks, not during an active flow."
+            "Update the global install with `npm install -g @techsologic/unolock-agent@latest`, then restart "
+            f"UnoLock so it uses the latest release{latest_suffix}. Prefer doing this between tasks, not during an active flow."
         )
     if runtime.install_channel == "release-binary":
         if update_available is False:
@@ -138,7 +137,7 @@ def _recommended_action(
             "`pipx upgrade unolock-agent`, then restart the MCP runner."
         )
     return (
-        "The MCP should not replace itself while running. Update it through the wrapper, package manager, or release "
+        "The MCP should not replace itself while running. Update it through the global install, package manager, or release "
         "binary path that installed it, then restart the runner."
     )
 

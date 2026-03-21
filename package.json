@@ -1,7 +1,7 @@
 {
   "name": "@techsologic/unolock-agent",
   "version": "0.1.42",
-  "description": "npx wrapper for the official UnoLock Agent release binaries",
+  "description": "UnoLock Agent CLI and local runtime",
   "license": "UNLICENSED",
   "homepage": "https://unolock.ai",
   "repository": {

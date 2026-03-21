@@ -37,7 +37,7 @@ Checked against the official host docs on 2026-03-08:
 
 The preferred mode is:
 
-* use `npx -y @techsologic/unolock-agent@latest` or a GitHub Release binary
+* use `npm install -g @techsologic/unolock-agent` or a GitHub Release binary
 * prefer the CLI commands for normal direct agent use
 * use `unolock-agent mcp` only for hosts that specifically require MCP
 * let UnoLock manage its own local runtime so the user PIN can remain in process memory instead of being persisted by the agent
@@ -46,10 +46,11 @@ For customer use, prefer a standalone GitHub Release binary:
 
 * `https://github.com/TechSologic/unolock-agent/releases`
 
-If you are integrating with a Node/npm-oriented host, you can also use:
+If you are integrating with a Node/npm-oriented host, install the CLI globally:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest --version
+npm install -g @techsologic/unolock-agent
+unolock-agent --version
 ```
 
 This npm package is both:
@@ -60,7 +61,7 @@ This npm package is both:
 For a host-managed stdio launch, prefer:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest mcp
+unolock-agent mcp
 ```
 
 Project home:
@@ -72,7 +73,7 @@ For updates, the preferred pattern is:
 * check status with `unolock_get_update_status` or `unolock-agent check-update`
 * let the current task finish
 * restart the UnoLock MCP
-* let the npm wrapper or replacement binary apply the update between tasks
+* let the global install or replacement binary apply the update between tasks
 
 Do not expect the live MCP process to replace itself in place.
 
@@ -143,8 +144,8 @@ Example snippet:
 {
   "mcpServers": {
     "unolock-agent": {
-      "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
+      "command": "unolock-agent",
+      "args": ["mcp"]
     }
   }
 }
@@ -152,7 +153,6 @@ Example snippet:
 
 Notes:
 
-* If you already installed UnoLock locally, you can use `"command": "unolock-agent"` instead.
 * For local development, you can still set `UNOLOCK_BASE_URL=http://127.0.0.1:3000` as an override, but it is no longer required for the normal connection-URL-driven flow.
 * For normal UnoLock cloud-service use, the Agent Key URL is enough for the MCP to resolve what it needs automatically.
 * Do not ask users for `UNOLOCK_BASE_URL`, `UNOLOCK_TRANSPARENCY_ORIGIN`, or `UNOLOCK_SIGNING_PUBLIC_KEY` in the normal flow. Use them only as advanced overrides when you are dealing with a custom deployment or debugging a broken one.
@@ -171,8 +171,8 @@ Example snippet:
   "mcpServers": {
     "unolock-agent": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
+      "command": "unolock-agent",
+      "args": ["mcp"]
     }
   }
 }
@@ -185,8 +185,8 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
   "mcpServers": {
     "unolock-agent": {
       "type": "stdio",
-      "command": "${env:HOME}/.local/bin/npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
+      "command": "${env:HOME}/.local/bin/unolock-agent",
+      "args": ["mcp"]
     }
   }
 }
@@ -213,8 +213,8 @@ Example snippet:
   "mcpServers": {
     "unolock-agent": {
       "type": "stdio",
-      "command": "npx",
-      "args": ["-y", "@techsologic/unolock-agent@latest", "mcp"]
+      "command": "unolock-agent",
+      "args": ["mcp"]
     }
   }
 }

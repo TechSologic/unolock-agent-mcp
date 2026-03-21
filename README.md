@@ -87,7 +87,7 @@ Agent-first onboarding site:
 Recommended customer install source:
 
 * UnoLock's built-in local runtime/CLI with a GitHub Release binary when available
-* `npx -y @techsologic/unolock-agent@latest` as the easiest Node/npm CLI path
+* `npm install -g @techsologic/unolock-agent` as the primary npm install path
 * `pipx install` as the fallback source install path when no release binary is available yet
 
 If you are new to UnoLock itself, start with these docs first:
@@ -144,7 +144,11 @@ For host configuration and implementation details, see:
 * [OpenClaw plugin config example](examples/openclaw-plugin-config.json)
 
 For skill-aware agents, start with the skill above.
-For direct agent use, prefer the CLI. If `unolock-agent` is already installed, use it directly. Only use `npx -y @techsologic/unolock-agent@latest ...` when the executable is not installed yet. Run the command you need directly.
+For direct agent use, install the CLI once, then run `unolock-agent` directly.
+
+```bash
+npm install -g @techsologic/unolock-agent
+```
 
 ```bash
 unolock-agent register 'https://safe.example/#/agent-register/...' 1
@@ -153,15 +157,9 @@ unolock-agent list-notes
 unolock-agent list-files
 ```
 
-Only if the executable is not installed yet, use the same commands through:
-
-```bash
-npx -y @techsologic/unolock-agent@latest register 'https://safe.example/#/agent-register/...' 1
-```
-
 Only if a host needs the explicit host-command form, use:
 
-* `npx -y @techsologic/unolock-agent@latest mcp`
+* `unolock-agent mcp`
 * The host writes JSON-RPC to `stdin` and reads JSON-RPC from `stdout`.
 * The `mcp` subcommand starts and uses UnoLock automatically.
 * On a fresh host, the first start can take longer because local cryptographic code may need to be compiled or prepared.
@@ -214,7 +212,7 @@ For the best customer experience, prefer GitHub Release binaries over source ins
 
 ## Preferred Customer Install
 
-When available, prefer the built-in UnoLock local runtime plus the npm wrapper or release binary.
+When available, prefer the built-in UnoLock local runtime plus either a global npm install or a release binary.
 
 For an agent-first public onboarding flow, send users or agents to:
 
@@ -224,15 +222,12 @@ When available, prefer the standalone GitHub Release binaries instead of install
 
 That avoids most of the Python packaging and source-build overhead for customers.
 
-If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
+If your host environment is already Node/npm-oriented, install the CLI globally:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest --version
+npm install -g @techsologic/unolock-agent
+unolock-agent --version
 ```
-
-The wrapper downloads the correct GitHub Release binary for the current platform on first use and then reuses the cached copy.
-
-On restart, the npm wrapper now checks GitHub Releases for a newer stable binary and will update its cached binary between tasks when a newer release is available.
 
 The npm package is both:
 
@@ -246,13 +241,13 @@ Project home:
 Use it as a command that OpenClaw can launch, for example:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest mcp
+unolock-agent mcp
 ```
 
 For hosts that require the command form, use the explicit `mcp` argument:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest mcp
+unolock-agent mcp
 ```
 
 That is the preferred host-facing launch shape.
@@ -279,10 +274,9 @@ Or, through the MCP itself, call:
 
 Preferred channel behavior:
 
-* built-in daemon + `npx -y @techsologic/unolock-agent@latest`
-  * preferred low-friction path
-  * on restart, the npm wrapper checks GitHub Releases and can fetch the latest stable binary
-  * npm publishing is only needed when the wrapper itself changes
+* global npm install
+  * preferred low-friction npm path
+  * update with `npm install -g @techsologic/unolock-agent@latest`, then restart UnoLock
 * direct GitHub Release binary
   * replace the binary manually, then restart the UnoLock MCP
 * Python package install

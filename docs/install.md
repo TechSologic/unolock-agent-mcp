@@ -49,7 +49,7 @@ If you are new to UnoLock, these docs explain the product concepts behind agent 
 
 The preferred path is:
 
-1. use a GitHub Release binary or `npx -y @techsologic/unolock-agent@latest`
+1. use a GitHub Release binary or install with `npm install -g @techsologic/unolock-agent`
 2. prefer the CLI commands for normal agent use
 3. use `unolock-agent mcp` only when the host specifically requires that command form
 4. let UnoLock handle its local runtime internally so the user PIN can stay in process memory instead of being stored persistently
@@ -68,15 +68,12 @@ Download from:
 
 * `https://github.com/TechSologic/unolock-agent/releases`
 
-If your host environment is already Node/npm-oriented, you can also use the npm wrapper:
+If your host environment is already Node/npm-oriented, install the CLI globally:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest --version
+npm install -g @techsologic/unolock-agent
+unolock-agent --version
 ```
-
-The wrapper downloads the matching GitHub Release binary for the current platform on first use and then reuses the cached copy.
-
-On restart, the npm wrapper checks GitHub Releases for a newer stable binary and can update its cached binary between tasks.
 
 The npm package is an OpenClaw-friendly install path for the UnoLock executable and plugin.
 
@@ -87,15 +84,6 @@ unolock-agent register '<agent-key-url>' '<pin>'
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent list-files
-```
-
-Only if `unolock-agent` is not installed yet, run the same commands through:
-
-```bash
-npx -y @techsologic/unolock-agent@latest register '<agent-key-url>' '<pin>'
-npx -y @techsologic/unolock-agent@latest list-spaces
-npx -y @techsologic/unolock-agent@latest list-notes
-npx -y @techsologic/unolock-agent@latest list-files
 ```
 
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
@@ -109,7 +97,7 @@ For local testing before publishing that plugin install path, use `plugins.load.
 Only if a host explicitly requires that command form, use:
 
 ```bash
-npx -y @techsologic/unolock-agent@latest mcp
+unolock-agent mcp
 ```
 
 UnoLock manages its own local runtime automatically after launch. On a fresh host, that first start can be slower because local cryptographic code may need to be compiled or prepared.
@@ -146,7 +134,7 @@ Recommended update flow:
 1. check update status
 2. finish the current task or flow
 3. restart the UnoLock MCP
-4. let the wrapper, binary replacement, or package manager apply the update
+4. let the global install, binary replacement, or package manager apply the update
 
 Check update status locally:
 
@@ -160,9 +148,9 @@ Or through the MCP:
 
 Preferred behavior by channel:
 
-* built-in local runtime + `npx -y @techsologic/unolock-agent@latest`
-  * preferred path
-  * restarting UnoLock lets the npm wrapper check GitHub Releases and fetch a newer stable binary
+* global npm install
+  * preferred npm path
+  * update with `npm install -g @techsologic/unolock-agent@latest`, then restart UnoLock
 * direct GitHub Release binary
   * download the latest binary, replace the current executable, restart the UnoLock MCP
 * source/Python install

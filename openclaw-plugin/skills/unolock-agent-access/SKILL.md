@@ -44,7 +44,7 @@ Choose the object that matches the work:
 
 ## Preferred Workflow
 
-1. If `unolock-agent` is not installed yet, install the UnoLock Agent CLI with `npx -y @techsologic/unolock-agent@latest`. If it is already installed, run `unolock-agent` directly.
+1. Install the UnoLock Agent CLI with `npm install -g @techsologic/unolock-agent`, then run `unolock-agent` directly.
 1.5. Run `unolock-agent` without arguments to get a usage statement when needed.
 2. Run the `unolock-agent` command you need directly.
 3. On a fresh host, allow extra time for the first start.
@@ -82,7 +82,7 @@ Choose the object that matches the work:
 - if a command reports that the PIN is needed, run `unolock-agent set-agent-pin '<pin>'` and retry the original command
 - if unsure which command to use next, run `unolock-agent --help`
 - keep the PIN in UnoLock process memory only
-- if `unolock-agent` is not installed yet, install the UnoLock Agent CLI with `npx -y @techsologic/unolock-agent@latest`
+- install the UnoLock Agent CLI with `npm install -g @techsologic/unolock-agent`
 
 ## User-Facing Model
 

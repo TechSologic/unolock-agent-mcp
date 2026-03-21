@@ -650,9 +650,9 @@ def create_mcp_server() -> FastMCP:
                 "UnoLock Agent should normally be updated between tasks, not by replacing itself mid-session."
             ),
             "preferred_path": [
-                "Prefer an installed `unolock-agent` executable, a GitHub Release binary, or `npx -y @techsologic/unolock-agent@latest`.",
+                "Prefer an installed `unolock-agent` executable or a GitHub Release binary.",
                 "Use `unolock_get_update_status` or `unolock-agent check-update` to see whether a newer release exists.",
-                "If an update is available, restart UnoLock between tasks so the wrapper or binary can be replaced cleanly.",
+                "If an update is available, restart UnoLock between tasks so the global install or binary can be replaced cleanly.",
             ],
             "rules": [
                 "Do not attempt in-place self-replacement while an active UnoLock session or write flow is in progress.",
@@ -660,7 +660,7 @@ def create_mcp_server() -> FastMCP:
                 "Prefer explicit user awareness before applying an update.",
             ],
             "channels": {
-                "npm-wrapper": "Restart and relaunch with `npx -y @techsologic/unolock-agent@latest`.",
+                "npm-wrapper": "Run `npm install -g @techsologic/unolock-agent@latest`, then restart UnoLock.",
                 "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart UnoLock.",
                 "python-package": "Upgrade the Python package in the environment that launches UnoLock and restart it.",
             },
