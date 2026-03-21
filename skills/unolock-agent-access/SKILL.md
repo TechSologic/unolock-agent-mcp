@@ -65,6 +65,22 @@ Choose the object that matches the work:
 - the CLI may ask for the PIN later when the local UnoLock process restarts or needs to authenticate again
 - if that happens, run `unolock-agent set-pin '<pin>'` and retry the original command
 
+## CLI Response Shape
+
+The direct CLI returns simple JSON objects for successful commands.
+
+- list commands return named collections:
+  - `list-spaces` -> `{ "spaces": [...] }`
+  - `list-notes` -> `{ "space_id": ..., "count": ..., "notes": [...] }`
+  - `list-checklists` -> `{ "space_id": ..., "count": ..., "checklists": [...] }`
+  - `list-files` -> `{ "space_id": ..., "count": ..., "files": [...] }`
+- get and write commands return named objects:
+  - `get-record`, `create-note`, `update-note`, checklist write commands -> `{ "record": { ... } }`
+  - `get-file`, `upload-file`, `replace-file`, `rename-file` -> `{ "file": { ... } }`
+  - `get-current-space` -> `{ "current_space_id": ... }`
+- if the PIN is needed, the CLI prints a short instruction instead of JSON
+- use `--verbose` when you need the full raw troubleshooting payload
+
 ## Main CLI Commands
 
 - `unolock-agent register '<agent-key-url>' '<pin>'`: first setup on this device

@@ -45,16 +45,16 @@ Choose the object that matches the work:
 ## Preferred Workflow
 
 1. Install the UnoLock Agent CLI with `npm install -g @techsologic/unolock-agent`, then run `unolock-agent` directly.
-1.5. Run `unolock-agent` without arguments to get a usage statement when needed.
-2. Run the `unolock-agent` command you need directly.
-3. On a fresh host, allow extra time for the first start.
-4. Ask the user for the one-time Agent Key URL and the PIN together.
-5. Register this device to the Safe:
+2. Run `unolock-agent` without arguments to get a usage statement when needed.
+3. Run the `unolock-agent` command you need directly.
+4. On a fresh host, allow extra time for the first start.
+5. Ask the user for the one-time Agent Key URL and the PIN together.
+6. Register this device to the Safe:
    `unolock-agent register '<agent-key-url>' '<pin>'`
-6. List spaces and select the working space when needed:
+7. List spaces and select the working space when needed:
    `unolock-agent list-spaces`
    `unolock-agent set-current-space <space_id>`
-7. Use the normal note, checklist, and file commands for day-to-day work.
+8. Use the normal note, checklist, and file commands for day-to-day work.
 
 ## Registration And PIN Model
 
@@ -63,6 +63,22 @@ Choose the object that matches the work:
 - the one-time Agent Key URL is for registration, not for everyday use
 - the CLI may ask for the PIN later when the local UnoLock process restarts or needs to authenticate again
 - if that happens, run `unolock-agent set-pin '<pin>'` and retry the original command
+
+## CLI Response Shape
+
+The direct CLI returns simple JSON objects for successful commands.
+
+- list commands return named collections:
+  - `list-spaces` -> `{ "spaces": [...] }`
+  - `list-notes` -> `{ "space_id": ..., "count": ..., "notes": [...] }`
+  - `list-checklists` -> `{ "space_id": ..., "count": ..., "checklists": [...] }`
+  - `list-files` -> `{ "space_id": ..., "count": ..., "files": [...] }`
+- get and write commands return named objects:
+  - `get-record`, `create-note`, `update-note`, checklist write commands -> `{ "record": { ... } }`
+  - `get-file`, `upload-file`, `replace-file`, `rename-file` -> `{ "file": { ... } }`
+  - `get-current-space` -> `{ "current_space_id": ... }`
+- if the PIN is needed, the CLI prints a short instruction instead of JSON
+- use `--verbose` when you need the full raw troubleshooting payload
 
 ## Main CLI Commands
 
