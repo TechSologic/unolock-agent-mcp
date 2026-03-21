@@ -1,6 +1,6 @@
 {
   "name": "@techsologic/unolock-agent",
-  "version": "0.1.42",
+  "version": "0.1.43",
   "description": "UnoLock Agent CLI and local runtime",
   "license": "UNLICENSED",
   "homepage": "https://unolock.ai",
