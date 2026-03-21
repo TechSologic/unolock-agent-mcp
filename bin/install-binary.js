@@ -4,24 +4,24 @@
 const fs = require("fs");
 const path = require("path");
 
-const {
-  PACKAGE_VERSION,
-  binaryUrl,
-  ensureDir,
-  ensureExecutable,
-  fetchToFile,
-  installedBinaryPath,
-} = require("./unolock-agent-common");
+const common = require("./unolock-agent-common");
+
+async function installBinary(options = {}) {
+  const fsImpl = options.fsImpl || fs;
+  const commonImpl = options.commonImpl || common;
+  const dest = commonImpl.installedBinaryPath();
+  if (fsImpl.existsSync(dest)) {
+    fsImpl.unlinkSync(dest);
+  }
+  commonImpl.ensureDir(path.dirname(dest));
+  process.stderr.write(
+    `Installing UnoLock agent ${commonImpl.PACKAGE_VERSION} for ${process.platform}/${process.arch}...\n`,
+  );
+  await commonImpl.fetchToFile(commonImpl.binaryUrl(commonImpl.PACKAGE_VERSION), dest);
+}
 
 async function main() {
-  const dest = installedBinaryPath();
-  if (fs.existsSync(dest)) {
-    ensureExecutable(dest);
-    return;
-  }
-  ensureDir(path.dirname(dest));
-  process.stderr.write(`Installing UnoLock agent ${PACKAGE_VERSION} for ${process.platform}/${process.arch}...\n`);
-  await fetchToFile(binaryUrl(PACKAGE_VERSION), dest);
+  await installBinary();
 }
 
 if (require.main === module) {
@@ -30,3 +30,8 @@ if (require.main === module) {
     process.exit(1);
   });
 }
+
+module.exports = {
+  installBinary,
+  main,
+};
