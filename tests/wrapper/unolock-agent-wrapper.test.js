@@ -22,6 +22,17 @@ test("wrapper exposes a direct reinstall message when binary is missing", () => 
   assert.match(wrapper.installedBinaryError(), /npm install -g @techsologic\/unolock-agent/);
 });
 
+test("wrapper usage includes sync commands", () => {
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-list/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-status/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-add/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-run/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-enable/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-disable/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-remove/);
+  assert.match(wrapper.TOP_LEVEL_USAGE, /sync-restore/);
+});
+
 test("installBinary replaces an existing packaged binary during install", async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "unolock-agent-install-"));
   const installDir = path.join(tempRoot, "vendor", "unolock-agent-test");

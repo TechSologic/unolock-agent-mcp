@@ -259,6 +259,77 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
             (("archive_id",), {"help": "archive_id from get-file/list-files output."}),
         ],
     },
+    "sync-list": {
+        "tool": "unolock_sync_list",
+        "help": "List configured sync jobs.",
+        "description": "List configured UnoLock sync jobs across all accessible Spaces.",
+        "arguments": [],
+    },
+    "sync-status": {
+        "tool": "unolock_sync_status",
+        "help": "Show sync status.",
+        "description": "Show current UnoLock sync status across all configured sync jobs.",
+        "arguments": [],
+    },
+    "sync-add": {
+        "tool": "unolock_sync_add",
+        "help": "Add one file to sync.",
+        "description": "Add one local file to UnoLock sync in the selected or current Space.",
+        "arguments": [
+            (("local_path",), {"help": "Local file path to sync."}),
+            (("--space-id",), {"type": int, "default": 0, "help": "Target UnoLock space. Defaults to the current space."}),
+            (("--title",), {"default": None, "help": "Remote file name override."}),
+            (("--mime-type",), {"dest": "mime_type", "default": None}),
+            (("--archive-id",), {"default": None, "help": "Bind sync to an existing Cloud archive."}),
+            (("--disabled",), {"action": "store_true", "help": "Create the sync job without enabling it."}),
+            (("--poll-seconds",), {"type": int, "default": 5}),
+            (("--debounce-seconds",), {"type": int, "default": 2}),
+        ],
+    },
+    "sync-run": {
+        "tool": "unolock_sync_run",
+        "help": "Run sync now.",
+        "description": "Run UnoLock sync immediately for one sync job or all configured sync jobs.",
+        "arguments": [
+            (("sync_id",), {"nargs": "?", "default": "", "help": "Sync job id. Omit only when using --all."}),
+            (("--all",), {"dest": "run_all", "action": "store_true", "help": "Run all configured sync jobs."}),
+        ],
+    },
+    "sync-enable": {
+        "tool": "unolock_sync_enable",
+        "help": "Enable a sync job.",
+        "description": "Enable one UnoLock sync job without changing its watched file or Cloud binding.",
+        "arguments": [
+            (("sync_id",), {"help": "Sync job id."}),
+        ],
+    },
+    "sync-disable": {
+        "tool": "unolock_sync_disable",
+        "help": "Disable a sync job.",
+        "description": "Disable one UnoLock sync job without removing its configuration.",
+        "arguments": [
+            (("sync_id",), {"help": "Sync job id."}),
+        ],
+    },
+    "sync-remove": {
+        "tool": "unolock_sync_remove",
+        "help": "Remove a sync job.",
+        "description": "Remove one UnoLock sync job. By default this removes only the sync configuration.",
+        "arguments": [
+            (("sync_id",), {"help": "Sync job id."}),
+            (("--delete-remote",), {"action": "store_true", "help": "Also delete the bound Cloud file if present."}),
+        ],
+    },
+    "sync-restore": {
+        "tool": "unolock_sync_restore",
+        "help": "Restore a synced file.",
+        "description": "Restore one UnoLock synced Cloud file back to the local filesystem.",
+        "arguments": [
+            (("sync_id",), {"help": "Sync job id."}),
+            (("--output-path",), {"default": None, "help": "Restore target path. Defaults to the watched local path."}),
+            (("--overwrite",), {"action": "store_true"}),
+        ],
+    },
 }
 
 
@@ -398,6 +469,45 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
         }
     if command == "delete-file":
         return "unolock_delete_file", {"archive_id": args.archive_id}
+    if command == "sync-list":
+        return "unolock_sync_list", {}
+    if command == "sync-status":
+        return "unolock_sync_status", {}
+    if command == "sync-add":
+        return "unolock_sync_add", {
+            "local_path": args.local_path,
+            "space_id": args.space_id,
+            "title": args.title,
+            "mime_type": args.mime_type,
+            "archive_id": args.archive_id,
+            "enabled": not args.disabled,
+            "poll_seconds": args.poll_seconds,
+            "debounce_seconds": args.debounce_seconds,
+        }
+    if command == "sync-run":
+        return "unolock_sync_run", {
+            "sync_id": args.sync_id,
+            "run_all": args.run_all,
+        }
+    if command == "sync-enable":
+        return "unolock_sync_enable", {
+            "sync_id": args.sync_id,
+        }
+    if command == "sync-disable":
+        return "unolock_sync_disable", {
+            "sync_id": args.sync_id,
+        }
+    if command == "sync-remove":
+        return "unolock_sync_remove", {
+            "sync_id": args.sync_id,
+            "delete_remote": args.delete_remote,
+        }
+    if command == "sync-restore":
+        return "unolock_sync_restore", {
+            "sync_id": args.sync_id,
+            "output_path": args.output_path,
+            "overwrite": args.overwrite,
+        }
     raise ValueError(f"Unknown CLI tool command: {command}")
 
 
@@ -431,6 +541,42 @@ def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
             "count": result.get("count"),
             "files": [_cli_file_summary(file) for file in result.get("files", [])],
         }
+    if tool_name == "unolock_sync_list":
+        return {
+            "count": result.get("count"),
+            "syncs": [_cli_sync_summary(sync) for sync in result.get("syncs", [])],
+        }
+    if tool_name == "unolock_sync_status":
+        return {
+            "daemon_running": result.get("daemon_running"),
+            "monitoring": result.get("monitoring"),
+            "count": result.get("count"),
+            "states": result.get("states"),
+            "syncs": [_cli_sync_summary(sync) for sync in result.get("syncs", [])],
+        }
+    if tool_name == "unolock_sync_run":
+        return {
+            "count": result.get("count"),
+            "states": result.get("states"),
+            "results": result.get("results"),
+        }
+    if tool_name in {"unolock_sync_enable", "unolock_sync_disable"}:
+        return {
+            "enabled": result.get("enabled"),
+            "sync": _cli_sync_summary(result.get("sync", result)),
+        }
+    if tool_name == "unolock_sync_remove":
+        return {
+            "removed": result.get("removed"),
+            "deleted_remote": result.get("deleted_remote"),
+            "sync": _cli_sync_summary(result.get("sync", result)),
+        }
+    if tool_name == "unolock_sync_restore":
+        return {
+            "sync": _cli_sync_summary(result.get("sync", result)),
+            "output_path": result.get("output_path"),
+            "bytes_written": result.get("bytes_written"),
+        }
     if tool_name == "unolock_set_agent_pin":
         return {"pin_set": True}
     if tool_name in {"unolock_get_record", "unolock_create_note", "unolock_create_checklist", "unolock_update_note", "unolock_append_note", "unolock_rename_record", "unolock_set_checklist_item_done", "unolock_add_checklist_item", "unolock_remove_checklist_item"}:
@@ -441,6 +587,11 @@ def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
             payload["space_id"] = result.get("space_id")
         if "deleted" in result:
             payload["deleted"] = result.get("deleted")
+        return payload
+    if tool_name == "unolock_sync_add":
+        payload = {"sync": _cli_sync_summary(result.get("sync", result))}
+        if "space_id" in result:
+            payload["space_id"] = result.get("space_id")
         return payload
     if tool_name == "unolock_get_current_space":
         return {
@@ -524,6 +675,27 @@ def _cli_file_summary(file: Any) -> Any:
             "size",
             "writable",
             "allowed_operations",
+        ],
+    )
+
+
+def _cli_sync_summary(sync: Any) -> Any:
+    if not isinstance(sync, dict):
+        return sync
+    return _copy_keys(
+        sync,
+        [
+            "sync_id",
+            "space_id",
+            "archive_id",
+            "local_path",
+            "name",
+            "mode",
+            "enabled",
+            "status",
+            "last_uploaded_at",
+            "last_downloaded_at",
+            "last_error",
         ],
     )
 

@@ -189,6 +189,19 @@ class ToolHostControllerTest(unittest.TestCase):
 
         keepalive.assert_called_once_with()
 
+    def test_controller_sync_poll_calls_server_hook(self) -> None:
+        sync_hook = Mock()
+        fake_server = self._fake_server()
+        fake_server.unolock_sync_poll = sync_hook
+        with patch("unolock_mcp.host.create_mcp_server", return_value=fake_server):
+            controller = ToolHostController()
+            try:
+                controller._run_sync_once()
+            finally:
+                controller.close()
+
+        sync_hook.assert_called_once_with()
+
 
 class DaemonStateFilesystemTest(unittest.TestCase):
     def test_state_dir_is_private_on_posix(self) -> None:

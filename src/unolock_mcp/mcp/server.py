@@ -17,6 +17,8 @@ from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.config import resolve_unolock_config
 from unolock_mcp.domain.models import UnoLockConfig
 from unolock_mcp.update import get_update_status
+from unolock_mcp.sync.runtime_store import SyncRuntimeStore
+from unolock_mcp.sync.service import SyncService
 
 
 def _advanced_tools_enabled() -> bool:
@@ -42,6 +44,7 @@ def _tool_error_response(exc: Exception) -> dict[str, Any]:
         "record_not_found": "Reread the target space or record and verify the current record_ref or item id.",
         "item_not_found": "Reread the checklist and use the current checklist item ids before retrying.",
         "invalid_input": "Correct the input payload and retry the write operation.",
+        "invalid_sync_config_note": "Inspect or repair the reserved UnoLock sync config note in the affected Space, then retry.",
         "no_accessible_spaces": "Ask the user to share or create a UnoLock Space for this Agent Key, or issue a different Agent Key with Space access.",
         "missing_current_space": "List spaces or get the current UnoLock space so the MCP can select an accessible default space.",
         "missing_connection_url": "Ask the user for the one-time UnoLock Agent Key URL and PIN, then call unolock_register.",
@@ -228,6 +231,7 @@ def create_mcp_server() -> FastMCP:
     session_store = SessionStore()
     registration_store = RegistrationStore()
     agent_auth = AgentAuthClient(None, session_store, registration_store)
+    sync_runtime_store = SyncRuntimeStore()
     pending_operation: dict[str, Any] | None = None
 
     def resolve_runtime_config() -> UnoLockConfig:
@@ -265,10 +269,69 @@ def create_mcp_server() -> FastMCP:
             ensure_flow_client()
         except ValueError:
             return None
-        return agent_auth.keep_authorized_session_alive()
+        keepalive_result = agent_auth.keep_authorized_session_alive()
+        try:
+            active_session = session_store.get()
+        except KeyError:
+            return keepalive_result
+        if not active_session.authorized:
+            return keepalive_result
+        key_id = registration_store.load().key_id
+        if not key_id:
+            return keepalive_result
+        try:
+            create_sync_service().refresh_from_remote(SessionStore.ACTIVE_SESSION_ID, key_id=key_id)
+        except Exception:
+            return keepalive_result
+        return keepalive_result
+
+    def daemon_sync_poll() -> dict[str, Any] | None:
+        try:
+            ensure_flow_client()
+            active_session = session_store.get()
+        except (ValueError, KeyError):
+            return None
+        if not active_session.authorized:
+            return None
+        key_id = registration_store.load().key_id
+        if not key_id:
+            return None
+        try:
+            return create_sync_service().run_syncs(
+                SessionStore.ACTIVE_SESSION_ID,
+                key_id=key_id,
+                run_all=True,
+            )
+        except ValueError:
+            return None
 
     def _normalize_tool_args(tool_args: dict[str, Any]) -> dict[str, Any]:
         return {key: value for key, value in tool_args.items() if value is not None}
+
+    def create_sync_service() -> SyncService:
+        return SyncService(
+            UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            ),
+            UnoLockWritableRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            ),
+            UnoLockReadonlyFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            ),
+            UnoLockWritableFilesClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            ),
+            sync_runtime_store,
+        )
 
     def _pending_operation_payload() -> dict[str, Any] | None:
         if pending_operation is None:
@@ -543,6 +606,7 @@ def create_mcp_server() -> FastMCP:
         ),
     )
     server.unolock_keepalive = daemon_keepalive
+    server.unolock_sync_poll = daemon_sync_poll
 
     @server.resource(
         "unolock://registration/status",
@@ -1243,6 +1307,235 @@ def create_mcp_server() -> FastMCP:
         return _run_with_auto_session(
             "unolock_list_files",
             {},
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_list",
+        description=(
+            "List configured UnoLock sync jobs across all accessible Spaces by reading reserved sync-config notes. "
+            "The MCP will authenticate automatically when needed."
+        ),
+    )
+    def sync_list() -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().list_syncs(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_list",
+            {},
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_status",
+        description=(
+            "Show current UnoLock sync status across all configured sync jobs. "
+            "This includes runtime status derived from reserved sync-config notes and local sync runtime state."
+        ),
+    )
+    def sync_status() -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().sync_status(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                monitoring=True,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_status",
+            {},
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_add",
+        description=(
+            "Add one local file to UnoLock sync by writing a reserved sync-config note in the target Space. "
+            "This creates configuration only; background upload behavior will be handled by the daemon."
+        ),
+    )
+    def sync_add(
+        local_path: str = "",
+        space_id: int = 0,
+        title: str | None = None,
+        mime_type: str | None = None,
+        archive_id: str | None = None,
+        enabled: bool = True,
+        poll_seconds: int = 5,
+        debounce_seconds: int = 2,
+    ) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            readonly_records = UnoLockReadonlyRecordsClient(
+                UnoLockApiClient(ensure_flow_client(), session_store),
+                agent_auth,
+                session_store,
+            )
+            effective_space_id = _resolve_space_id(
+                space_id if space_id > 0 else None,
+                required=True,
+                available_spaces=lambda: readonly_records.list_spaces(resolved_session_id),
+            )
+            payload = create_sync_service().add_sync(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                space_id=effective_space_id,
+                local_path=local_path,
+                title=title,
+                mime_type=mime_type,
+                archive_id=archive_id,
+                enabled=enabled,
+                poll_seconds=poll_seconds,
+                debounce_seconds=debounce_seconds,
+            )
+            return _attach_space_id(payload, effective_space_id)
+
+        return _run_with_auto_session(
+            "unolock_sync_add",
+            {
+                "local_path": local_path,
+                "space_id": space_id,
+                "title": title,
+                "mime_type": mime_type,
+                "archive_id": archive_id,
+                "enabled": enabled,
+                "poll_seconds": poll_seconds,
+                "debounce_seconds": debounce_seconds,
+            },
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_run",
+        description=(
+            "Run UnoLock sync immediately for one sync job or for all configured sync jobs. "
+            "This executes the current push-sync path without waiting for a background monitor."
+        ),
+    )
+    def sync_run(sync_id: str = "", run_all: bool = False) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().run_syncs(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                sync_id=sync_id,
+                run_all=run_all,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_run",
+            {
+                "sync_id": sync_id,
+                "run_all": run_all,
+            },
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_enable",
+        description=(
+            "Enable one configured UnoLock sync job. "
+            "This preserves the reserved sync configuration and remote file binding."
+        ),
+    )
+    def sync_enable(sync_id: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().enable_sync(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                sync_id=sync_id,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_enable",
+            {
+                "sync_id": sync_id,
+            },
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_disable",
+        description=(
+            "Disable one configured UnoLock sync job. "
+            "This pauses background sync without removing the reserved sync configuration."
+        ),
+    )
+    def sync_disable(sync_id: str = "") -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().disable_sync(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                sync_id=sync_id,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_disable",
+            {
+                "sync_id": sync_id,
+            },
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_remove",
+        description=(
+            "Remove one configured UnoLock sync job. "
+            "By default this removes only the sync configuration, not the remote Cloud file."
+        ),
+    )
+    def sync_remove(sync_id: str = "", delete_remote: bool = False) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().remove_sync(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                sync_id=sync_id,
+                delete_remote=delete_remote,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_remove",
+            {
+                "sync_id": sync_id,
+                "delete_remote": delete_remote,
+            },
+            None,
+            operation,
+        )
+
+    @server.tool(
+        name="unolock_sync_restore",
+        description=(
+            "Restore one synced Cloud file back to the local filesystem. "
+            "If output_path is omitted, the watched local path is used."
+        ),
+    )
+    def sync_restore(sync_id: str = "", output_path: str | None = None, overwrite: bool = False) -> dict[str, Any]:
+        def operation(resolved_session_id: str) -> dict[str, Any]:
+            return create_sync_service().restore_sync(
+                resolved_session_id,
+                key_id=registration_store.load().key_id,
+                sync_id=sync_id,
+                output_path=output_path,
+                overwrite=overwrite,
+            )
+
+        return _run_with_auto_session(
+            "unolock_sync_restore",
+            {
+                "sync_id": sync_id,
+                "output_path": output_path,
+                "overwrite": overwrite,
+            },
             None,
             operation,
         )

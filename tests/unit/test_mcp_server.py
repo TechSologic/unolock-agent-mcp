@@ -333,6 +333,168 @@ class _FakeWritableRecordsClient:
         }
 
 
+class _FakeSyncService:
+    instances: list["_FakeSyncService"] = []
+
+    def __init__(self, *_args, **_kwargs) -> None:
+        self.add_calls: list[dict[str, object]] = []
+        self.run_calls: list[dict[str, object]] = []
+        self.enable_calls: list[dict[str, object]] = []
+        self.disable_calls: list[dict[str, object]] = []
+        self.remove_calls: list[dict[str, object]] = []
+        self.restore_calls: list[dict[str, object]] = []
+        self.__class__.instances.append(self)
+
+    def refresh_from_remote(self, session_id: str, *, key_id: str | None) -> dict[str, object]:
+        return {"count": 0, "syncs": [], "session_id": session_id, "key_id": key_id}
+
+    def list_syncs(self, session_id: str, *, key_id: str | None) -> dict[str, object]:
+        return {"count": 0, "syncs": [], "session_id": session_id, "key_id": key_id}
+
+    def sync_status(self, session_id: str, *, key_id: str | None, monitoring: bool = True) -> dict[str, object]:
+        return {
+            "daemon_running": True,
+            "monitoring": monitoring,
+            "count": 0,
+            "states": {},
+            "syncs": [],
+            "session_id": session_id,
+            "key_id": key_id,
+        }
+
+    def add_sync(
+        self,
+        session_id: str,
+        *,
+        key_id: str | None,
+        space_id: int,
+        local_path: str,
+        title: str | None = None,
+        mime_type: str | None = None,
+        archive_id: str | None = None,
+        enabled: bool = True,
+        poll_seconds: int = 5,
+        debounce_seconds: int = 2,
+    ) -> dict[str, object]:
+        call = {
+            "session_id": session_id,
+            "key_id": key_id,
+            "space_id": space_id,
+            "local_path": local_path,
+            "title": title,
+            "mime_type": mime_type,
+            "archive_id": archive_id,
+            "enabled": enabled,
+            "poll_seconds": poll_seconds,
+            "debounce_seconds": debounce_seconds,
+        }
+        self.add_calls.append(call)
+        return {
+            "ok": True,
+            "sync": {
+                "sync_id": "syn_01",
+                "space_id": space_id,
+                "local_path": local_path,
+                "name": title or "file.txt",
+                "mode": "push",
+                "enabled": enabled,
+                "status": "new",
+            },
+        }
+
+    def run_syncs(
+        self,
+        session_id: str,
+        *,
+        key_id: str | None,
+        sync_id: str | None = None,
+        run_all: bool = False,
+    ) -> dict[str, object]:
+        call = {
+            "session_id": session_id,
+            "key_id": key_id,
+            "sync_id": sync_id,
+            "run_all": run_all,
+        }
+        self.run_calls.append(call)
+        return {
+            "count": 1,
+            "results": [{"sync_id": sync_id or "all", "status": "synced", "changed": True}],
+            "states": {"synced": 1},
+        }
+
+    def enable_sync(
+        self,
+        session_id: str,
+        *,
+        key_id: str | None,
+        sync_id: str,
+    ) -> dict[str, object]:
+        call = {
+            "session_id": session_id,
+            "key_id": key_id,
+            "sync_id": sync_id,
+        }
+        self.enable_calls.append(call)
+        return {"ok": True, "enabled": True, "sync": {"sync_id": sync_id, "enabled": True}}
+
+    def disable_sync(
+        self,
+        session_id: str,
+        *,
+        key_id: str | None,
+        sync_id: str,
+    ) -> dict[str, object]:
+        call = {
+            "session_id": session_id,
+            "key_id": key_id,
+            "sync_id": sync_id,
+        }
+        self.disable_calls.append(call)
+        return {"ok": True, "enabled": False, "sync": {"sync_id": sync_id, "enabled": False}}
+
+    def remove_sync(
+        self,
+        session_id: str,
+        *,
+        key_id: str | None,
+        sync_id: str,
+        delete_remote: bool = False,
+    ) -> dict[str, object]:
+        call = {
+            "session_id": session_id,
+            "key_id": key_id,
+            "sync_id": sync_id,
+            "delete_remote": delete_remote,
+        }
+        self.remove_calls.append(call)
+        return {"ok": True, "removed": True, "deleted_remote": delete_remote, "sync": {"sync_id": sync_id}}
+
+    def restore_sync(
+        self,
+        session_id: str,
+        *,
+        key_id: str | None,
+        sync_id: str,
+        output_path: str | None = None,
+        overwrite: bool = False,
+    ) -> dict[str, object]:
+        call = {
+            "session_id": session_id,
+            "key_id": key_id,
+            "sync_id": sync_id,
+            "output_path": output_path,
+            "overwrite": overwrite,
+        }
+        self.restore_calls.append(call)
+        return {
+            "ok": True,
+            "sync": {"sync_id": sync_id},
+            "output_path": output_path or "/tmp/file.txt",
+            "bytes_written": 12,
+        }
+
+
 class _FakeAgentAuthForAutoSession:
     instances: list["_FakeAgentAuthForAutoSession"] = []
 
@@ -434,6 +596,7 @@ class AutoSessionToolFlowTest(unittest.TestCase):
         _FakeAgentAuthForAutoSession.instances.clear()
         _FakeWritableRecordsClient.last_update_note = None
         _FakeReadonlyRecordsStaleSessionClient.calls = 0
+        _FakeSyncService.instances.clear()
 
     def _seed_registered_state(self, tmpdir: str) -> None:
         with patch.dict(os.environ, {"HOME": tmpdir}, clear=False):
@@ -473,6 +636,7 @@ class AutoSessionToolFlowTest(unittest.TestCase):
                 _FakeWritableRecordsClient,
             )
         )
+        stack.enter_context(patch("unolock_mcp.mcp.server.SyncService", _FakeSyncService))
         stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
         stack.enter_context(
             patch(
@@ -924,6 +1088,94 @@ class AutoSessionToolFlowTest(unittest.TestCase):
 
             self.assertTrue(result["ok"])
             self.assertEqual(result["file"]["name"], "agent-replace.txt")
+
+    def test_sync_add_uses_current_space(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                server._tool_manager._tools["unolock_set_current_space"].fn(1773)
+                result = server._tool_manager._tools["unolock_sync_add"].fn(
+                    "/tmp/example.txt",
+                    0,
+                    "agent-sync.txt",
+                    "text/plain",
+                    None,
+                    True,
+                    5,
+                    2,
+                )
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["space_id"], 1773)
+            self.assertEqual(sync_service.add_calls[-1]["space_id"], 1773)
+            self.assertEqual(sync_service.add_calls[-1]["local_path"], "/tmp/example.txt")
+
+    def test_sync_run_all_calls_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_run"].fn("", True)
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertEqual(result["count"], 1)
+            self.assertEqual(sync_service.run_calls[-1]["run_all"], True)
+            self.assertEqual(sync_service.run_calls[-1]["session_id"], "active")
+
+    def test_sync_remove_calls_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_remove"].fn("syn_01", True)
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertTrue(result["removed"])
+            self.assertEqual(sync_service.remove_calls[-1]["sync_id"], "syn_01")
+            self.assertTrue(sync_service.remove_calls[-1]["delete_remote"])
+
+    def test_sync_enable_calls_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_enable"].fn("syn_01")
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertTrue(result["enabled"])
+            self.assertEqual(sync_service.enable_calls[-1]["sync_id"], "syn_01")
+
+    def test_sync_disable_calls_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_disable"].fn("syn_01")
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertFalse(result["enabled"])
+            self.assertEqual(sync_service.disable_calls[-1]["sync_id"], "syn_01")
+
+    def test_sync_restore_calls_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_restore"].fn("syn_01", "/tmp/restore.txt", True)
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertEqual(result["bytes_written"], 12)
+            self.assertEqual(sync_service.restore_calls[-1]["sync_id"], "syn_01")
+            self.assertEqual(sync_service.restore_calls[-1]["output_path"], "/tmp/restore.txt")
+            self.assertTrue(sync_service.restore_calls[-1]["overwrite"])
 
     def test_list_spaces_returns_clear_error_when_agent_has_no_spaces(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

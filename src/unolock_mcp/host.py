@@ -39,6 +39,7 @@ DEFAULT_DAEMON_STOP_TIMEOUT = 15.0
 DEFAULT_DAEMON_LIST_TIMEOUT = 60.0
 DEFAULT_DAEMON_CALL_TIMEOUT = 300.0
 DAEMON_KEEPALIVE_POLL_SECONDS = 10.0
+DEFAULT_SYNC_POLL_SECONDS = 5.0
 
 
 @dataclass
@@ -231,8 +232,11 @@ class ToolHostController:
         self._tools = self._server._tool_manager._tools
         self._started_at = time.time()
         self._keepalive_stop = threading.Event()
+        self._sync_stop = threading.Event()
         self._keepalive_hook = getattr(self._server, "unolock_keepalive", None)
+        self._sync_hook = getattr(self._server, "unolock_sync_poll", None)
         self._keepalive_thread: threading.Thread | None = None
+        self._sync_thread: threading.Thread | None = None
         if callable(self._keepalive_hook):
             self._keepalive_thread = threading.Thread(
                 target=self._keepalive_loop,
@@ -240,6 +244,13 @@ class ToolHostController:
                 daemon=True,
             )
             self._keepalive_thread.start()
+        if callable(self._sync_hook):
+            self._sync_thread = threading.Thread(
+                target=self._sync_loop,
+                name="unolock-daemon-sync",
+                daemon=True,
+            )
+            self._sync_thread.start()
 
     def status_payload(self) -> dict[str, Any]:
         return {
@@ -251,8 +262,11 @@ class ToolHostController:
 
     def close(self) -> None:
         self._keepalive_stop.set()
+        self._sync_stop.set()
         if self._keepalive_thread and self._keepalive_thread.is_alive():
             self._keepalive_thread.join(timeout=0.5)
+        if self._sync_thread and self._sync_thread.is_alive():
+            self._sync_thread.join(timeout=0.5)
 
     def _run_keepalive_once(self) -> None:
         if callable(self._keepalive_hook):
@@ -262,6 +276,17 @@ class ToolHostController:
         while not self._keepalive_stop.wait(DAEMON_KEEPALIVE_POLL_SECONDS):
             try:
                 self._run_keepalive_once()
+            except Exception:
+                continue
+
+    def _run_sync_once(self) -> None:
+        if callable(self._sync_hook):
+            self._sync_hook()
+
+    def _sync_loop(self) -> None:
+        while not self._sync_stop.wait(DEFAULT_SYNC_POLL_SECONDS):
+            try:
+                self._run_sync_once()
             except Exception:
                 continue
 

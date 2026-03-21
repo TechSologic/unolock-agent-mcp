@@ -20,9 +20,119 @@ class CliEntryPointTest(unittest.TestCase):
         help_text = parser.format_help()
 
         self.assertIn("register", help_text)
+        self.assertIn("sync-list", help_text)
+        self.assertIn("sync-enable", help_text)
+        self.assertIn("sync-disable", help_text)
         self.assertNotIn("tools", help_text)
         self.assertNotIn("call", help_text)
         self.assertNotIn("bootstrap", help_text)
+
+    def test_sync_add_cli_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(
+            [
+                "sync-add",
+                "/tmp/file.txt",
+                "--space-id",
+                "1773",
+                "--title",
+                "file.txt",
+                "--mime-type",
+                "text/plain",
+                "--archive-id",
+                "archive-1",
+                "--disabled",
+                "--poll-seconds",
+                "9",
+                "--debounce-seconds",
+                "4",
+            ]
+        )
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_add")
+        self.assertEqual(
+            payload,
+            {
+                "local_path": "/tmp/file.txt",
+                "space_id": 1773,
+                "title": "file.txt",
+                "mime_type": "text/plain",
+                "archive_id": "archive-1",
+                "enabled": False,
+                "poll_seconds": 9,
+                "debounce_seconds": 4,
+            },
+        )
+
+    def test_cli_success_value_formats_sync_status(self) -> None:
+        payload = cli._cli_success_value(
+            "unolock_sync_status",
+            {
+                "daemon_running": True,
+                "monitoring": True,
+                "count": 1,
+                "states": {"synced": 1},
+                "syncs": [
+                    {
+                        "sync_id": "syn_01",
+                        "space_id": 1773,
+                        "archive_id": "archive-1",
+                        "local_path": "/tmp/file.txt",
+                        "name": "file.txt",
+                        "mode": "push",
+                        "enabled": True,
+                        "status": "synced",
+                        "last_uploaded_at": "2026-03-21T14:22:11Z",
+                    }
+                ],
+            },
+        )
+
+        self.assertEqual(payload["count"], 1)
+        self.assertEqual(payload["states"], {"synced": 1})
+        self.assertEqual(payload["syncs"][0]["sync_id"], "syn_01")
+        self.assertEqual(payload["syncs"][0]["mode"], "push")
+
+    def test_sync_run_cli_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-run", "syn_01"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_run")
+        self.assertEqual(payload, {"sync_id": "syn_01", "run_all": False})
+
+    def test_sync_remove_cli_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-remove", "syn_01", "--delete-remote"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_remove")
+        self.assertEqual(payload, {"sync_id": "syn_01", "delete_remote": True})
+
+    def test_sync_enable_cli_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-enable", "syn_01"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_enable")
+        self.assertEqual(payload, {"sync_id": "syn_01"})
+
+    def test_sync_disable_cli_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-disable", "syn_01"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_disable")
+        self.assertEqual(payload, {"sync_id": "syn_01"})
+
+    def test_sync_restore_cli_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-restore", "syn_01", "--output-path", "/tmp/out.txt", "--overwrite"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_restore")
+        self.assertEqual(payload, {"sync_id": "syn_01", "output_path": "/tmp/out.txt", "overwrite": True})
 
     def test_main_prints_help_without_subcommand(self) -> None:
         with patch.object(cli.argparse.ArgumentParser, "print_help") as help_mock:

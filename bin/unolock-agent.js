@@ -10,7 +10,7 @@ const {
   installedBinaryPath,
 } = require("./unolock-agent-common");
 
-const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {register,set-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,tpm-diagnose,tpm-check,self-test,mcp} ...
+const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {register,set-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,sync-list,sync-status,sync-add,sync-run,sync-enable,sync-disable,sync-remove,sync-restore,tpm-diagnose,tpm-check,self-test,mcp} ...
 
 UnoLock Agent commands.
 
@@ -40,6 +40,14 @@ positional arguments:
   rename-file            Rename a Cloud file.
   replace-file           Replace a Cloud file with local content.
   delete-file            Delete a Cloud file.
+  sync-list              List configured sync jobs.
+  sync-status            Show sync status.
+  sync-add               Add one file to sync.
+  sync-run               Run sync immediately.
+  sync-enable            Enable a sync job.
+  sync-disable           Disable a sync job.
+  sync-remove            Remove a sync job.
+  sync-restore           Restore a synced file.
   tpm-diagnose           Diagnose TPM/vTPM readiness for the UnoLock agent MCP.
   tpm-check              Fail-fast check for production-ready TPM/vTPM/platform-backed key access.
   self-test              Run a one-shot UnoLock Agent readiness check.
