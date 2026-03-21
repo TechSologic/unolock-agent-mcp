@@ -1,0 +1,15 @@
+{
+  "id": "unolock-agent",
+  "name": "UnoLock Agent",
+  "description": "Ships the shared UnoLock Safe access skill for OpenClaw.",
+  "version": "0.1.53",
+  "skills": [
+    "skills"
+  ],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {},
+    "required": []
+  }
+}

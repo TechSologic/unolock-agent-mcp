@@ -19,13 +19,15 @@
   },
   "openclaw": {
     "extensions": [
-      "./openclaw-plugin/index.js"
+      "./openclaw.js"
     ]
   },
   "files": [
     "bin/",
     "skills/",
-    "openclaw-plugin/"
+    ".claude-plugin/",
+    "openclaw.js",
+    "openclaw.plugin.json"
   ],
   "keywords": [
     "unolock",

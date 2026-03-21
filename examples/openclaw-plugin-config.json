@@ -4,7 +4,7 @@
       "paths": ["/absolute/path/to/unolock-agent"]
     },
     "entries": {
-      "unolock-agent-access": {
+      "unolock-agent": {
         "enabled": true
       }
     }

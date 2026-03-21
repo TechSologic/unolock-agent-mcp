@@ -92,7 +92,7 @@ If you want OpenClaw to load the UnoLock skill as a plugin, the intended publish
 openclaw plugins install @techsologic/unolock-agent
 ```
 
-For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent-access` plugin.
+For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent` plugin.
 
 Only if a host explicitly requires that command form, use:
 

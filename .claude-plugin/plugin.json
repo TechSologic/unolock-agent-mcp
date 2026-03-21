@@ -1,0 +1,10 @@
+{
+  "name": "unolock-agent",
+  "description": "UnoLock Agent plugin with the shared UnoLock Safe access skill.",
+  "version": "0.1.53",
+  "author": {
+    "name": "TechSologic"
+  },
+  "homepage": "https://unolock.ai",
+  "repository": "https://github.com/TechSologic/unolock-agent"
+}

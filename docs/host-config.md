@@ -55,8 +55,8 @@ unolock-agent --version
 
 This npm package is both:
 
-* the normal UnoLock daemon-backed MCP command package
-* an OpenClaw plugin package that ships the UnoLock skill
+* the normal UnoLock daemon-backed CLI and MCP command package
+* a shared skill package with plugin manifests for OpenClaw and Claude Code
 
 For a host-managed stdio launch, prefer:
 
@@ -194,7 +194,7 @@ If needed, Cursor also supports variable interpolation in `command`, `args`, and
 
 ## OpenClaw
 
-For OpenClaw, prefer the UnoLock plugin and skill.
+For OpenClaw, prefer the UnoLock plugin and shared skill.
 
 The intended published plugin install path is:
 
@@ -202,7 +202,17 @@ The intended published plugin install path is:
 openclaw plugins install @techsologic/unolock-agent
 ```
 
-For local repo testing before that plugin install path is published, point `plugins.load.paths` at this repo root and enable `unolock-agent-access`. A full example is in [examples/openclaw-plugin-config.json](../examples/openclaw-plugin-config.json).
+For local repo testing before that plugin install path is published, point `plugins.load.paths` at this repo root and enable `unolock-agent`. A full example is in [examples/openclaw-plugin-config.json](../examples/openclaw-plugin-config.json).
+
+## Claude Code
+
+This package also ships a Claude Code plugin manifest that points at the same shared `skills/` directory.
+
+For local repo testing, point Claude Code at this repo root:
+
+```bash
+claude --plugin-dir /absolute/path/to/unolock-agent
+```
 
 If OpenClaw needs an MCP command in config, use the local stdio command below.
 

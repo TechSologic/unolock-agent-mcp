@@ -15,7 +15,7 @@ For skill-aware agents, the primary starting point is the UnoLock agent-access s
 
 That skill is the agent-facing onboarding layer.
 
-For OpenClaw, this package can also be installed as a plugin so OpenClaw can load the same skill natively.
+This package ships one shared skill plus thin host manifests, so OpenClaw and Claude Code can load the same skill natively.
 
 ## Why Use UnoLock For An Agent
 
@@ -231,7 +231,7 @@ unolock-agent --version
 The npm package is both:
 
 * the normal UnoLock executable package
-* an OpenClaw plugin package that ships the UnoLock skill
+* a plugin package that ships the shared UnoLock skill for hosts like OpenClaw and Claude Code
 
 Project home:
 
@@ -515,4 +515,6 @@ If you want OpenClaw to load the UnoLock skill as a plugin, the intended publish
 openclaw plugins install @techsologic/unolock-agent
 ```
 
-For local testing before publishing that plugin path, point OpenClaw at this repo through `plugins.load.paths` and enable the `unolock-agent-access` plugin. See [examples/openclaw-plugin-config.json](examples/openclaw-plugin-config.json).
+For local testing before publishing that plugin path, point OpenClaw at this repo through `plugins.load.paths` and enable the `unolock-agent` plugin. See [examples/openclaw-plugin-config.json](examples/openclaw-plugin-config.json).
+
+For Claude Code, this package also ships a plugin manifest around the same shared `skills/` directory. For local development, point Claude Code at this repo root with `--plugin-dir`.
