@@ -513,6 +513,50 @@ def serve_local_daemon_forever() -> int:
     return 0
 
 
+def _list_tools_locally() -> dict[str, Any]:
+    controller = ToolHostController()
+    try:
+        return {"ok": True, "result": controller.list_tools()}
+    finally:
+        controller.close()
+
+
+def _call_tool_locally(tool_name: str, arguments: dict[str, Any] | None = None) -> dict[str, Any]:
+    controller = ToolHostController()
+    try:
+        return {"ok": True, "result": controller.call_tool(tool_name, arguments or {})}
+    finally:
+        controller.close()
+
+
+def _serve_stdio_locally() -> int:
+    controller = ToolHostController()
+    try:
+        for raw_line in sys.stdin:
+            line = raw_line.strip()
+            if not line:
+                continue
+            try:
+                message = json.loads(line)
+            except json.JSONDecodeError as exc:
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": None,
+                    "error": {
+                        "code": -32700,
+                        "message": f"Parse error: {exc}",
+                    },
+                }
+                print(json.dumps(response), flush=True)
+                continue
+            response = controller.handle_mcp_request(message)
+            if response is not None:
+                print(json.dumps(response), flush=True)
+        return 0
+    finally:
+        controller.close()
+
+
 def ensure_daemon_running(timeout: float = DEFAULT_DAEMON_START_TIMEOUT) -> dict[str, Any]:
     status = get_daemon_status()
     if status.get("running") and not _status_shows_version_mismatch(status):
@@ -591,11 +635,17 @@ def list_tools(auto_start: bool = True, timeout: float = DEFAULT_DAEMON_LIST_TIM
     if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             return {"ok": False, "reason": "daemon_not_running", "message": "UnoLock local daemon is not running."}
-        ensure_daemon_running()
-        state = load_daemon_state()
+        try:
+            ensure_daemon_running()
+            state = load_daemon_state()
+        except LocalHostError:
+            return _list_tools_locally()
     if state is None:
-        raise LocalHostError("UnoLock local daemon state is unavailable after startup.")
-    return _request_daemon(state, {"command": "list_tools"}, timeout=timeout)
+        return _list_tools_locally()
+    try:
+        return _request_daemon(state, {"command": "list_tools"}, timeout=timeout)
+    except LocalHostError:
+        return _list_tools_locally()
 
 
 def call_tool(
@@ -610,15 +660,21 @@ def call_tool(
     if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             return {"ok": False, "reason": "daemon_not_running", "message": "UnoLock local daemon is not running."}
-        ensure_daemon_running()
-        state = load_daemon_state()
+        try:
+            ensure_daemon_running()
+            state = load_daemon_state()
+        except LocalHostError:
+            return _call_tool_locally(tool_name, arguments)
     if state is None:
-        raise LocalHostError("UnoLock local daemon state is unavailable after startup.")
-    return _request_daemon(
-        state,
-        {"command": "call", "tool": tool_name, "arguments": arguments or {}},
-        timeout=timeout,
-    )
+        return _call_tool_locally(tool_name, arguments)
+    try:
+        return _request_daemon(
+            state,
+            {"command": "call", "tool": tool_name, "arguments": arguments or {}},
+            timeout=timeout,
+        )
+    except LocalHostError:
+        return _call_tool_locally(tool_name, arguments)
 
 
 def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float | None = None) -> int:
@@ -627,10 +683,9 @@ def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float | None = No
     if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             raise LocalHostError("UnoLock local daemon is not running.")
-        ensure_daemon_running()
-        state = load_daemon_state()
+        return _serve_stdio_locally()
     if state is None:
-        raise LocalHostError("UnoLock local daemon state is unavailable after startup.")
+        return _serve_stdio_locally()
 
     for raw_line in sys.stdin:
         line = raw_line.strip()
@@ -649,7 +704,10 @@ def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float | None = No
             }
             print(json.dumps(response), flush=True)
             continue
-        daemon_response = _request_daemon(state, {"command": "rpc", "message": message}, timeout=timeout)
+        try:
+            daemon_response = _request_daemon(state, {"command": "rpc", "message": message}, timeout=timeout)
+        except LocalHostError:
+            return _serve_stdio_locally()
         if daemon_response.get("has_response") and daemon_response.get("response") is not None:
             print(json.dumps(daemon_response["response"]), flush=True)
     return 0

@@ -23,41 +23,45 @@ from unolock_mcp.host import (
 )
 
 
+def _fake_server():
+    async def fake_list_tools():
+        return []
+
+    async def fake_list_resources():
+        return [{"uri": "unolock://usage/quickstart", "name": "Quickstart"}]
+
+    async def fake_list_resource_templates():
+        return []
+
+    async def fake_read_resource(uri: str):
+        return [{"uri": uri, "text": "hello"}]
+
+    async def fake_list_prompts():
+        return [{"name": "uno"}]
+
+    async def fake_get_prompt(name: str, arguments=None):
+        return {"name": name, "arguments": arguments or {}}
+
+    return SimpleNamespace(
+        _tool_manager=SimpleNamespace(
+            _tools={
+                "echo": SimpleNamespace(fn=lambda text="": {"ok": True, "text": text}),
+                "ping": SimpleNamespace(fn=lambda: {"ok": True, "pong": True}),
+            }
+        ),
+        instructions="uno instructions",
+        list_tools=fake_list_tools,
+        list_resources=fake_list_resources,
+        list_resource_templates=fake_list_resource_templates,
+        read_resource=fake_read_resource,
+        list_prompts=fake_list_prompts,
+        get_prompt=fake_get_prompt,
+    )
+
+
 class ToolHostControllerTest(unittest.TestCase):
     def _fake_server(self):
-        async def fake_list_tools():
-            return []
-
-        async def fake_list_resources():
-            return [{"uri": "unolock://usage/quickstart", "name": "Quickstart"}]
-
-        async def fake_list_resource_templates():
-            return []
-
-        async def fake_read_resource(uri: str):
-            return [{"uri": uri, "text": "hello"}]
-
-        async def fake_list_prompts():
-            return [{"name": "uno"}]
-
-        async def fake_get_prompt(name: str, arguments=None):
-            return {"name": name, "arguments": arguments or {}}
-
-        return SimpleNamespace(
-            _tool_manager=SimpleNamespace(
-                _tools={
-                    "echo": SimpleNamespace(fn=lambda text="": {"ok": True, "text": text}),
-                    "ping": SimpleNamespace(fn=lambda: {"ok": True, "pong": True}),
-                }
-            ),
-            instructions="uno instructions",
-            list_tools=fake_list_tools,
-            list_resources=fake_list_resources,
-            list_resource_templates=fake_list_resource_templates,
-            read_resource=fake_read_resource,
-            list_prompts=fake_list_prompts,
-            get_prompt=fake_get_prompt,
-        )
+        return _fake_server()
 
     def test_list_tools_and_call_tool(self) -> None:
         fake_server = self._fake_server()
@@ -304,16 +308,40 @@ class DaemonVersionCompatibilityTest(unittest.TestCase):
             patch("unolock_mcp.host.load_daemon_state", side_effect=[state, state]),
             patch("unolock_mcp.host.MCP_VERSION", "9.9.9"),
             patch("unolock_mcp.host.get_daemon_status", return_value={"ok": True, "running": True, "version": "0.1.0"}),
-            patch("unolock_mcp.host.ensure_daemon_running", return_value={"ok": True, "running": True, "version": "9.9.9"}) as ensure_mock,
-            patch("unolock_mcp.host._request_daemon", return_value={"ok": True, "has_response": True, "response": {"jsonrpc": "2.0", "id": 1, "result": {}}}),
+            patch("unolock_mcp.host.create_mcp_server", return_value=_fake_server()),
             patch("sys.stdin", new=iter([stdin_payload])),
             patch("builtins.print") as print_mock,
         ):
             exit_code = proxy_stdio_to_daemon()
 
-        ensure_mock.assert_called_once()
         print_mock.assert_called_once()
         self.assertEqual(exit_code, 0)
+
+    def test_call_tool_falls_back_to_local_execution_when_daemon_start_fails(self) -> None:
+        with (
+            patch("unolock_mcp.host.load_daemon_state", return_value=None),
+            patch("unolock_mcp.host.ensure_daemon_running", side_effect=LocalHostError("boom")),
+            patch("unolock_mcp.host.create_mcp_server", return_value=_fake_server()),
+        ):
+            result = call_tool("echo", {"text": "hello"})
+
+        self.assertEqual(result, {"ok": True, "result": {"ok": True, "text": "hello"}})
+
+    def test_proxy_stdio_runs_locally_when_no_daemon_is_running(self) -> None:
+        stdin_payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
+        with (
+            patch("unolock_mcp.host.load_daemon_state", return_value=None),
+            patch("unolock_mcp.host.create_mcp_server", return_value=_fake_server()),
+            patch("sys.stdin", new=iter([stdin_payload])),
+            patch("builtins.print") as print_mock,
+        ):
+            exit_code = proxy_stdio_to_daemon()
+
+        self.assertEqual(exit_code, 0)
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            json.dumps({"jsonrpc": "2.0", "id": 1, "result": {}}),
+        )
 
 
 if __name__ == "__main__":
