@@ -424,17 +424,18 @@ class AgentAuthClientTest(unittest.TestCase):
                 CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
             )
             session_store = SessionStore()
-            session_store.put(
-                FlowSession(
-                    session_id="session-1",
-                    flow="agentAccess",
-                    state="state",
-                    shared_secret=b"secret",
-                    current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
-                    exp=150,
-                    authorized=True,
+            with patch("unolock_mcp.auth.session_store.time.time", return_value=0):
+                session_store.put(
+                    FlowSession(
+                        session_id="session-1",
+                        flow="agentAccess",
+                        state="state",
+                        shared_secret=b"secret",
+                        current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                        exp=150,
+                        authorized=True,
+                    )
                 )
-            )
             client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
 
             result = client.keep_authorized_session_alive(now=95)
@@ -470,6 +471,37 @@ class AgentAuthClientTest(unittest.TestCase):
             client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
 
             result = client.keep_authorized_session_alive(now=100)
+
+            self.assertIsNone(result)
+            flow_client.call_api.assert_not_called()
+
+    def test_keep_authorized_session_alive_resets_timer_after_recent_api_activity(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dao = TestTpmDao(Path(tmpdir))
+            store = Mock(spec=RegistrationStore)
+            store.load.return_value = RegistrationState(
+                registered=True,
+                access_id="access-123",
+                key_id="agent-access-123",
+                tpm_provider="software",
+            )
+            flow_client = Mock()
+            session_store = SessionStore()
+            with patch("unolock_mcp.auth.session_store.time.time", return_value=100):
+                session_store.put(
+                    FlowSession(
+                        session_id="session-1",
+                        flow="agentAccess",
+                        state="state",
+                        shared_secret=b"secret",
+                        current_callback=CallbackAction(type="SUCCESS", result={"spaceIds": [1773]}),
+                        exp=150,
+                        authorized=True,
+                    )
+                )
+            client = AgentAuthClient(flow_client, session_store, store, tpm_dao=dao)
+
+            result = client.keep_authorized_session_alive(now=120)
 
             self.assertIsNone(result)
             flow_client.call_api.assert_not_called()

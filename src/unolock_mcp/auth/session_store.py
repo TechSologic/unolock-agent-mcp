@@ -15,10 +15,12 @@ class SessionStore:
         self._active_session: FlowSession | None = None
         self._records_archive_snapshots: dict[str, dict] = {}
         self._auth_context: dict | None = None
+        self._last_activity_at: float | None = None
 
     def put(self, session: FlowSession) -> FlowSession:
         stored = replace(session, session_id=self.ACTIVE_SESSION_ID)
         self._active_session = stored
+        self._last_activity_at = time.time()
         if stored.authorized and stored.current_callback.type == "SUCCESS" and isinstance(stored.current_callback.result, dict):
             self._auth_context = copy.deepcopy(stored.current_callback.result)
         return stored
@@ -32,6 +34,7 @@ class SessionStore:
         self._active_session = None
         self._records_archive_snapshots.clear()
         self._auth_context = None
+        self._last_activity_at = None
 
     def list(self) -> list[dict]:
         if self._active_session is None:
@@ -42,6 +45,7 @@ class SessionStore:
         self._active_session = None
         self._records_archive_snapshots.clear()
         self._auth_context = None
+        self._last_activity_at = None
 
     def has_active_flow(self, *, authorized: bool | None = None, incomplete_only: bool = False) -> bool:
         session = self._active_session
@@ -57,6 +61,9 @@ class SessionStore:
         if self._auth_context is None:
             raise KeyError("No active auth context is available")
         return copy.deepcopy(self._auth_context)
+
+    def last_activity_at(self) -> float | None:
+        return self._last_activity_at
 
     def put_records_archive_snapshot(self, archive_id: str, snapshot: dict) -> None:
         stored = copy.deepcopy(snapshot)

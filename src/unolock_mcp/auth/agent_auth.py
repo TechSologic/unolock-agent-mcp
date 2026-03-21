@@ -21,6 +21,7 @@ from unolock_mcp.tpm.factory import create_tpm_dao
 class AgentAuthClient:
     _AGENT_PIN_PATTERN = re.compile(r"^[0-9a-f]+$")
     _KEEPALIVE_LEEWAY_SECONDS = 60
+    _STALE_SESSION_HTTP_CODES = frozenset({400, 401, 403})
 
     def __init__(
         self,
@@ -311,11 +312,26 @@ class AgentAuthClient:
         if not session.authorized or session.exp is None:
             return None
         current_time = time.time() if now is None else now
-        if float(session.exp) - float(leeway_seconds) > current_time:
+        due_time = float(session.exp) - float(leeway_seconds)
+        last_activity_at = self._session_store.last_activity_at()
+        if last_activity_at is not None:
+            due_time = max(due_time, float(last_activity_at) + float(leeway_seconds))
+        if due_time > current_time:
             return None
 
         flow_client = self.require_flow_client()
-        updated_session, callback = flow_client.call_api(session, action="Ping")
+        try:
+            updated_session, callback = flow_client.call_api(session, action="Ping")
+        except Exception as exc:
+            status_code = getattr(exc, "code", None)
+            if status_code not in self._STALE_SESSION_HTTP_CODES:
+                raise
+            self._session_store.clear()
+            result = self.authenticate_registered_agent()
+            result["keepalive"] = True
+            result["re_authenticated"] = True
+            return result
+
         self._session_store.put(updated_session)
         if callback.type == "SUCCESS":
             return {
