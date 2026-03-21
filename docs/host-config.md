@@ -58,6 +58,12 @@ This npm package is both:
 * the normal UnoLock daemon-backed CLI and MCP command package
 * a shared skill package with plugin manifests for OpenClaw and Claude Code
 
+Shared plugin files at the repo root:
+
+* `skills/unolock-agent-access/SKILL.md`
+* `openclaw.plugin.json`
+* `.claude-plugin/plugin.json`
+
 For a host-managed stdio launch, prefer:
 
 ```bash
@@ -213,6 +219,8 @@ For local repo testing, point Claude Code at this repo root:
 ```bash
 claude --plugin-dir /absolute/path/to/unolock-agent
 ```
+
+The skill is then loaded from the same shared `skills/unolock-agent-access/SKILL.md` directory used by OpenClaw.
 
 If OpenClaw needs an MCP command in config, use the local stdio command below.
 

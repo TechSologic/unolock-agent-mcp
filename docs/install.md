@@ -9,6 +9,12 @@ If you want the current public agent-first onboarding path, start with:
 * `https://unolock.ai/index.html`
 * `https://unolock.ai/install-mcp.html`
 
+Plugin files shipped in this package:
+
+* shared skill: `skills/unolock-agent-access/SKILL.md`
+* OpenClaw manifest: `openclaw.plugin.json`
+* Claude Code manifest: `.claude-plugin/plugin.json`
+
 ## Security Requirement
 
 UnoLock Agent is intended for high-security AI access to Safe data.
@@ -75,7 +81,12 @@ npm install -g @techsologic/unolock-agent
 unolock-agent --version
 ```
 
-The npm package is an OpenClaw-friendly install path for the UnoLock executable and plugin.
+The npm package ships:
+
+* the `unolock-agent` CLI
+* the shared UnoLock skill
+* an OpenClaw plugin manifest
+* a Claude Code plugin manifest
 
 For normal direct use, prefer `unolock-agent ...` if it is already installed. Run the command you need directly:
 
@@ -93,6 +104,12 @@ openclaw plugins install @techsologic/unolock-agent
 ```
 
 For local testing before publishing that plugin install path, use `plugins.load.paths` to point OpenClaw at this repo and enable the `unolock-agent` plugin.
+
+If you want Claude Code to load the same shared skill as a plugin, point Claude Code at this repo root:
+
+```bash
+claude --plugin-dir /absolute/path/to/unolock-agent
+```
 
 Only if a host explicitly requires that command form, use:
 

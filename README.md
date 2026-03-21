@@ -17,6 +17,12 @@ That skill is the agent-facing onboarding layer.
 
 This package ships one shared skill plus thin host manifests, so OpenClaw and Claude Code can load the same skill natively.
 
+Plugin files in this repo:
+
+* shared skill: [skills/unolock-agent-access/SKILL.md](skills/unolock-agent-access/SKILL.md)
+* OpenClaw manifest: [openclaw.plugin.json](openclaw.plugin.json)
+* Claude Code manifest: [.claude-plugin/plugin.json](.claude-plugin/plugin.json)
+
 ## Why Use UnoLock For An Agent
 
 UnoLock Agent is not only about protecting secrets.
@@ -177,6 +183,26 @@ unolock-agent list-files
 ```
 
 Use the explicit `mcp` subcommand only for hosts that require that command shape. Running `unolock-agent` with no arguments prints usage.
+
+## Plugin Installs
+
+This package now uses one shared `skills/` directory for plugin-capable hosts.
+
+OpenClaw:
+
+```bash
+openclaw plugins install @techsologic/unolock-agent
+```
+
+For local repo testing, point `plugins.load.paths` at this repo root and enable the `unolock-agent` plugin. See [examples/openclaw-plugin-config.json](examples/openclaw-plugin-config.json).
+
+Claude Code:
+
+```bash
+claude --plugin-dir /absolute/path/to/unolock-agent
+```
+
+Claude Code loads the shared `skills/` directory through [.claude-plugin/plugin.json](.claude-plugin/plugin.json).
 
 Once the local UnoLock Agent is running, the normal flow is:
 
@@ -509,12 +535,4 @@ unolock-agent/
 
 * Server-side interop probes can still live under `server/safe-server/scripts/` when they are validating server behavior directly.
 * Production agent auth is intended to use TPM/vTPM or equivalent device-backed storage. The software provider is the lower-assurance fallback when stronger host key protection is not available.
-If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
-
-```bash
-openclaw plugins install @techsologic/unolock-agent
-```
-
-For local testing before publishing that plugin path, point OpenClaw at this repo through `plugins.load.paths` and enable the `unolock-agent` plugin. See [examples/openclaw-plugin-config.json](examples/openclaw-plugin-config.json).
-
-For Claude Code, this package also ships a plugin manifest around the same shared `skills/` directory. For local development, point Claude Code at this repo root with `--plugin-dir`.
+If you want to load UnoLock as a plugin, use the shared plugin installs above.

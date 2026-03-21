@@ -1,11 +1,16 @@
 # UnoLock Agent Docs
 
-This directory holds MCP-specific design and implementation documentation.
+This directory holds implementation, host-integration, and packaging documentation for UnoLock Agent.
 
 For skill-aware agents, start with:
 
 * [../skills/unolock-agent-access/SKILL.md](../skills/unolock-agent-access/SKILL.md)
 * `https://github.com/TechSologic/unolock-agent/blob/main/skills/unolock-agent-access/SKILL.md`
+
+Plugin manifests that load that same shared skill:
+
+* OpenClaw: [../openclaw.plugin.json](../openclaw.plugin.json)
+* Claude Code: [../.claude-plugin/plugin.json](../.claude-plugin/plugin.json)
 
 For the current public agent-first onboarding story, start with:
 
@@ -26,7 +31,7 @@ Examples:
 * MCP tool catalog
 * Python packaging and runtime notes
 * interoperability notes once the Python client is running
-* MCP host configuration examples for Claude Desktop and Cursor
+* plugin and MCP host configuration examples
 
 Current docs:
 
