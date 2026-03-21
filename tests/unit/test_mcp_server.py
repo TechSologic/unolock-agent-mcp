@@ -5,6 +5,7 @@ import os
 import tempfile
 import unittest
 from pathlib import Path
+from urllib.error import HTTPError
 from unittest.mock import patch
 
 from unolock_mcp.auth.registration_store import RegistrationStore
@@ -244,6 +245,22 @@ class _FakeReadonlyRecordsNoSpacesClient(_FakeReadonlyRecordsClient):
         }
 
 
+class _FakeReadonlyRecordsStaleSessionClient(_FakeReadonlyRecordsClient):
+    calls = 0
+
+    def list_spaces(self, session_id: str) -> dict[str, object]:
+        self.__class__.calls += 1
+        if self.__class__.calls == 1:
+            raise HTTPError(
+                url="https://api.safe.test.1two.be/access",
+                code=400,
+                msg="Bad Request",
+                hdrs=None,
+                fp=None,
+            )
+        return super().list_spaces(session_id)
+
+
 class _FakeWritableFilesClient:
     def __init__(self, *_args, **_kwargs) -> None:
         pass
@@ -416,6 +433,7 @@ class AutoSessionToolFlowTest(unittest.TestCase):
     def setUp(self) -> None:
         _FakeAgentAuthForAutoSession.instances.clear()
         _FakeWritableRecordsClient.last_update_note = None
+        _FakeReadonlyRecordsStaleSessionClient.calls = 0
 
     def _seed_registered_state(self, tmpdir: str) -> None:
         with patch.dict(os.environ, {"HOME": tmpdir}, clear=False):
@@ -530,6 +548,53 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(first["internal_session_id"], "active")
             self.assertEqual(second["internal_session_id"], "active")
             self.assertEqual(auth.auth_calls, 1)
+
+    def test_list_spaces_recovers_from_stale_authorized_session_http_400(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                self._seed_registered_state(tmpdir)
+                stack.enter_context(patch.dict(os.environ, {"HOME": tmpdir}, clear=False))
+                stack.enter_context(patch("unolock_mcp.mcp.server.AgentAuthClient", _FakeAgentAuthForAutoSession))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockReadonlyRecordsClient",
+                        _FakeReadonlyRecordsStaleSessionClient,
+                    )
+                )
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockWritableFilesClient",
+                        _FakeWritableFilesClient,
+                    )
+                )
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.UnoLockWritableRecordsClient",
+                        _FakeWritableRecordsClient,
+                    )
+                )
+                stack.enter_context(patch("unolock_mcp.mcp.server.UnoLockFlowClient", _FakeFlowClient))
+                stack.enter_context(
+                    patch(
+                        "unolock_mcp.mcp.server.resolve_unolock_config",
+                        return_value=UnoLockResolvedConfig(
+                            base_url="https://api.safe.test.1two.be",
+                            transparency_origin="https://safe.test.1two.be",
+                            app_version="0.20.21",
+                            signing_public_key_b64="ZmFrZQ==",
+                            sources={},
+                        ),
+                    )
+                )
+                server = create_mcp_server()
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_list_spaces"].fn()
+
+            self.assertTrue(result["ok"])
+            self.assertEqual(result["internal_session_id"], "active")
+            self.assertEqual(auth.auth_calls, 2)
+            self.assertEqual(_FakeReadonlyRecordsStaleSessionClient.calls, 2)
 
     def test_set_and_get_current_space(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

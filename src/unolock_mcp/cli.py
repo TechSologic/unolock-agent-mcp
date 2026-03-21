@@ -404,6 +404,8 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
 def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
     if tool_name in {"unolock_list_spaces", "unolock_list_records", "unolock_list_notes", "unolock_list_checklists", "unolock_list_files"}:
         return {k: v for k, v in result.items() if k != "ok"}
+    if tool_name == "unolock_set_agent_pin":
+        return {"pin_set": True}
     if tool_name in {"unolock_get_record", "unolock_create_note", "unolock_create_checklist", "unolock_update_note", "unolock_append_note", "unolock_rename_record", "unolock_set_checklist_item_done", "unolock_add_checklist_item", "unolock_remove_checklist_item"}:
         return {"record": result.get("record", result)}
     if tool_name in {"unolock_get_file", "unolock_upload_file", "unolock_rename_file", "unolock_replace_file", "unolock_delete_file"}:
@@ -429,7 +431,7 @@ def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
             "output_path": result.get("output_path"),
             "bytes_written": result.get("bytes_written"),
         }
-    if tool_name in {"unolock_register", "unolock_set_agent_pin"} and "ok" in result:
+    if tool_name == "unolock_register" and "ok" in result:
         return {k: v for k, v in result.items() if k != "ok"}
     return {k: v for k, v in result.items() if k != "ok"} if "ok" in result else result
 

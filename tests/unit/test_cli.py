@@ -369,6 +369,54 @@ class CliEntryPointTest(unittest.TestCase):
         )
         self.assertEqual(print_mock.call_args.args[0], json.dumps({"linked": True}, indent=2))
 
+    def test_set_pin_cli_returns_small_success_object(self) -> None:
+        payload = {
+            "ok": True,
+            "result": {
+                "ok": True,
+                "has_agent_pin": True,
+                "pin_mode": "ephemeral_memory",
+                "resumed_operation": {
+                    "tool": "unolock_list_spaces",
+                    "result": {"ok": True, "spaces": []},
+                },
+            },
+        }
+        with patch.object(cli, "call_daemon_tool", return_value=payload) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["set-pin", "1"])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_set_agent_pin",
+            {"pin": "1"},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertEqual(print_mock.call_args.args[0], json.dumps({"pin_set": True}, indent=2))
+
+    def test_set_pin_cli_verbose_returns_full_payload(self) -> None:
+        payload = {
+            "ok": True,
+            "result": {
+                "ok": True,
+                "has_agent_pin": True,
+                "pin_mode": "ephemeral_memory",
+            },
+        }
+        with patch.object(cli, "call_daemon_tool", return_value=payload) as call_mock:
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["set-pin", "1", "--verbose"])
+
+        self.assertEqual(result, 0)
+        call_mock.assert_called_once_with(
+            "unolock_set_agent_pin",
+            {"pin": "1"},
+            auto_start=True,
+            timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
+        )
+        self.assertEqual(print_mock.call_args.args[0], json.dumps(payload, indent=2))
+
     def test_list_files_cli_command_calls_matching_tool(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"space_id": 1, "files": []}}) as call_mock:
             with patch("builtins.print") as print_mock:

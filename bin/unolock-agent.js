@@ -10,13 +10,13 @@ const {
   installedBinaryPath,
 } = require("./unolock-agent-common");
 
-const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {register,set-agent-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,tpm-diagnose,tpm-check,self-test,mcp} ...
+const TOP_LEVEL_USAGE = `usage: unolock-agent [-h] [--version] {register,set-pin,list-spaces,get-current-space,set-current-space,list-records,list-notes,list-checklists,get-record,create-note,update-note,append-note,rename-record,create-checklist,set-checklist-item-done,add-checklist-item,remove-checklist-item,list-files,get-file,download-file,upload-file,rename-file,replace-file,delete-file,tpm-diagnose,tpm-check,self-test,mcp} ...
 
 UnoLock Agent commands.
 
 positional arguments:
   register               Register a one-time UnoLock Agent Key URL and PIN on this device.
-  set-agent-pin          Set the in-memory UnoLock agent PIN.
+  set-pin                Set the in-memory UnoLock agent PIN.
   list-spaces            List accessible UnoLock spaces.
   get-current-space      Show the current UnoLock space.
   set-current-space      Set the current UnoLock space.

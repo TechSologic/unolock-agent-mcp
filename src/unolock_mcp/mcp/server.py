@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 from typing import Any, Callable
+from urllib.error import HTTPError
 
 from mcp.server.fastmcp import FastMCP
 
@@ -490,19 +491,31 @@ def create_mcp_server() -> FastMCP:
         def resume() -> dict[str, Any]:
             return _run_with_auto_session(tool_name, normalized_tool_args, None, operation)
 
-        try:
-            blocker = _ensure_authenticated_session(
-                tool_name=tool_name,
-                tool_args=normalized_tool_args,
-                resume=resume,
-            )
-            if blocker is not None:
-                return blocker
-            result = _strip_session_ids(operation(SessionStore.ACTIVE_SESSION_ID))
-            _clear_pending_operation()
-            return result
-        except (ValueError, KeyError) as exc:
-            return _tool_error_response(exc)
+        retried_stale_authorized_session = False
+        while True:
+            try:
+                blocker = _ensure_authenticated_session(
+                    tool_name=tool_name,
+                    tool_args=normalized_tool_args,
+                    resume=resume,
+                )
+                if blocker is not None:
+                    return blocker
+                result = _strip_session_ids(operation(SessionStore.ACTIVE_SESSION_ID))
+                _clear_pending_operation()
+                return result
+            except HTTPError as exc:
+                stale_authorized_session = (
+                    exc.code == 400
+                    and not retried_stale_authorized_session
+                    and session_store.has_active_flow(authorized=True)
+                )
+                if not stale_authorized_session:
+                    return _tool_error_response(exc)
+                session_store.clear()
+                retried_stale_authorized_session = True
+            except (ValueError, KeyError) as exc:
+                return _tool_error_response(exc)
 
     server = FastMCP(
         name="UnoLock Agent",
