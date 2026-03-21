@@ -50,7 +50,11 @@ class BuildBinaryTest(unittest.TestCase):
 
     def test_binary_archive_name_uses_platform_archive_suffix(self) -> None:
         with patch("platform.system", return_value="Linux"):
-            self.assertEqual(binary_archive_name(), "unolock-agent-linux-x86_64.tar.gz")
+            with patch("platform.machine", return_value="x86_64"):
+                self.assertEqual(binary_archive_name(), "unolock-agent-linux-x86_64.tar.gz")
+        with patch("platform.system", return_value="Darwin"):
+            with patch("platform.machine", return_value="arm64"):
+                self.assertEqual(binary_archive_name(), "unolock-agent-macos-arm64.tar.gz")
         with patch("platform.system", return_value="Windows"):
             with patch("platform.machine", return_value="AMD64"):
                 self.assertEqual(binary_archive_name(), "unolock-agent-windows-amd64.zip")
