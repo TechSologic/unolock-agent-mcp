@@ -418,7 +418,7 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(print_mock.call_args.args[0], json.dumps(payload, indent=2))
 
     def test_list_files_cli_command_calls_matching_tool(self) -> None:
-        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"space_id": 1, "files": []}}) as call_mock:
+        with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"space_id": 1, "count": 0, "files": []}}) as call_mock:
             with patch("builtins.print") as print_mock:
                 result = cli.main(["list-files"])
 
@@ -429,7 +429,7 @@ class CliEntryPointTest(unittest.TestCase):
             auto_start=True,
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
-        self.assertEqual(print_mock.call_args.args[0], json.dumps({"space_id": 1, "files": []}, indent=2))
+        self.assertEqual(print_mock.call_args.args[0], json.dumps({"space_id": 1, "count": 0, "files": []}, indent=2))
 
     def test_list_files_cli_command_verbose_prints_full_payload(self) -> None:
         payload = {"ok": True, "result": {"space_id": 1, "files": []}}
@@ -459,6 +459,164 @@ class CliEntryPointTest(unittest.TestCase):
             timeout=DEFAULT_DAEMON_CALL_TIMEOUT,
         )
         self.assertEqual(print_mock.call_args.args[0], json.dumps({"record": {"record_ref": "a:b"}}, indent=2))
+
+    def test_list_notes_cli_trims_internal_record_fields(self) -> None:
+        payload = {
+            "ok": True,
+            "result": {
+                "kind_filter": "note",
+                "space_id_filter": 7,
+                "space_id": 7,
+                "count": 1,
+                "records": [
+                    {
+                        "record_ref": "a:b",
+                        "id": 1,
+                        "version": 2,
+                        "archive_id": "arch-1",
+                        "space_id": 7,
+                        "space_name": "Agent",
+                        "kind": "note",
+                        "title": "Todo",
+                        "plain_text": "Remember this",
+                        "pinned": False,
+                        "labels": [],
+                        "message_meta": None,
+                        "checklist_items": [],
+                        "raw_delta": "{\"ops\":[]}",
+                        "raw_checkboxes": [],
+                        "read_only": False,
+                        "locked": False,
+                        "writable": True,
+                        "allowed_operations": ["get_record", "update_note"],
+                    }
+                ],
+            },
+        }
+        with patch.object(cli, "call_daemon_tool", return_value=payload):
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["list-notes"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            json.dumps(
+                {
+                    "space_id": 7,
+                    "count": 1,
+                    "notes": [
+                        {
+                            "record_ref": "a:b",
+                            "version": 2,
+                            "space_id": 7,
+                            "kind": "note",
+                            "title": "Todo",
+                            "plain_text": "Remember this",
+                            "pinned": False,
+                            "labels": [],
+                            "locked": False,
+                            "writable": True,
+                            "allowed_operations": ["get_record", "update_note"],
+                        }
+                    ],
+                },
+                indent=2,
+            ),
+        )
+
+    def test_get_record_cli_trims_internal_record_fields(self) -> None:
+        payload = {
+            "ok": True,
+            "result": {
+                "record": {
+                    "record_ref": "a:b",
+                    "id": 1,
+                    "version": 2,
+                    "archive_id": "arch-1",
+                    "space_id": 7,
+                    "space_name": "Agent",
+                    "kind": "note",
+                    "title": "Todo",
+                    "plain_text": "Remember this",
+                    "pinned": False,
+                    "labels": [],
+                    "message_meta": None,
+                    "checklist_items": [],
+                    "raw_delta": "{\"ops\":[]}",
+                    "raw_checkboxes": [],
+                    "read_only": False,
+                    "locked": False,
+                    "writable": True,
+                    "allowed_operations": ["get_record", "update_note"],
+                }
+            },
+        }
+        with patch.object(cli, "call_daemon_tool", return_value=payload):
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["get-record", "a:b"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            json.dumps(
+                {
+                    "record": {
+                        "record_ref": "a:b",
+                        "version": 2,
+                        "space_id": 7,
+                        "kind": "note",
+                        "title": "Todo",
+                        "plain_text": "Remember this",
+                        "pinned": False,
+                        "labels": [],
+                        "locked": False,
+                        "writable": True,
+                        "allowed_operations": ["get_record", "update_note"],
+                    }
+                },
+                indent=2,
+            ),
+        )
+
+    def test_get_file_cli_trims_internal_file_fields(self) -> None:
+        payload = {
+            "ok": True,
+            "result": {
+                "file": {
+                    "archive_id": "arch-1",
+                    "space_id": 7,
+                    "space_name": "Agent",
+                    "name": "notes.txt",
+                    "mime_type": "text/plain",
+                    "size": 12,
+                    "etag": "abc",
+                    "writable": True,
+                    "allowed_operations": ["get_file", "download_file"],
+                }
+            },
+        }
+        with patch.object(cli, "call_daemon_tool", return_value=payload):
+            with patch("builtins.print") as print_mock:
+                result = cli.main(["get-file", "arch-1"])
+
+        self.assertEqual(result, 0)
+        self.assertEqual(
+            print_mock.call_args.args[0],
+            json.dumps(
+                {
+                    "file": {
+                        "archive_id": "arch-1",
+                        "space_id": 7,
+                        "name": "notes.txt",
+                        "mime_type": "text/plain",
+                        "size": 12,
+                        "writable": True,
+                        "allowed_operations": ["get_file", "download_file"],
+                    }
+                },
+                indent=2,
+            ),
+        )
 
     def test_update_note_cli_command_allows_text_only_by_default(self) -> None:
         with patch.object(cli, "call_daemon_tool", return_value={"ok": True, "result": {"ok": True}}) as call_mock:

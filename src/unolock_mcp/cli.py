@@ -402,14 +402,41 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
 
 
 def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
-    if tool_name in {"unolock_list_spaces", "unolock_list_records", "unolock_list_notes", "unolock_list_checklists", "unolock_list_files"}:
-        return {k: v for k, v in result.items() if k != "ok"}
+    if tool_name == "unolock_list_spaces":
+        return {
+            "current_space_id": result.get("current_space_id"),
+            "spaces": [_cli_space_summary(space) for space in result.get("spaces", [])],
+        }
+    if tool_name == "unolock_list_records":
+        return {
+            "space_id": result.get("space_id"),
+            "count": result.get("count"),
+            "records": [_cli_record_summary(record) for record in result.get("records", [])],
+        }
+    if tool_name == "unolock_list_notes":
+        return {
+            "space_id": result.get("space_id"),
+            "count": result.get("count"),
+            "notes": [_cli_record_summary(record) for record in result.get("records", [])],
+        }
+    if tool_name == "unolock_list_checklists":
+        return {
+            "space_id": result.get("space_id"),
+            "count": result.get("count"),
+            "checklists": [_cli_record_summary(record) for record in result.get("records", [])],
+        }
+    if tool_name == "unolock_list_files":
+        return {
+            "space_id": result.get("space_id"),
+            "count": result.get("count"),
+            "files": [_cli_file_summary(file) for file in result.get("files", [])],
+        }
     if tool_name == "unolock_set_agent_pin":
         return {"pin_set": True}
     if tool_name in {"unolock_get_record", "unolock_create_note", "unolock_create_checklist", "unolock_update_note", "unolock_append_note", "unolock_rename_record", "unolock_set_checklist_item_done", "unolock_add_checklist_item", "unolock_remove_checklist_item"}:
-        return {"record": result.get("record", result)}
+        return {"record": _cli_record_detail(result.get("record", result))}
     if tool_name in {"unolock_get_file", "unolock_upload_file", "unolock_rename_file", "unolock_replace_file", "unolock_delete_file"}:
-        payload = {"file": result.get("file", result)}
+        payload = {"file": _cli_file_summary(result.get("file", result))}
         if "space_id" in result:
             payload["space_id"] = result.get("space_id")
         if "deleted" in result:
@@ -427,13 +454,78 @@ def _cli_success_value(tool_name: str, result: dict[str, Any]) -> Any:
         }
     if tool_name == "unolock_download_file":
         return {
-            "file": result.get("file"),
+            "file": _cli_file_summary(result.get("file")),
             "output_path": result.get("output_path"),
             "bytes_written": result.get("bytes_written"),
         }
     if tool_name == "unolock_register" and "ok" in result:
         return {k: v for k, v in result.items() if k != "ok"}
     return {k: v for k, v in result.items() if k != "ok"} if "ok" in result else result
+
+
+def _copy_keys(payload: dict[str, Any], keys: list[str]) -> dict[str, Any]:
+    return {
+        key: payload[key]
+        for key in keys
+        if key in payload
+    }
+
+
+def _cli_space_summary(space: Any) -> Any:
+    if not isinstance(space, dict):
+        return space
+    return _copy_keys(
+        space,
+        ["space_id", "name", "current", "writable", "allowed_operations"],
+    )
+
+
+def _cli_record_summary(record: Any) -> Any:
+    if not isinstance(record, dict):
+        return record
+    payload = _copy_keys(
+        record,
+        [
+            "record_ref",
+            "version",
+            "space_id",
+            "kind",
+            "title",
+            "plain_text",
+            "pinned",
+            "labels",
+            "checklist_items",
+            "locked",
+            "writable",
+            "allowed_operations",
+        ],
+    )
+    if payload.get("kind") != "checklist":
+        payload.pop("checklist_items", None)
+    return payload
+
+
+def _cli_record_detail(record: Any) -> Any:
+    if not isinstance(record, dict):
+        return record
+    return _cli_record_summary(record)
+
+
+def _cli_file_summary(file: Any) -> Any:
+    if not isinstance(file, dict):
+        return file
+    return _copy_keys(
+        file,
+        [
+            "archive_id",
+            "space_id",
+            "name",
+            "mime_type",
+            "size",
+            "writable",
+            "allowed_operations",
+        ],
+    )
 
 
 def _print_cli_payload(tool_name: str, payload: dict[str, Any], *, verbose: bool = False) -> int:
