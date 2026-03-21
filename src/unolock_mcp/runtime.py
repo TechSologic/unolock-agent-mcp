@@ -62,6 +62,14 @@ def configure_tls_runtime() -> None:
     if os.environ.get("SSL_CERT_FILE") or os.environ.get("REQUESTS_CA_BUNDLE"):
         return
 
+    try:
+        import truststore  # type: ignore
+
+        truststore.inject_into_ssl()
+        return
+    except Exception:
+        pass
+
     for candidate in _candidate_ca_bundle_paths():
         if not candidate.is_file():
             continue
