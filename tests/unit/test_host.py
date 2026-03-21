@@ -251,6 +251,24 @@ class DaemonVersionCompatibilityTest(unittest.TestCase):
         popen_mock.assert_called_once()
         self.assertEqual(status["version"], "9.9.9")
 
+    def test_ensure_daemon_running_sets_pyinstaller_reset_environment_when_frozen(self) -> None:
+        with (
+            patch("unolock_mcp.host.get_daemon_status", side_effect=[{"ok": True, "running": False}, {"ok": True, "running": True, "version": "9.9.9", "pid": 456}]),
+            patch("unolock_mcp.host._ensure_state_dir"),
+            patch("unolock_mcp.host.daemon_log_path", return_value=Path("/tmp/unolock-daemon.log")),
+            patch("pathlib.Path.open"),
+            patch("unolock_mcp.host._chmod_if_supported"),
+            patch("subprocess.Popen") as popen_mock,
+            patch("sys.frozen", True, create=True),
+        ):
+            popen_mock.return_value.poll.return_value = None
+            ensure_daemon_running(timeout=0.1)
+
+        popen_mock.assert_called_once()
+        kwargs = popen_mock.call_args.kwargs
+        self.assertIn("env", kwargs)
+        self.assertEqual(kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"], "1")
+
     def test_call_tool_auto_restarts_stale_daemon(self) -> None:
         state = LocalDaemonState(pid=123, token="secret", version="0.1.0", started_at=1.0, socket_path="/tmp/daemon.sock")
         with (

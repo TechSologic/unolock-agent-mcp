@@ -510,6 +510,10 @@ def ensure_daemon_running(timeout: float = DEFAULT_DAEMON_START_TIMEOUT) -> dict
         "close_fds": True,
         "start_new_session": True,
     }
+    if getattr(sys, "frozen", False):
+        # Start the daemon as a fresh top-level PyInstaller process so it does
+        # not depend on the parent's temporary extraction directory.
+        kwargs["env"] = {**os.environ, "PYINSTALLER_RESET_ENVIRONMENT": "1"}
     if os.name == "nt":
         kwargs["creationflags"] = getattr(subprocess, "CREATE_NEW_PROCESS_GROUP", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
     process = subprocess.Popen(argv, **kwargs)
