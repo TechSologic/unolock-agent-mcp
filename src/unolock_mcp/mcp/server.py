@@ -660,7 +660,7 @@ def create_mcp_server() -> FastMCP:
                 "Prefer explicit user awareness before applying an update.",
             ],
             "channels": {
-                "npm-wrapper": "Run `npm install -g @techsologic/unolock-agent@latest`, then restart UnoLock.",
+                "npm-install": "Run `npm install -g @techsologic/unolock-agent@latest`, then restart UnoLock.",
                 "release-binary": "Download the latest GitHub Release binary, replace the executable, then restart UnoLock.",
                 "python-package": "Upgrade the Python package in the environment that launches UnoLock and restart it.",
             },

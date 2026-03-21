@@ -19,21 +19,18 @@ RELEASES_URL = f"https://github.com/{GITHUB_REPO}/releases"
 class RuntimeVersionInfo:
     install_channel: str
     package_version: str
-    wrapper_version: str | None
     binary_release_version: str | None
     current_version: str
 
 
 def detect_runtime_version_info(env: dict[str, str] | None = None) -> RuntimeVersionInfo:
     current_env = env or os.environ
-    wrapper_version = _normalize_version(current_env.get("UNOLOCK_AGENT_WRAPPER_VERSION"))
     binary_release_version = _normalize_version(current_env.get("UNOLOCK_AGENT_BINARY_VERSION"))
     install_channel = current_env.get("UNOLOCK_AGENT_INSTALL_CHANNEL") or _default_install_channel()
-    current_version = binary_release_version or wrapper_version or _normalize_version(MCP_VERSION) or MCP_VERSION
+    current_version = binary_release_version or _normalize_version(MCP_VERSION) or MCP_VERSION
     return RuntimeVersionInfo(
         install_channel=install_channel,
         package_version=_normalize_version(MCP_VERSION) or MCP_VERSION,
-        wrapper_version=wrapper_version,
         binary_release_version=binary_release_version,
         current_version=current_version,
     )
@@ -76,7 +73,6 @@ def get_update_status(
         "install_channel": runtime.install_channel,
         "current_version": runtime.current_version,
         "package_version": runtime.package_version,
-        "wrapper_version": runtime.wrapper_version,
         "binary_release_version": runtime.binary_release_version,
         "release_url": RELEASES_URL,
         "checked_at": datetime.now(timezone.utc).isoformat(),
@@ -113,7 +109,7 @@ def _recommended_action(
     latest_version: str | None = None,
 ) -> str:
     latest_suffix = f" to {latest_version}" if latest_version else ""
-    if runtime.install_channel == "npm-wrapper":
+    if runtime.install_channel == "npm-install":
         if update_available is False:
             return (
                 "No update action is needed. Keep using the current global npm install."

@@ -11,17 +11,15 @@ from unolock_mcp.update import (
 
 
 class UpdateStatusTest(unittest.TestCase):
-    def test_detect_runtime_version_info_prefers_wrapper_binary_version(self) -> None:
+    def test_detect_runtime_version_info_prefers_installed_binary_version(self) -> None:
         runtime = detect_runtime_version_info(
             {
-                "UNOLOCK_AGENT_INSTALL_CHANNEL": "npm-wrapper",
-                "UNOLOCK_AGENT_WRAPPER_VERSION": "0.1.13",
+                "UNOLOCK_AGENT_INSTALL_CHANNEL": "npm-install",
                 "UNOLOCK_AGENT_BINARY_VERSION": "0.1.11",
             }
         )
 
-        self.assertEqual(runtime.install_channel, "npm-wrapper")
-        self.assertEqual(runtime.wrapper_version, "0.1.13")
+        self.assertEqual(runtime.install_channel, "npm-install")
         self.assertEqual(runtime.binary_release_version, "0.1.11")
         self.assertEqual(runtime.current_version, "0.1.11")
 
@@ -38,8 +36,7 @@ class UpdateStatusTest(unittest.TestCase):
         with patch("unolock_mcp.update.fetch_latest_release_version", side_effect=RuntimeError("boom")):
             payload = get_update_status(
                 env={
-                    "UNOLOCK_AGENT_INSTALL_CHANNEL": "npm-wrapper",
-                    "UNOLOCK_AGENT_WRAPPER_VERSION": "0.1.13",
+                    "UNOLOCK_AGENT_INSTALL_CHANNEL": "npm-install",
                     "UNOLOCK_AGENT_BINARY_VERSION": "0.1.11",
                 }
             )
