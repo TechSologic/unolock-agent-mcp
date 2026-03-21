@@ -29,6 +29,11 @@ def binary_name() -> str:
     return f"unolock-agent-{platform_suffix()}"
 
 
+def binary_archive_name() -> str:
+    suffix = ".zip" if platform.system().lower() == "windows" else ".tar.gz"
+    return f"{binary_name()}{suffix}"
+
+
 def _prepare_windows_oqs_runtime(install_root: Path) -> None:
     if platform.system().lower() != "windows":
         return
@@ -111,7 +116,7 @@ def build_binary(clean: bool = False) -> Path:
         pyinstaller,
         "--noconfirm",
         "--clean",
-        "--onefile",
+        "--onedir",
         "--name",
         binary_name(),
         "--distpath",
@@ -134,8 +139,12 @@ def build_binary(clean: bool = False) -> Path:
     else:
         cmd.extend(["--collect-binaries", "oqs"])
     subprocess.run(cmd, check=True, cwd=ROOT, env=env)
-    suffix = ".exe" if platform.system().lower() == "windows" else ""
-    return DIST / f"{binary_name()}{suffix}"
+    output_dir = DIST / binary_name()
+    archive_base = DIST / binary_name()
+    archive_format = "zip" if platform.system().lower() == "windows" else "gztar"
+    archive_path = Path(shutil.make_archive(str(archive_base), archive_format, root_dir=DIST, base_dir=binary_name()))
+    shutil.rmtree(output_dir, ignore_errors=True)
+    return archive_path
 
 
 def main() -> int:

@@ -15,7 +15,7 @@ test("binaryUrl targets the package version release asset", () => {
 
 test("installedBinaryPath points inside the package vendor directory", () => {
   const dest = common.installedBinaryPath();
-  assert.equal(path.basename(path.dirname(dest)), "vendor");
+  assert.equal(path.basename(path.dirname(path.dirname(dest))), "vendor");
 });
 
 test("wrapper exposes a direct reinstall message when binary is missing", () => {
@@ -24,21 +24,31 @@ test("wrapper exposes a direct reinstall message when binary is missing", () => 
 
 test("installBinary replaces an existing packaged binary during install", async () => {
   const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "unolock-agent-install-"));
-  const dest = path.join(tempRoot, "vendor", "unolock-agent-test");
+  const installDir = path.join(tempRoot, "vendor", "unolock-agent-test");
+  const dest = path.join(installDir, "unolock-agent-test");
   fs.mkdirSync(path.dirname(dest), { recursive: true });
   fs.writeFileSync(dest, "old-binary");
 
   let fetchedUrl = null;
   await installer.installBinary({
     fsImpl: fs,
+    extractImpl: async (_archivePath, finalRoot) => {
+      const extractedDir = path.join(finalRoot, "unolock-agent-test");
+      fs.mkdirSync(extractedDir, { recursive: true });
+      fs.writeFileSync(path.join(extractedDir, "unolock-agent-test"), "new-binary");
+    },
     commonImpl: {
       PACKAGE_VERSION: "9.9.9",
+      installRoot: () => path.join(tempRoot, "vendor"),
+      installedBinaryDir: () => installDir,
       installedBinaryPath: () => dest,
       ensureDir: (dir) => fs.mkdirSync(dir, { recursive: true }),
       binaryUrl: (version) => `https://example.test/${version}`,
+      platformAssetInfo: () => ({ asset: "unolock-agent-test.tar.gz" }),
+      ensureExecutable: () => {},
       fetchToFile: async (url, finalDest) => {
         fetchedUrl = url;
-        fs.writeFileSync(finalDest, "new-binary");
+        fs.writeFileSync(finalDest, "archive");
       },
     },
   });

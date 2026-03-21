@@ -14,16 +14,32 @@ function platformAssetInfo() {
   const platform = process.platform;
   const arch = process.arch;
   if (platform === "linux" && arch === "x64") {
-    return { asset: "unolock-agent-linux-x86_64", executable: "unolock-agent-linux-x86_64" };
+    return {
+      asset: "unolock-agent-linux-x86_64.tar.gz",
+      installDir: "unolock-agent-linux-x86_64",
+      executable: "unolock-agent-linux-x86_64",
+    };
   }
   if (platform === "darwin" && arch === "arm64") {
-    return { asset: "unolock-agent-macos-arm64", executable: "unolock-agent-macos-arm64" };
+    return {
+      asset: "unolock-agent-macos-arm64.tar.gz",
+      installDir: "unolock-agent-macos-arm64",
+      executable: "unolock-agent-macos-arm64",
+    };
   }
   if (platform === "darwin" && arch === "x64") {
-    return { asset: "unolock-agent-macos-x86_64", executable: "unolock-agent-macos-x86_64" };
+    return {
+      asset: "unolock-agent-macos-x86_64.tar.gz",
+      installDir: "unolock-agent-macos-x86_64",
+      executable: "unolock-agent-macos-x86_64",
+    };
   }
   if (platform === "win32" && arch === "x64") {
-    return { asset: "unolock-agent-windows-amd64.exe", executable: "unolock-agent-windows-amd64.exe" };
+    return {
+      asset: "unolock-agent-windows-amd64.zip",
+      installDir: "unolock-agent-windows-amd64",
+      executable: "unolock-agent-windows-amd64.exe",
+    };
   }
   throw new Error(`Unsupported platform for UnoLock agent binary: ${platform}/${arch}`);
 }
@@ -32,9 +48,13 @@ function installRoot() {
   return path.join(__dirname, "..", "vendor");
 }
 
+function installedBinaryDir() {
+  return path.join(installRoot(), platformAssetInfo().installDir);
+}
+
 function installedBinaryPath() {
   const { executable } = platformAssetInfo();
-  return path.join(installRoot(), executable);
+  return path.join(installedBinaryDir(), executable);
 }
 
 function binaryUrl(releaseVersion = PACKAGE_VERSION) {
@@ -102,6 +122,7 @@ module.exports = {
   ensureExecutable,
   fetchToFile,
   installRoot,
+  installedBinaryDir,
   installedBinaryPath,
   platformAssetInfo,
 };
