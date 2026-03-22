@@ -1490,6 +1490,7 @@ def create_mcp_server() -> FastMCP:
         name="unolock_sync_remove",
         description=(
             "Remove one configured UnoLock sync job. "
+            "This accepts either the sync id or the watched local path. "
             "By default this removes only the sync configuration, not the remote Cloud file."
         ),
     )
@@ -1516,6 +1517,7 @@ def create_mcp_server() -> FastMCP:
         name="unolock_sync_restore",
         description=(
             "Restore one synced Cloud file back to the local filesystem. "
+            "This accepts either the sync id or the watched local path. "
             "If output_path is omitted, the watched local path is used."
         ),
     )

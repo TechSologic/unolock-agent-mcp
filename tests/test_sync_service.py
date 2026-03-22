@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 from unolock_mcp.sync.config_note import SyncJobConfig, SyncManifest, reserved_sync_config_note_title
+from unolock_mcp.sync.reconciler import reconcile_manifests
 from unolock_mcp.sync.runtime_store import SyncRuntimeStore
 from unolock_mcp.sync.service import SyncService
 
@@ -210,6 +211,92 @@ class SyncServiceTest(unittest.TestCase):
             writable_files.upload_file.assert_not_called()
             writable_files.replace_file.assert_not_called()
 
+    def test_reconcile_preserves_runtime_archive_binding_when_manifest_omits_archive_id(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            local_path = Path(tmpdir) / "notes.txt"
+            local_path.write_text("hello world", encoding="utf8")
+            manifest = SyncManifest(
+                key_id="agent-key",
+                jobs=(
+                    SyncJobConfig(
+                        sync_id="syn_01",
+                        space_id=1773,
+                        local_path=str(local_path),
+                        name="notes.txt",
+                    ),
+                ),
+            )
+            runtime = reconcile_manifests([manifest], runtime_store.load())
+            runtime = runtime_store.save(runtime)
+            bound_runtime = runtime_store.save(
+                type(runtime)(
+                    version=runtime.version,
+                    defaults=runtime.defaults,
+                    jobs=(
+                        type(runtime.jobs[0]).from_json(
+                            {
+                                **runtime.jobs[0].to_json(),
+                                "archive_id": "archive-1",
+                            }
+                        ),
+                    ),
+                )
+            )
+
+            reconciled = reconcile_manifests([manifest], bound_runtime)
+
+            self.assertEqual(reconciled.jobs[0].archive_id, "archive-1")
+
+    def test_run_syncs_persists_new_archive_binding_into_reserved_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            local_path = Path(tmpdir) / "notes.txt"
+            local_path.write_text("hello world", encoding="utf8")
+            manifest = SyncManifest(
+                key_id="agent-key",
+                jobs=(
+                    SyncJobConfig(
+                        sync_id="syn_01",
+                        space_id=1773,
+                        local_path=str(local_path),
+                        name="notes.txt",
+                    ),
+                ),
+            )
+            readonly_records = Mock()
+            readonly_records.list_spaces.return_value = {"spaces": [{"space_id": 1773, "writable": True}]}
+            manifest_payload = {
+                "records": [
+                    {
+                        "title": reserved_sync_config_note_title("agent-key"),
+                        "plain_text": manifest.to_note_text(),
+                        "record_ref": "archive-notes:1",
+                        "version": 1,
+                    }
+                ]
+            }
+            readonly_records.list_records.side_effect = [
+                manifest_payload,
+                manifest_payload,
+                manifest_payload,
+            ]
+            writable_records = Mock()
+            writable_files = Mock()
+            writable_files.upload_file.return_value = {
+                "file": {
+                    "archive_id": "archive-1",
+                }
+            }
+            service = SyncService(readonly_records, writable_records, Mock(), writable_files, runtime_store)
+
+            result = service.run_syncs("session-1", key_id="agent-key", sync_id="syn_01", run_all=False)
+
+            self.assertEqual(result["results"][0]["archive_id"], "archive-1")
+            writable_records.update_note.assert_called_once()
+            updated_manifest = json.loads(writable_records.update_note.call_args.kwargs["text"])
+            self.assertEqual(updated_manifest["jobs"][0]["archive_id"], "archive-1")
+
     def test_run_syncs_logs_error_events_note_on_failure(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
@@ -338,6 +425,38 @@ class SyncServiceTest(unittest.TestCase):
             writable_records.update_note.assert_called_once()
             self.assertEqual(runtime_store.load().jobs, ())
 
+    def test_remove_sync_accepts_local_path_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            local_path = Path(tmpdir) / "notes.txt"
+            manifest = SyncManifest(
+                key_id="agent-key",
+                jobs=(
+                    SyncJobConfig(sync_id="syn_01", space_id=1773, local_path=str(local_path), name="notes.txt"),
+                ),
+            )
+            readonly_records = Mock()
+            readonly_records.list_spaces.return_value = {"spaces": [{"space_id": 1773, "writable": True}]}
+            readonly_records.list_records.return_value = {
+                "records": [
+                    {
+                        "title": reserved_sync_config_note_title("agent-key"),
+                        "plain_text": manifest.to_note_text(),
+                        "record_ref": "archive-notes:1",
+                        "version": 2,
+                    }
+                ]
+            }
+            writable_records = Mock()
+            service = SyncService(readonly_records, writable_records, Mock(), Mock(), runtime_store)
+            service.list_syncs("session-1", key_id="agent-key")
+
+            result = service.remove_sync("session-1", key_id="agent-key", sync_id=str(local_path))
+
+            self.assertTrue(result["removed"])
+            self.assertEqual(result["sync"]["sync_id"], "syn_01")
+            self.assertEqual(runtime_store.load().jobs, ())
+
     def test_disable_sync_updates_manifest_and_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
@@ -461,3 +580,47 @@ class SyncServiceTest(unittest.TestCase):
             state = runtime_store.load()
             self.assertEqual(state.jobs[0].status, "synced")
             self.assertIsNotNone(state.jobs[0].last_downloaded_at)
+
+    def test_restore_sync_accepts_local_path_lookup(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            local_path = Path(tmpdir) / "notes.txt"
+            manifest = SyncManifest(
+                key_id="agent-key",
+                jobs=(
+                    SyncJobConfig(
+                        sync_id="syn_01",
+                        space_id=1773,
+                        local_path=str(local_path),
+                        name="notes.txt",
+                        archive_id="archive-1",
+                    ),
+                ),
+            )
+            readonly_records = Mock()
+            readonly_records.list_spaces.return_value = {"spaces": [{"space_id": 1773, "writable": True}]}
+            readonly_records.list_records.return_value = {
+                "records": [
+                    {
+                        "title": reserved_sync_config_note_title("agent-key"),
+                        "plain_text": manifest.to_note_text(),
+                        "record_ref": "archive-notes:1",
+                        "version": 1,
+                    }
+                ]
+            }
+            readonly_files = Mock()
+
+            def fake_download_file(_session_id, *, archive_id, output_path, overwrite):
+                self.assertEqual(archive_id, "archive-1")
+                self.assertFalse(overwrite)
+                Path(output_path).write_text("restored", encoding="utf8")
+                return {"output_path": output_path, "bytes_written": 8}
+
+            readonly_files.download_file.side_effect = fake_download_file
+            service = SyncService(readonly_records, Mock(), readonly_files, Mock(), runtime_store)
+
+            result = service.restore_sync("session-1", key_id="agent-key", sync_id=str(local_path))
+
+            self.assertEqual(result["sync"]["sync_id"], "syn_01")
+            self.assertEqual(result["bytes_written"], 8)

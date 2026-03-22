@@ -38,7 +38,7 @@ def reconcile_manifests(
                 replace(
                     existing,
                     space_id=config_job.space_id,
-                    archive_id=config_job.archive_id,
+                    archive_id=config_job.archive_id or existing.archive_id,
                     local_path=config_job.local_path,
                     local_path_resolved=config_job.local_path,
                     name=config_job.name,

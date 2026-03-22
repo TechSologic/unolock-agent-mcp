@@ -24,6 +24,10 @@ def _normalize_title(local_path: str, title: str | None) -> str:
     return Path(local_path).name or "sync-file"
 
 
+def _normalize_lookup_path(value: str) -> str:
+    return str(Path(value).expanduser().resolve(strict=False))
+
+
 def _state_counts(state: SyncRuntimeState) -> dict[str, int]:
     counts: dict[str, int] = {}
     for job in state.jobs:
@@ -64,6 +68,26 @@ class SyncService:
 
     def _generate_sync_id(self) -> str:
         return f"syn_{secrets.token_hex(4)}"
+
+    def _resolve_runtime_job(self, state: SyncRuntimeState, identifier: str) -> SyncRuntimeJob:
+        candidate = identifier.strip()
+        if not candidate:
+            raise ValueError("invalid_input: sync identifier must not be empty.")
+        target_job = next((job for job in state.jobs if job.sync_id == candidate), None)
+        if target_job is not None:
+            return target_job
+        normalized_path = _normalize_lookup_path(candidate)
+        target_job = next(
+            (
+                job
+                for job in state.jobs
+                if _normalize_lookup_path(job.local_path_resolved) == normalized_path
+            ),
+            None,
+        )
+        if target_job is not None:
+            return target_job
+        raise ValueError("record_not_found: Sync job not found for sync_id or local_path.")
 
     def _require_key_id(self, key_id: str | None) -> str:
         value = (key_id or "").strip()
@@ -137,6 +161,36 @@ class SyncService:
             expected_version=int(current.get("version") or 0),
             title=title,
             text=manifest.to_note_text(),
+        )
+
+    def _persist_job_archive_binding(
+        self,
+        session_id: str,
+        *,
+        key_id: str,
+        job: SyncRuntimeJob,
+    ) -> None:
+        if not job.archive_id:
+            return
+        note = self._find_reserved_config_note(session_id, space_id=job.space_id, key_id=key_id)
+        if note is None:
+            return
+        manifest = SyncManifest.from_note_text(str(note.get("plain_text", "")))
+        target = next((config_job for config_job in manifest.jobs if config_job.sync_id == job.sync_id), None)
+        if target is None or target.archive_id == job.archive_id:
+            return
+        next_manifest = SyncManifest(
+            key_id=manifest.key_id,
+            jobs=tuple(
+                replace(config_job, archive_id=job.archive_id) if config_job.sync_id == job.sync_id else config_job
+                for config_job in manifest.jobs
+            ),
+        )
+        self._upsert_manifest(
+            session_id,
+            space_id=job.space_id,
+            key_id=key_id,
+            manifest=next_manifest,
         )
 
     def _append_error_event(
@@ -302,6 +356,12 @@ class SyncService:
                 updated_jobs.append(job)
                 continue
             updated_job, result = self._run_job(session_id, job)
+            if updated_job.archive_id and updated_job.archive_id != job.archive_id:
+                self._persist_job_archive_binding(
+                    session_id,
+                    key_id=resolved_key_id,
+                    job=updated_job,
+                )
             if updated_job.status in {"blocked", "error"}:
                 updated_job = self._record_error_event_if_needed(
                     session_id,
@@ -496,16 +556,14 @@ class SyncService:
         resolved_key_id = self._require_key_id(key_id)
         self.list_syncs(session_id, key_id=resolved_key_id)
         state = self._runtime_store.load()
-        target_job = next((job for job in state.jobs if job.sync_id == sync_id), None)
-        if target_job is None:
-            raise ValueError("record_not_found: Sync job not found for sync_id.")
+        target_job = self._resolve_runtime_job(state, sync_id)
 
         manifests = self._load_manifests(session_id, key_id=resolved_key_id)
         target_manifest = next(
             (
                 manifest
                 for manifest in manifests
-                if any(job.sync_id == sync_id for job in manifest.jobs)
+                if any(job.sync_id == target_job.sync_id for job in manifest.jobs)
             ),
             None,
         )
@@ -514,7 +572,7 @@ class SyncService:
 
         next_manifest = SyncManifest(
             key_id=resolved_key_id,
-            jobs=tuple(job for job in target_manifest.jobs if job.sync_id != sync_id),
+            jobs=tuple(job for job in target_manifest.jobs if job.sync_id != target_job.sync_id),
         )
         self._upsert_manifest(
             session_id,
@@ -531,7 +589,7 @@ class SyncService:
         next_state = SyncRuntimeState(
             version=state.version,
             defaults=state.defaults,
-            jobs=tuple(job for job in state.jobs if job.sync_id != sync_id),
+            jobs=tuple(job for job in state.jobs if job.sync_id != target_job.sync_id),
         )
         self._runtime_store.save(next_state)
         return {
@@ -553,9 +611,7 @@ class SyncService:
         resolved_key_id = self._require_key_id(key_id)
         self.list_syncs(session_id, key_id=resolved_key_id)
         state = self._runtime_store.load()
-        target_job = next((job for job in state.jobs if job.sync_id == sync_id), None)
-        if target_job is None:
-            raise ValueError("record_not_found: Sync job not found for sync_id.")
+        target_job = self._resolve_runtime_job(state, sync_id)
         if not target_job.archive_id:
             raise ValueError("record_not_found: Sync job is not yet bound to a Cloud file.")
 

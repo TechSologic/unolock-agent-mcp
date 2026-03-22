@@ -12,6 +12,15 @@ from urllib.error import HTTPError
 from unolock_mcp.api.records import _UnoLockRecordsBase
 
 
+_MIME_TYPE_OVERRIDES = {
+    ".md": "text/markdown",
+    ".markdown": "text/markdown",
+    ".log": "text/plain",
+    ".yaml": "application/yaml",
+    ".yml": "application/yaml",
+}
+
+
 class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
     def list_files(self, session_id: str, *, space_id: int | None = None) -> dict[str, Any]:
         keyring = self._agent_auth.get_active_keyring()
@@ -194,6 +203,27 @@ class UnoLockReadonlyFilesClient(_UnoLockRecordsBase):
 class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
     CHUNK_SIZE = 10 * 1024 * 1024
 
+    @staticmethod
+    def _infer_mime_type(*, source_path: Path, file_name: str, existing_metadata: dict[str, Any]) -> str:
+        existing_type = existing_metadata.get("type")
+        if isinstance(existing_type, str) and existing_type.strip():
+            return existing_type.strip()
+
+        candidates = [source_path.name, file_name]
+        seen: set[str] = set()
+        for candidate in candidates:
+            normalized = candidate.strip()
+            if not normalized or normalized in seen:
+                continue
+            seen.add(normalized)
+            suffix = Path(normalized).suffix.lower()
+            if suffix in _MIME_TYPE_OVERRIDES:
+                return _MIME_TYPE_OVERRIDES[suffix]
+            guessed = mimetypes.guess_type(normalized)[0]
+            if guessed:
+                return guessed
+        return "application/octet-stream"
+
     def upload_file(
         self,
         session_id: str,
@@ -314,10 +344,10 @@ class UnoLockWritableFilesClient(UnoLockReadonlyFilesClient):
         resolved_mime = mime_type.strip() if isinstance(mime_type, str) and mime_type.strip() else None
         existing_metadata = dict(existing_archive.get("m") if existing_archive and isinstance(existing_archive.get("m"), dict) else {})
         if not resolved_mime:
-            resolved_mime = (
-                existing_metadata.get("type")
-                if isinstance(existing_metadata.get("type"), str) and existing_metadata.get("type")
-                else mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+            resolved_mime = self._infer_mime_type(
+                source_path=source_path,
+                file_name=file_name,
+                existing_metadata=existing_metadata,
             )
         archive_metadata = dict(existing_metadata)
         archive_metadata["name"] = file_name

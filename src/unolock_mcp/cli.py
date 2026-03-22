@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from pathlib import Path
 from typing import Any
 
 from unolock_mcp import __version__ as MCP_VERSION
@@ -316,7 +317,7 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
         "help": "Remove a sync job.",
         "description": "Remove one UnoLock sync job. By default this removes only the sync configuration.",
         "arguments": [
-            (("sync_id",), {"help": "Sync job id."}),
+            (("target",), {"help": "Sync job id or watched local path."}),
             (("--delete-remote",), {"action": "store_true", "help": "Also delete the bound Cloud file if present."}),
         ],
     },
@@ -325,7 +326,7 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
         "help": "Restore a synced file.",
         "description": "Restore one UnoLock synced Cloud file back to the local filesystem.",
         "arguments": [
-            (("sync_id",), {"help": "Sync job id."}),
+            (("target",), {"help": "Sync job id or watched local path."}),
             (("--output-path",), {"default": None, "help": "Restore target path. Defaults to the watched local path."}),
             (("--overwrite",), {"action": "store_true"}),
         ],
@@ -498,13 +499,19 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
             "sync_id": args.sync_id,
         }
     if command == "sync-remove":
+        target = args.target
+        if any(sep in target for sep in ("/", "\\")) or target.startswith((".", "~")):
+            target = str(Path(target).expanduser().resolve(strict=False))
         return "unolock_sync_remove", {
-            "sync_id": args.sync_id,
+            "sync_id": target,
             "delete_remote": args.delete_remote,
         }
     if command == "sync-restore":
+        target = args.target
+        if any(sep in target for sep in ("/", "\\")) or target.startswith((".", "~")):
+            target = str(Path(target).expanduser().resolve(strict=False))
         return "unolock_sync_restore", {
-            "sync_id": args.sync_id,
+            "sync_id": target,
             "output_path": args.output_path,
             "overwrite": args.overwrite,
         }

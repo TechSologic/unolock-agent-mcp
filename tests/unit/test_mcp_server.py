@@ -1139,6 +1139,19 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(sync_service.remove_calls[-1]["sync_id"], "syn_01")
             self.assertTrue(sync_service.remove_calls[-1]["delete_remote"])
 
+    def test_sync_remove_passes_local_path_to_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_remove"].fn("/tmp/file.txt", False)
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertTrue(result["removed"])
+            self.assertEqual(sync_service.remove_calls[-1]["sync_id"], "/tmp/file.txt")
+            self.assertFalse(sync_service.remove_calls[-1]["delete_remote"])
+
     def test_sync_enable_calls_service(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             with ExitStack() as stack:
@@ -1176,6 +1189,20 @@ class AutoSessionToolFlowTest(unittest.TestCase):
             self.assertEqual(sync_service.restore_calls[-1]["sync_id"], "syn_01")
             self.assertEqual(sync_service.restore_calls[-1]["output_path"], "/tmp/restore.txt")
             self.assertTrue(sync_service.restore_calls[-1]["overwrite"])
+
+    def test_sync_restore_passes_local_path_to_service(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with ExitStack() as stack:
+                server = self._create_server(tmpdir, stack)
+                auth = _FakeAgentAuthForAutoSession.instances[0]
+                auth.set_agent_pin("1")
+                result = server._tool_manager._tools["unolock_sync_restore"].fn("/tmp/file.txt", None, False)
+                sync_service = _FakeSyncService.instances[-1]
+
+            self.assertEqual(result["bytes_written"], 12)
+            self.assertEqual(sync_service.restore_calls[-1]["sync_id"], "/tmp/file.txt")
+            self.assertEqual(sync_service.restore_calls[-1]["output_path"], None)
+            self.assertFalse(sync_service.restore_calls[-1]["overwrite"])
 
     def test_list_spaces_returns_clear_error_when_agent_has_no_spaces(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

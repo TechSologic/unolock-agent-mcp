@@ -431,6 +431,83 @@ class UnoLockFilesClientTest(unittest.TestCase):
         self.assertEqual(len(complete_kwargs["parts"]), 2)
         self.api_client.delete_archive.assert_not_called()
 
+    def test_upload_file_sets_markdown_mime_type_in_archive_metadata(self) -> None:
+        archive_id = "cloud-1"
+        records_archive = {
+            "id": "records-1",
+            "t": "Records",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata({"tr": "lput", "spaceName": "Main"}, 42),
+        }
+
+        file_bytes = b"# heading\n\nhello\n"
+        encrypted_chunk, kek = self.keyring.encrypt_bytes_with_kek(
+            file_bytes,
+            archive_id=archive_id,
+            sid=42,
+            kek=None,
+        )
+        cloud_archive = {
+            "id": archive_id,
+            "t": "Cloud",
+            "sid": 42,
+            "l": "17",
+            "m": self._encrypted_metadata(
+                {
+                    "name": "notes.md",
+                    "type": "text/markdown",
+                    "spaceName": "Main",
+                    "kek": kek,
+                },
+                42,
+            ),
+            "fs": len(file_bytes),
+            "s": len(encrypted_chunk),
+            "p": [len(encrypted_chunk)],
+        }
+
+        self.api_client.get_spaces.return_value = {
+            "callback": {"type": "GetSpaces", "result": [{"spaceID": 42, "type": "PRIVATE", "owner": True}]}
+        }
+        self.api_client.get_archives.side_effect = [
+            {"callback": {"type": "GetArchives", "result": [records_archive]}},
+            {"callback": {"type": "GetArchives", "result": [records_archive, cloud_archive]}},
+        ]
+        self.api_client.create_archive.return_value = {
+            "callback": {"type": "CreateArchive", "result": {"id": archive_id, "t": "Cloud", "sid": 42, "l": "17"}}
+        }
+        self.api_client.init_archive_upload.return_value = {
+            "callback": {
+                "type": "InitArchiveUpload",
+                "result": {"uploadId": "upload-1", "signedUrl": "https://upload.example/part-1"},
+            }
+        }
+        self.api_client.complete_archive_upload.return_value = {
+            "callback": {"type": "CompleteArchiveUpload", "result": {"result": "SUCCESS", "safeExp": 123}}
+        }
+        self.api_client.http_client.put_bytes_absolute.return_value = {
+            "status": 200,
+            "headers": {"ETag": '"etag-1"'},
+            "body": b"",
+        }
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            source_path = Path(tmpdir) / "notes.md"
+            source_path.write_bytes(file_bytes)
+
+            result = self.writable_client.upload_file(
+                "session-1",
+                space_id=42,
+                local_path=str(source_path),
+            )
+
+        self.assertTrue(result["ok"])
+        complete_kwargs = self.api_client.complete_archive_upload.call_args.kwargs
+        decrypted_metadata = json.loads(self.keyring.decrypt_string(complete_kwargs["metadata"], sid=42))
+        self.assertEqual(decrypted_metadata["name"], "notes.md")
+        self.assertEqual(decrypted_metadata["type"], "text/markdown")
+
     def test_upload_file_deletes_created_archive_after_part_upload_failure(self) -> None:
         archive_id = "cloud-1"
         records_archive = {

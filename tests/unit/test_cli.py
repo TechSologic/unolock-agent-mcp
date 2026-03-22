@@ -110,6 +110,14 @@ class CliEntryPointTest(unittest.TestCase):
         self.assertEqual(tool_name, "unolock_sync_remove")
         self.assertEqual(payload, {"sync_id": "syn_01", "delete_remote": True})
 
+    def test_sync_remove_cli_path_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-remove", "./file.txt"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_remove")
+        self.assertEqual(payload, {"sync_id": str(cli.Path("./file.txt").expanduser().resolve(strict=False)), "delete_remote": False})
+
     def test_sync_enable_cli_request_mapping(self) -> None:
         args = cli.build_parser().parse_args(["sync-enable", "syn_01"])
 
@@ -133,6 +141,21 @@ class CliEntryPointTest(unittest.TestCase):
 
         self.assertEqual(tool_name, "unolock_sync_restore")
         self.assertEqual(payload, {"sync_id": "syn_01", "output_path": "/tmp/out.txt", "overwrite": True})
+
+    def test_sync_restore_cli_path_request_mapping(self) -> None:
+        args = cli.build_parser().parse_args(["sync-restore", "./file.txt"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_restore")
+        self.assertEqual(
+            payload,
+            {
+                "sync_id": str(cli.Path("./file.txt").expanduser().resolve(strict=False)),
+                "output_path": None,
+                "overwrite": False,
+            },
+        )
 
     def test_main_prints_help_without_subcommand(self) -> None:
         with patch.object(cli.argparse.ArgumentParser, "print_help") as help_mock:
