@@ -7,6 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from unolock_mcp.sync.config_note import (
+    DEFAULT_SYNC_DEBOUNCE_SECONDS,
+    DEFAULT_SYNC_POLL_SECONDS,
     SyncJobConfig,
     SyncManifest,
     reserved_sync_config_note_title,
@@ -49,6 +51,15 @@ def _parse_iso_timestamp(raw: str | None) -> datetime | None:
         return datetime.fromisoformat(raw.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _poll_due(last_updated_at: str | None, poll_seconds: int) -> bool:
+    if poll_seconds <= 0:
+        return True
+    last_updated = _parse_iso_timestamp(last_updated_at)
+    if last_updated is None:
+        return True
+    return (datetime.now(timezone.utc) - last_updated).total_seconds() >= poll_seconds
 
 
 class SyncService:
@@ -124,6 +135,12 @@ class SyncService:
             raise ValueError(f"invalid_sync_config_note: Multiple reserved sync notes named {title!r} exist in space {space_id}.")
         return matches[0] if matches else None
 
+    def _parse_reserved_manifest_note(self, note: dict[str, Any]) -> SyncManifest:
+        try:
+            return SyncManifest.from_note_text(str(note.get("plain_text", "")))
+        except ValueError as exc:
+            raise ValueError(f"invalid_sync_config_note: {exc}") from exc
+
     def _load_manifests(self, session_id: str, *, key_id: str) -> list[SyncManifest]:
         manifests: list[SyncManifest] = []
         for space in self._list_space_summaries(session_id):
@@ -133,10 +150,7 @@ class SyncService:
             note = self._find_reserved_config_note(session_id, space_id=space_id, key_id=key_id)
             if note is None:
                 continue
-            try:
-                manifest = SyncManifest.from_note_text(str(note.get("plain_text", "")))
-            except ValueError as exc:
-                raise ValueError(f"invalid_sync_config_note: {exc}") from exc
+            manifest = self._parse_reserved_manifest_note(note)
             if manifest.key_id != key_id:
                 raise ValueError("invalid_sync_config_note: Reserved sync config note key_id does not match the active agent key.")
             for job in manifest.jobs:
@@ -175,7 +189,7 @@ class SyncService:
         note = self._find_reserved_config_note(session_id, space_id=job.space_id, key_id=key_id)
         if note is None:
             return
-        manifest = SyncManifest.from_note_text(str(note.get("plain_text", "")))
+        manifest = self._parse_reserved_manifest_note(note)
         target = next((config_job for config_job in manifest.jobs if config_job.sync_id == job.sync_id), None)
         if target is None or target.archive_id == job.archive_id:
             return
@@ -333,6 +347,7 @@ class SyncService:
         key_id: str | None,
         sync_id: str | None = None,
         run_all: bool = False,
+        force: bool = True,
     ) -> dict[str, Any]:
         if not run_all and not (isinstance(sync_id, str) and sync_id.strip()):
             raise ValueError("invalid_input: sync-run requires a sync_id or --all.")
@@ -354,6 +369,18 @@ class SyncService:
         for job in state.jobs:
             if job.sync_id not in selected_ids:
                 updated_jobs.append(job)
+                continue
+            if not force and not _poll_due(job.updated_at, job.poll_seconds):
+                updated_jobs.append(job)
+                results.append(
+                    {
+                        "sync_id": job.sync_id,
+                        "status": job.status,
+                        "changed": False,
+                        "skipped": True,
+                        "reason": "poll_interval_not_elapsed",
+                    }
+                )
                 continue
             updated_job, result = self._run_job(session_id, job)
             if updated_job.archive_id and updated_job.archive_id != job.archive_id:
@@ -396,8 +423,8 @@ class SyncService:
         mime_type: str | None = None,
         archive_id: str | None = None,
         enabled: bool = True,
-        poll_seconds: int = 5,
-        debounce_seconds: int = 2,
+        poll_seconds: int = DEFAULT_SYNC_POLL_SECONDS,
+        debounce_seconds: int = DEFAULT_SYNC_DEBOUNCE_SECONDS,
     ) -> dict[str, Any]:
         resolved_key_id = self._require_key_id(key_id)
         source_path = Path(local_path).expanduser().resolve(strict=False)
@@ -424,10 +451,7 @@ class SyncService:
         target_note = self._find_reserved_config_note(session_id, space_id=space_id, key_id=resolved_key_id)
         target_manifest = SyncManifest(key_id=resolved_key_id, jobs=())
         if target_note is not None:
-            try:
-                target_manifest = SyncManifest.from_note_text(str(target_note.get("plain_text", "")))
-            except ValueError as exc:
-                raise ValueError(f"invalid_sync_config_note: {exc}") from exc
+            target_manifest = self._parse_reserved_manifest_note(target_note)
 
         next_jobs = tuple([*target_manifest.jobs, sync_job])
         next_manifest = SyncManifest(key_id=resolved_key_id, jobs=next_jobs)

@@ -19,6 +19,7 @@ from unolock_mcp.domain.models import UnoLockConfig
 from unolock_mcp.update import get_update_status
 from unolock_mcp.sync.runtime_store import SyncRuntimeStore
 from unolock_mcp.sync.service import SyncService
+from unolock_mcp.sync.config_note import DEFAULT_SYNC_DEBOUNCE_SECONDS, DEFAULT_SYNC_POLL_SECONDS
 
 
 def _advanced_tools_enabled() -> bool:
@@ -301,6 +302,7 @@ def create_mcp_server() -> FastMCP:
                 SessionStore.ACTIVE_SESSION_ID,
                 key_id=key_id,
                 run_all=True,
+                force=False,
             )
         except ValueError:
             return None
@@ -1371,8 +1373,8 @@ def create_mcp_server() -> FastMCP:
         mime_type: str | None = None,
         archive_id: str | None = None,
         enabled: bool = True,
-        poll_seconds: int = 5,
-        debounce_seconds: int = 2,
+        poll_seconds: int = DEFAULT_SYNC_POLL_SECONDS,
+        debounce_seconds: int = DEFAULT_SYNC_DEBOUNCE_SECONDS,
     ) -> dict[str, Any]:
         def operation(resolved_session_id: str) -> dict[str, Any]:
             readonly_records = UnoLockReadonlyRecordsClient(

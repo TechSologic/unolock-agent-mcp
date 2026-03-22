@@ -373,8 +373,8 @@ class _FakeSyncService:
         mime_type: str | None = None,
         archive_id: str | None = None,
         enabled: bool = True,
-        poll_seconds: int = 5,
-        debounce_seconds: int = 2,
+        poll_seconds: int = 60,
+        debounce_seconds: int = 10,
     ) -> dict[str, object]:
         call = {
             "session_id": session_id,
@@ -409,12 +409,14 @@ class _FakeSyncService:
         key_id: str | None,
         sync_id: str | None = None,
         run_all: bool = False,
+        force: bool = True,
     ) -> dict[str, object]:
         call = {
             "session_id": session_id,
             "key_id": key_id,
             "sync_id": sync_id,
             "run_all": run_all,
+            "force": force,
         }
         self.run_calls.append(call)
         return {

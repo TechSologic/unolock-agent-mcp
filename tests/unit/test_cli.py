@@ -65,6 +65,17 @@ class CliEntryPointTest(unittest.TestCase):
             },
         )
 
+    def test_sync_add_cli_normalizes_relative_local_path(self) -> None:
+        args = cli.build_parser().parse_args(["sync-add", "./file.txt"])
+
+        tool_name, payload = cli._cli_tool_request_from_args(args)
+
+        self.assertEqual(tool_name, "unolock_sync_add")
+        self.assertEqual(
+            payload["local_path"],
+            str(cli.Path("./file.txt").expanduser().resolve(strict=False)),
+        )
+
     def test_cli_success_value_formats_sync_status(self) -> None:
         payload = cli._cli_success_value(
             "unolock_sync_status",

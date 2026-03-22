@@ -119,8 +119,8 @@ Example:
       "archive_id": "12345",
       "mode": "push",
       "enabled": true,
-      "poll_seconds": 5,
-      "debounce_seconds": 2
+      "poll_seconds": 60,
+      "debounce_seconds": 10
     }
   ]
 }
@@ -399,8 +399,8 @@ Recommended top-level shape:
 {
   "version": 1,
   "defaults": {
-    "poll_seconds": 5,
-    "debounce_seconds": 2
+    "poll_seconds": 60,
+    "debounce_seconds": 10
   },
   "jobs": [
     {
@@ -413,8 +413,8 @@ Recommended top-level shape:
       "name": "file.txt",
       "mime_type": "text/plain",
       "enabled": true,
-      "poll_seconds": 5,
-      "debounce_seconds": 2,
+      "poll_seconds": 60,
+      "debounce_seconds": 10,
       "created_at": "2026-03-21T14:20:00Z",
       "updated_at": "2026-03-21T14:22:11Z",
       "last_uploaded_at": "2026-03-21T14:22:11Z",

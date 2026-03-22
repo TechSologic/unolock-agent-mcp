@@ -7,6 +7,8 @@ from typing import Any
 
 
 DEFAULT_SYNC_SCHEMA_VERSION = 1
+DEFAULT_SYNC_POLL_SECONDS = 60
+DEFAULT_SYNC_DEBOUNCE_SECONDS = 10
 VALID_SYNC_MODES = frozenset({"push", "pull", "bidirectional"})
 SYNC_CONFIG_NOTE_PREFIX = "@unolock-agent.sync-config:"
 SYNC_EVENTS_NOTE_PREFIX = "@unolock-agent.sync-events:"
@@ -49,8 +51,8 @@ class SyncJobConfig:
     archive_id: str | None = None
     mode: str = "push"
     enabled: bool = True
-    poll_seconds: int = 5
-    debounce_seconds: int = 2
+    poll_seconds: int = DEFAULT_SYNC_POLL_SECONDS
+    debounce_seconds: int = DEFAULT_SYNC_DEBOUNCE_SECONDS
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "sync_id", _require_non_empty_string(self.sync_id, "sync_id"))
@@ -102,8 +104,8 @@ class SyncJobConfig:
             archive_id=str(raw["archive_id"]) if raw.get("archive_id") is not None else None,
             mode=str(raw.get("mode") or "push"),
             enabled=bool(raw.get("enabled", True)),
-            poll_seconds=int(raw.get("poll_seconds") or 5),
-            debounce_seconds=int(raw.get("debounce_seconds") or 2),
+            poll_seconds=int(raw.get("poll_seconds") or DEFAULT_SYNC_POLL_SECONDS),
+            debounce_seconds=int(raw.get("debounce_seconds") or DEFAULT_SYNC_DEBOUNCE_SECONDS),
         )
 
 

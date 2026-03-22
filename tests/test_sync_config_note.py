@@ -6,6 +6,8 @@ import unittest
 from pathlib import Path
 
 from unolock_mcp.sync.config_note import (
+    DEFAULT_SYNC_DEBOUNCE_SECONDS,
+    DEFAULT_SYNC_POLL_SECONDS,
     SyncJobConfig,
     SyncManifest,
     reserved_sync_config_note_title,
@@ -91,8 +93,8 @@ class SyncConfigNoteTest(unittest.TestCase):
                         mime_type="text/plain",
                         mode="push",
                         enabled=True,
-                        poll_seconds=5,
-                        debounce_seconds=2,
+                        poll_seconds=DEFAULT_SYNC_POLL_SECONDS,
+                        debounce_seconds=DEFAULT_SYNC_DEBOUNCE_SECONDS,
                         last_uploaded_sha256="abc123",
                         status="synced",
                     ),
@@ -138,8 +140,8 @@ class SyncConfigNoteTest(unittest.TestCase):
                         mime_type="text/plain",
                         mode="push",
                         enabled=True,
-                        poll_seconds=5,
-                        debounce_seconds=2,
+                        poll_seconds=DEFAULT_SYNC_POLL_SECONDS,
+                        debounce_seconds=DEFAULT_SYNC_DEBOUNCE_SECONDS,
                         last_uploaded_sha256="abc123",
                         last_remote_revision="rev-1",
                         status="synced",

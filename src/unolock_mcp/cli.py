@@ -29,6 +29,7 @@ from unolock_mcp.host import (
     stop_daemon,
     get_daemon_status,
 )
+from unolock_mcp.sync.config_note import DEFAULT_SYNC_DEBOUNCE_SECONDS, DEFAULT_SYNC_POLL_SECONDS
 from unolock_mcp.update import get_update_status
 
 
@@ -39,6 +40,15 @@ def _parse_bool(raw: str) -> bool:
     if value in {"0", "false", "no", "n", "off"}:
         return False
     raise argparse.ArgumentTypeError("expected a boolean value like true or false")
+
+
+def _normalize_cli_path(path: str | None) -> str | None:
+    if not isinstance(path, str):
+        return path
+    normalized = path.strip()
+    if not normalized:
+        return path
+    return str(Path(normalized).expanduser().resolve(strict=False))
 
 
 CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
@@ -283,8 +293,8 @@ CLI_TOOL_COMMANDS: dict[str, dict[str, Any]] = {
             (("--mime-type",), {"dest": "mime_type", "default": None}),
             (("--archive-id",), {"default": None, "help": "Bind sync to an existing Cloud archive."}),
             (("--disabled",), {"action": "store_true", "help": "Create the sync job without enabling it."}),
-            (("--poll-seconds",), {"type": int, "default": 5}),
-            (("--debounce-seconds",), {"type": int, "default": 2}),
+            (("--poll-seconds",), {"type": int, "default": DEFAULT_SYNC_POLL_SECONDS}),
+            (("--debounce-seconds",), {"type": int, "default": DEFAULT_SYNC_DEBOUNCE_SECONDS}),
         ],
     },
     "sync-run": {
@@ -450,12 +460,12 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
     if command == "download-file":
         return "unolock_download_file", {
             "archive_id": args.archive_id,
-            "output_path": args.output_path,
+            "output_path": _normalize_cli_path(args.output_path),
             "overwrite": args.overwrite,
         }
     if command == "upload-file":
         return "unolock_upload_file", {
-            "local_path": args.local_path,
+            "local_path": _normalize_cli_path(args.local_path),
             "title": args.title,
             "mime_type": args.mime_type,
         }
@@ -464,7 +474,7 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
     if command == "replace-file":
         return "unolock_replace_file", {
             "archive_id": args.archive_id,
-            "local_path": args.local_path,
+            "local_path": _normalize_cli_path(args.local_path),
             "title": args.title,
             "mime_type": args.mime_type,
         }
@@ -476,7 +486,7 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
         return "unolock_sync_status", {}
     if command == "sync-add":
         return "unolock_sync_add", {
-            "local_path": args.local_path,
+            "local_path": _normalize_cli_path(args.local_path),
             "space_id": args.space_id,
             "title": args.title,
             "mime_type": args.mime_type,
@@ -512,7 +522,7 @@ def _cli_tool_request_from_args(args: argparse.Namespace) -> tuple[str, dict[str
             target = str(Path(target).expanduser().resolve(strict=False))
         return "unolock_sync_restore", {
             "sync_id": target,
-            "output_path": args.output_path,
+            "output_path": _normalize_cli_path(args.output_path),
             "overwrite": args.overwrite,
         }
     raise ValueError(f"Unknown CLI tool command: {command}")

@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from unolock_mcp.config import default_state_dir
-from unolock_mcp.sync.config_note import SyncJobConfig
+from unolock_mcp.sync.config_note import DEFAULT_SYNC_DEBOUNCE_SECONDS, DEFAULT_SYNC_POLL_SECONDS, SyncJobConfig
 
 
 RUNTIME_STATE_VERSION = 1
@@ -145,8 +145,8 @@ class SyncRuntimeJob:
             mime_type=str(raw["mime_type"]) if raw.get("mime_type") is not None else None,
             mode=str(raw.get("mode") or "push"),
             enabled=bool(raw.get("enabled", True)),
-            poll_seconds=int(raw.get("poll_seconds") or 5),
-            debounce_seconds=int(raw.get("debounce_seconds") or 2),
+            poll_seconds=int(raw.get("poll_seconds") or DEFAULT_SYNC_POLL_SECONDS),
+            debounce_seconds=int(raw.get("debounce_seconds") or DEFAULT_SYNC_DEBOUNCE_SECONDS),
             created_at=str(raw["created_at"]) if raw.get("created_at") is not None else None,
             updated_at=str(raw["updated_at"]) if raw.get("updated_at") is not None else None,
             last_uploaded_at=str(raw["last_uploaded_at"]) if raw.get("last_uploaded_at") is not None else None,
@@ -175,8 +175,8 @@ class SyncRuntimeState:
             raise ValueError(f"Unsupported sync runtime state version: {self.version}")
         object.__setattr__(self, "version", int(self.version))
         defaults = dict(self.defaults or {})
-        defaults.setdefault("poll_seconds", 5)
-        defaults.setdefault("debounce_seconds", 2)
+        defaults.setdefault("poll_seconds", DEFAULT_SYNC_POLL_SECONDS)
+        defaults.setdefault("debounce_seconds", DEFAULT_SYNC_DEBOUNCE_SECONDS)
         object.__setattr__(self, "defaults", defaults)
         seen_sync_ids: set[str] = set()
         normalized_jobs: list[SyncRuntimeJob] = []
