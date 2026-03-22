@@ -55,6 +55,7 @@ Use `unolock-agent` for:
 * implementing agent registration
 * implementing agent access
 * later, calling the authenticated Safe API surface
+* testing sync add, status, run, and restore against a real Safe with Cloud files
 
 ## Why this matters
 
@@ -66,3 +67,20 @@ The intended model is:
 2. Human admin creates agent access.
 3. MCP registers.
 4. MCP authenticates and operates within delegated permissions.
+
+## Sync-focused local testing
+
+Once local registration and normal file access are working, a useful real-Safe sync test is:
+
+1. create a small local file such as `SOUL.md`
+2. run `unolock-agent sync-add ./SOUL.md`
+3. run `unolock-agent sync-status`
+4. edit the file locally and run `unolock-agent sync-run --all`
+5. confirm the Cloud file was updated in the expected Space
+6. remove the local file or restore to another path with `unolock-agent sync-restore ./SOUL.md`
+
+Current sync scope for local E2E:
+
+* one-way local-to-cloud backup only
+* manual restore only
+* no automatic remote-to-local sync yet

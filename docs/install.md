@@ -92,9 +92,12 @@ For normal direct use, prefer `unolock-agent ...` if it is already installed. Ru
 
 ```bash
 unolock-agent register '<agent-key-url>' '<pin>'
+unolock-agent status
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent list-files
+unolock-agent sync-add ./SOUL.md
+unolock-agent sync-status
 ```
 
 If you want OpenClaw to load the UnoLock skill as a plugin, the intended published install path is:
@@ -141,6 +144,30 @@ Notes:
 * `start` starts the local UnoLock runtime only if it is not already running.
 * `tools` and `call` auto-start UnoLock if needed.
 * the current Space, auth state, and PIN-in-memory behavior belong to UnoLock itself
+
+## Sync install expectations
+
+The current sync feature is included in the normal CLI. No separate install step is required.
+
+Current sync model:
+
+* one sync job maps one local file to one UnoLock Cloud archive in one Space
+* sync is currently one-way from local file to UnoLock Cloud
+* restore is explicit and manual with `sync-restore`
+* sync requires UnoLock Cloud files and does not work on Safe tiers that do not support Cloud files
+* sync config lives in reserved notes inside the Space, while runtime digests and status stay local
+
+Typical flow after install:
+
+```bash
+unolock-agent sync-add ./SOUL.md
+unolock-agent sync-status
+unolock-agent sync-restore ./SOUL.md
+```
+
+Important scope note:
+
+* sync is a small important-file backup feature, not whole-directory sync or full bidirectional sync
 
 ## Updates
 

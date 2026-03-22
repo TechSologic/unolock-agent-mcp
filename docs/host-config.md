@@ -42,6 +42,8 @@ The preferred mode is:
 * use `unolock-agent mcp` only for hosts that specifically require MCP
 * let UnoLock manage its own local runtime so the user PIN can remain in process memory instead of being persisted by the agent
 
+The same daemon-backed runtime also owns sync polling for the current one-way file backup feature.
+
 For customer use, prefer a standalone GitHub Release binary:
 
 * `https://github.com/TechSologic/unolock-agent/releases`
@@ -282,6 +284,14 @@ Relevant tools:
 * `unolock_set_checklist_item_done`
 * `unolock_add_checklist_item`
 * `unolock_remove_checklist_item`
+* `unolock_sync_list`
+* `unolock_sync_status`
+* `unolock_sync_add`
+* `unolock_sync_run`
+* `unolock_sync_enable`
+* `unolock_sync_disable`
+* `unolock_sync_remove`
+* `unolock_sync_restore`
 
 Important current-space behavior:
 
@@ -301,6 +311,13 @@ Write guidance:
 * Use `archive_id` from `unolock_list_files` or `unolock_get_file` when renaming, replacing, or deleting a Cloud file.
 * The MCP keeps archive snapshots in memory only and uses a 5-minute default freshness TTL.
 * On write conflict, the MCP rereads the archive, checks the record version, and tells the agent when a reread is required.
+
+Sync guidance:
+
+* Treat sync as a small important-file backup feature, not recursive directory sync.
+* Sync is currently one-way from local file to UnoLock Cloud.
+* Use `unolock_sync_restore` for explicit restore; remote changes are not auto-downloaded yet.
+* Sync config follows the Space through reserved notes, so a newly registered agent in the same Space can adopt existing sync jobs later.
 
 ## Local development values
 

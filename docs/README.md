@@ -41,5 +41,6 @@ Current docs:
 * [support-matrix.md](support-matrix.md)
 * [host-config.md](host-config.md)
 * [tool-catalog.md](tool-catalog.md)
+* [sync-design.md](sync-design.md)
 * [testing-with-local-safe.md](testing-with-local-safe.md)
 * [release.md](release.md)

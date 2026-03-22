@@ -34,6 +34,7 @@ It gives an agent a safer place to keep and use:
 * structured notes
 * checklists
 * space-scoped working data
+* selected local file backups through UnoLock sync
 
 Compared to local memory files or plaintext secret storage, UnoLock gives the agent:
 
@@ -158,9 +159,12 @@ npm install -g @techsologic/unolock-agent
 
 ```bash
 unolock-agent register 'https://safe.example/#/agent-register/...' 1
+unolock-agent status
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent list-files
+unolock-agent sync-add ./SOUL.md
+unolock-agent sync-status
 ```
 
 Only if a host needs the explicit host-command form, use:
@@ -176,10 +180,13 @@ The same executable also supports explicit CLI commands, for example:
 
 ```bash
 unolock-agent register 'https://safe.example/#/agent-register/...' 1
+unolock-agent status
 unolock-agent list-spaces
 unolock-agent list-notes
 unolock-agent create-note "Todo" "Buy milk"
 unolock-agent list-files
+unolock-agent sync-add ./SOUL.md
+unolock-agent sync-restore ./SOUL.md
 ```
 
 Use the explicit `mcp` subcommand only for hosts that require that command shape. Running `unolock-agent` with no arguments prints usage.
@@ -258,6 +265,40 @@ The npm package is both:
 
 * the normal UnoLock executable package
 * a plugin package that ships the shared UnoLock skill for hosts like OpenClaw and Claude Code
+
+## Current CLI Surface
+
+The main end-user CLI commands today are:
+
+* registration and auth: `register`, `set-pin`
+* Space selection: `list-spaces`, `get-current-space`, `set-current-space`
+* notes and checklists: `list-records`, `list-notes`, `list-checklists`, `get-record`, `create-note`, `update-note`, `append-note`, `rename-record`, `create-checklist`, `set-checklist-item-done`, `add-checklist-item`, `remove-checklist-item`
+* Cloud files: `list-files`, `get-file`, `download-file`, `upload-file`, `rename-file`, `replace-file`, `delete-file`
+* sync: `sync-list`, `sync-status`, `sync-add`, `sync-run`, `sync-enable`, `sync-disable`, `sync-remove`, `sync-restore`
+* diagnostics: `tpm-diagnose`, `tpm-check`, `self-test`
+* MCP host mode: `mcp`
+
+Advanced local daemon controls also exist:
+
+* `unolock-agent status`
+* `unolock-agent start`
+* `unolock-agent stop`
+* `unolock-agent tools`
+* `unolock-agent call <tool> --args '{...}'`
+
+For normal CLI use, the daemon is auto-started as needed.
+
+## Sync Model
+
+UnoLock sync is intentionally narrow right now:
+
+* one sync job maps one local file to one Cloud archive in one Space
+* sync is currently one-way from local file to UnoLock Cloud
+* restore is explicit and manual with `sync-restore`
+* sync requires UnoLock Cloud files and therefore does not work on Safe tiers that do not support Cloud files
+* sync config is stored in a reserved Space note so a clean reinstall or new agent registration can adopt the same sync jobs later
+
+This is a small important-file backup feature, not recursive directory sync or general-purpose bidirectional sync.
 
 Project home:
 
@@ -367,8 +408,9 @@ The package now also exposes a real stdio MCP server with:
 * convenience wrappers for `GetSpaces` and `GetArchives`
 * note and checklist projection from UnoLock `Records` archives
 * write-support MVP for notes and checklists with version-aware conflict handling
+* daemon-backed file sync configuration, status, push-to-Cloud, and manual restore
 
-Installed commands:
+Python/source installs additionally expose these entry points:
 
 * `unolock-agent-probe`
   * run the packaged local probe
@@ -377,6 +419,8 @@ Installed commands:
   * use `unolock-agent mcp` for stdio MCP mode
 * `unolock-agent-tpm-check`
   * run the fail-fast production-readiness TPM check
+* `unolock-agent-self-test`
+  * run the one-shot UnoLock Agent readiness check
 
 Current MCP tools:
 
@@ -404,16 +448,28 @@ Current MCP tools:
 * `unolock_set_checklist_item_done`
 * `unolock_add_checklist_item`
 * `unolock_remove_checklist_item`
+* `unolock_sync_list`
+* `unolock_sync_status`
+* `unolock_sync_add`
+* `unolock_sync_run`
+* `unolock_sync_enable`
+* `unolock_sync_disable`
+* `unolock_sync_remove`
+* `unolock_sync_restore`
+* `unolock_get_update_status`
 
 Low-level flow and raw API debug tools are hidden by default. Enable them only for debugging with `UNOLOCK_MCP_ENABLE_ADVANCED_TOOLS=1`.
 * the software provider is the final fallback when the host cannot provide a production-grade provider, and the MCP surfaces that reduced assurance clearly
 * once authenticated, the MCP can read UnoLock notes/checklists and project them into plain-text agent-friendly DTOs while keeping the stored Quill/checklist formats unchanged
 * the MCP can now create notes and checklists and perform version-aware note/checklist updates, note appends, and checklist updates within the agent's allowed Spaces
 * the MCP now keeps one current Space and uses it as the default for normal read, write, and Cloud file operations
+* the first-party local daemon auto-starts for normal CLI and stdio MCP use and supports version handoff during upgrades without transferring authenticated session state
 * registration status now reports a `recommended_next_action` and `guidance` field so an agent can tell whether it should ask for an agent key URL, ask for a PIN, start registration, or authenticate
 * after the MCP process restarts, the agent stays registered but must ask the user for the PIN again before re-authenticating
 * registration state now remembers which TPM provider created the agent key and will tell the host to re-register or force the old provider if there is a provider mismatch
 * the MCP can diagnose the active TPM/vTPM provider and give host advice when no working TPM/vTPM is detected
+* sync config is stored in reserved Space notes, while runtime state stays local for digests, timestamps, and event dedupe
+* sync can adopt existing reserved sync notes after a clean reinstall or new agent registration in the same Spaces
 
 Read and write support:
 
@@ -432,6 +488,11 @@ Read and write support:
 * `unolock_rename_file` updates only Cloud file metadata and keeps the archive in place
 * `unolock_replace_file` reuses the existing Cloud archive ID while replacing file contents
 * `unolock_delete_file` removes the Cloud archive when the Agent Key is writable
+* `unolock_sync_add` writes reserved sync configuration in the target Space
+* `unolock_sync_status` merges reserved sync configuration with local runtime state
+* `unolock_sync_run` pushes local changes to the bound Cloud archive
+* `unolock_sync_restore` restores the bound Cloud archive back to the watched path or an explicit output path
+* `unolock_sync_remove` and `unolock_sync_restore` accept either a sync id or the watched local file path
 
 Current bootstrap limitation:
 

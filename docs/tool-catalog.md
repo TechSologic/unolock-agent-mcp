@@ -10,7 +10,7 @@ The normal agent workflow is:
 2. Allow extra time on the very first start on a fresh host, because local cryptographic code may need to be compiled or prepared.
 3. Ask for the one-time UnoLock Agent Key URL and PIN together when the MCP asks for setup.
 4. Follow the MCP's directions.
-5. Use the current Space for normal read, write, and file work.
+5. Use the current Space for normal read, write, file, and sync work.
 
 The MCP now keeps one current Space. If no current Space was selected yet, it auto-selects the first accessible Space and uses that as the default.
 
@@ -263,6 +263,104 @@ Arguments:
 Arguments:
 
 * `archive_id: str`
+
+## Sync tools
+
+Sync is currently a one-way local-to-cloud backup feature with manual restore.
+
+Current model:
+
+* one sync job maps one local file to one Cloud archive in one Space
+* sync config lives in reserved Space notes
+* runtime digests, timestamps, and status stay local
+* sync requires UnoLock Cloud files
+
+### `unolock_sync_list`
+
+Purpose:
+List configured sync jobs across accessible Spaces.
+
+Notes:
+
+* This is the static configured view derived from reserved sync notes.
+
+### `unolock_sync_status`
+
+Purpose:
+Show current sync status across configured sync jobs.
+
+Notes:
+
+* This merges reserved sync config with local runtime state.
+* It is the best command for checking whether a job is new, synced, disabled, blocked, or failed.
+
+### `unolock_sync_add`
+
+Arguments:
+
+* `local_path: str`
+* `space_id: int | None = None`
+* `title: str | null = None`
+* `mime_type: str | null = None`
+* `archive_id: str | null = None`
+* `enabled: bool = True`
+* `poll_seconds: int = 60`
+* `debounce_seconds: int = 10`
+
+Notes:
+
+* Adds one watched local file.
+* Writes sync config into the target Space.
+* The local path must exist and point to one file.
+
+### `unolock_sync_run`
+
+Arguments:
+
+* `sync_id: str | null = None`
+* `run_all: bool = False`
+
+Notes:
+
+* Forces an immediate push attempt.
+* Use this for manual runs outside the background poll cadence.
+
+### `unolock_sync_enable`
+
+Arguments:
+
+* `sync_id: str`
+
+### `unolock_sync_disable`
+
+Arguments:
+
+* `sync_id: str`
+
+### `unolock_sync_remove`
+
+Arguments:
+
+* `sync_id: str`
+* `delete_remote: bool = False`
+
+Notes:
+
+* Accepts either a sync id or the watched local file path.
+* By default this removes only the sync configuration, not the Cloud file.
+
+### `unolock_sync_restore`
+
+Arguments:
+
+* `sync_id: str`
+* `output_path: str | null = None`
+* `overwrite: bool = False`
+
+Notes:
+
+* Accepts either a sync id or the watched local file path.
+* Restores the bound Cloud archive to the watched path or an explicit output path.
 
 ## Explanatory resources
 
