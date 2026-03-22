@@ -10,6 +10,8 @@ from unolock_mcp.sync.config_note import (
     DEFAULT_SYNC_POLL_SECONDS,
     SyncJobConfig,
     SyncManifest,
+    is_reserved_sync_config_note_title,
+    is_reserved_sync_events_note_title,
     reserved_sync_config_note_title,
     reserved_sync_events_note_title,
 )
@@ -18,21 +20,24 @@ from unolock_mcp.sync.runtime_store import SyncRuntimeJob, SyncRuntimeState, Syn
 
 
 class SyncConfigNoteTest(unittest.TestCase):
-    def test_reserved_note_titles_include_key_id(self) -> None:
+    def test_reserved_note_titles_are_space_scoped(self) -> None:
         self.assertEqual(
             reserved_sync_config_note_title("agent-key"),
-            "@unolock-agent.sync-config:agent-key",
+            "@unolock-agent.sync-config",
         )
         self.assertEqual(
             reserved_sync_events_note_title("agent-key"),
-            "@unolock-agent.sync-events:agent-key",
+            "@unolock-agent.sync-events",
         )
+        self.assertTrue(is_reserved_sync_config_note_title("@unolock-agent.sync-config"))
+        self.assertTrue(is_reserved_sync_config_note_title("@unolock-agent.sync-config:agent-key"))
+        self.assertTrue(is_reserved_sync_events_note_title("@unolock-agent.sync-events"))
+        self.assertTrue(is_reserved_sync_events_note_title("@unolock-agent.sync-events:agent-key"))
 
     def test_manifest_round_trips_with_default_push_mode(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             local_path = str(Path(tmpdir) / "notes.txt")
             manifest = SyncManifest(
-                key_id="agent-key",
                 jobs=(
                     SyncJobConfig(
                         sync_id="syn_01",
@@ -45,17 +50,39 @@ class SyncConfigNoteTest(unittest.TestCase):
 
             loaded = SyncManifest.from_note_text(manifest.to_note_text())
 
-        self.assertEqual(loaded.key_id, "agent-key")
+        self.assertIsNone(loaded.key_id)
         self.assertEqual(len(loaded.jobs), 1)
         self.assertEqual(loaded.jobs[0].mode, "push")
         self.assertTrue(Path(loaded.jobs[0].local_path).is_absolute())
+
+    def test_manifest_parses_legacy_keyed_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            local_path = str(Path(tmpdir) / "notes.txt")
+            manifest = SyncManifest.from_note_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "key_id": "agent-key",
+                        "jobs": [
+                            {
+                                "sync_id": "syn_01",
+                                "space_id": 1773,
+                                "local_path": local_path,
+                                "name": "notes.txt",
+                            }
+                        ],
+                    }
+                )
+            )
+
+        self.assertEqual(manifest.key_id, "agent-key")
+        self.assertEqual(manifest.jobs[0].sync_id, "syn_01")
 
     def test_manifest_rejects_duplicate_local_paths(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             local_path = str(Path(tmpdir) / "same.txt")
             with self.assertRaisesRegex(ValueError, "Duplicate local_path"):
                 SyncManifest(
-                    key_id="agent-key",
                     jobs=(
                         SyncJobConfig(sync_id="syn_01", space_id=100, local_path=local_path, name="same.txt"),
                         SyncJobConfig(sync_id="syn_02", space_id=100, local_path=local_path, name="same.txt"),
@@ -70,7 +97,6 @@ class SyncConfigNoteTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             local_path = str(Path(tmpdir) / "notes.txt")
             manifest = SyncManifest(
-                key_id="agent-key",
                 jobs=(
                     SyncJobConfig(
                         sync_id="syn_01",
@@ -113,11 +139,9 @@ class SyncConfigNoteTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmpdir:
             local_path = str(Path(tmpdir) / "same.txt")
             manifest_a = SyncManifest(
-                key_id="agent-key-a",
                 jobs=(SyncJobConfig(sync_id="syn_01", space_id=100, local_path=local_path, name="same.txt"),),
             )
             manifest_b = SyncManifest(
-                key_id="agent-key-b",
                 jobs=(SyncJobConfig(sync_id="syn_02", space_id=200, local_path=local_path, name="same.txt"),),
             )
 

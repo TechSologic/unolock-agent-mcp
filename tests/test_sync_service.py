@@ -20,6 +20,92 @@ from unolock_mcp.sync.service import SyncService
 
 
 class SyncServiceTest(unittest.TestCase):
+    def test_list_syncs_loads_legacy_keyed_note_after_agent_reregistration(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            manifest = SyncManifest(
+                key_id="old-agent-key",
+                jobs=(
+                    SyncJobConfig(
+                        sync_id="syn_01",
+                        space_id=1773,
+                        local_path=str(Path(tmpdir) / "notes.txt"),
+                        name="notes.txt",
+                        archive_id="archive-1",
+                    ),
+                ),
+            )
+            readonly_records = Mock()
+            readonly_records.list_spaces.return_value = {"spaces": [{"space_id": 1773, "writable": True}]}
+            readonly_records.list_records.return_value = {
+                "records": [
+                    {
+                        "title": "@unolock-agent.sync-config:old-agent-key",
+                        "plain_text": manifest.to_note_text(),
+                        "record_ref": "archive-1:3",
+                        "version": 2,
+                    }
+                ]
+            }
+            service = SyncService(readonly_records, Mock(), Mock(), Mock(), runtime_store)
+
+            payload = service.list_syncs("session-1", key_id="new-agent-key")
+
+            self.assertEqual(payload["count"], 1)
+            self.assertEqual(payload["syncs"][0]["archive_id"], "archive-1")
+            self.assertEqual(runtime_store.load().jobs[0].sync_id, "syn_01")
+
+    def test_add_sync_adopts_legacy_keyed_note_into_canonical_space_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            existing_path = Path(tmpdir) / "notes.txt"
+            existing_path.write_text("hello", encoding="utf8")
+            added_path = Path(tmpdir) / "todo.txt"
+            added_path.write_text("todo", encoding="utf8")
+            legacy_manifest = SyncManifest(
+                key_id="old-agent-key",
+                jobs=(
+                    SyncJobConfig(
+                        sync_id="syn_old",
+                        space_id=1773,
+                        local_path=str(existing_path),
+                        name="notes.txt",
+                        archive_id="archive-1",
+                    ),
+                ),
+            )
+            readonly_records = Mock()
+            readonly_records.list_spaces.return_value = {"spaces": [{"space_id": 1773, "writable": True}]}
+            readonly_records.list_records.return_value = {
+                "records": [
+                    {
+                        "title": "@unolock-agent.sync-config:old-agent-key",
+                        "plain_text": legacy_manifest.to_note_text(),
+                        "record_ref": "archive-notes:1",
+                        "version": 1,
+                    }
+                ]
+            }
+            writable_records = Mock()
+            writable_records.update_note.return_value = {"record": {"record_ref": "archive-notes:1"}}
+            service = SyncService(readonly_records, writable_records, Mock(), Mock(), runtime_store)
+            service._generate_sync_id = Mock(return_value="syn_new")  # type: ignore[method-assign]
+
+            result = service.add_sync(
+                "session-1",
+                key_id="new-agent-key",
+                space_id=1773,
+                local_path=str(added_path),
+            )
+
+            self.assertEqual(result["sync"]["sync_id"], "syn_new")
+            writable_records.update_note.assert_called_once()
+            note_call = writable_records.update_note.call_args.kwargs
+            self.assertEqual(note_call["title"], reserved_sync_config_note_title())
+            manifest = json.loads(note_call["text"])
+            self.assertNotIn("key_id", manifest)
+            self.assertEqual([job["sync_id"] for job in manifest["jobs"]], ["syn_old", "syn_new"])
+
     def test_add_sync_creates_reserved_note_and_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
@@ -547,7 +633,7 @@ class SyncServiceTest(unittest.TestCase):
 
             self.assertEqual(result["results"][0]["status"], "blocked")
             writable_records.create_note.assert_called_once()
-            self.assertIn("@unolock-agent.sync-events:agent-key", writable_records.create_note.call_args.kwargs["title"])
+            self.assertEqual("@unolock-agent.sync-events", writable_records.create_note.call_args.kwargs["title"])
 
     def test_run_syncs_dedupes_repeated_error_events_within_window(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -9,6 +9,8 @@ from typing import Any
 from unolock_mcp.sync.config_note import (
     DEFAULT_SYNC_DEBOUNCE_SECONDS,
     DEFAULT_SYNC_POLL_SECONDS,
+    SYNC_CONFIG_NOTE_PREFIX,
+    SYNC_EVENTS_NOTE_PREFIX,
     SyncJobConfig,
     SyncManifest,
     reserved_sync_config_note_title,
@@ -100,12 +102,6 @@ class SyncService:
             return target_job
         raise ValueError("record_not_found: Sync job not found for sync_id or local_path.")
 
-    def _require_key_id(self, key_id: str | None) -> str:
-        value = (key_id or "").strip()
-        if not value:
-            raise ValueError("runtime_metadata_missing: UnoLock agent key metadata is missing for sync configuration.")
-        return value
-
     def _list_space_summaries(self, session_id: str) -> list[dict[str, Any]]:
         payload = self._readonly_records.list_spaces(session_id)
         spaces = payload.get("spaces") or []
@@ -119,11 +115,33 @@ class SyncService:
                 return space
         raise ValueError("record_not_found: The requested space_id is not available to this agent.")
 
-    def _find_reserved_config_note(self, session_id: str, *, space_id: int, key_id: str) -> dict[str, Any] | None:
-        title = reserved_sync_config_note_title(key_id)
-        return self._find_reserved_note(session_id, space_id=space_id, title=title)
+    def _find_reserved_config_note(self, session_id: str, *, space_id: int) -> dict[str, Any] | None:
+        return self._find_reserved_note(
+            session_id,
+            space_id=space_id,
+            title=reserved_sync_config_note_title(),
+            legacy_prefix=SYNC_CONFIG_NOTE_PREFIX,
+            error_kind="sync config",
+        )
 
-    def _find_reserved_note(self, session_id: str, *, space_id: int, title: str) -> dict[str, Any] | None:
+    def _find_reserved_events_note(self, session_id: str, *, space_id: int) -> dict[str, Any] | None:
+        return self._find_reserved_note(
+            session_id,
+            space_id=space_id,
+            title=reserved_sync_events_note_title(),
+            legacy_prefix=SYNC_EVENTS_NOTE_PREFIX,
+            error_kind="sync events",
+        )
+
+    def _find_reserved_note(
+        self,
+        session_id: str,
+        *,
+        space_id: int,
+        title: str,
+        legacy_prefix: str | None = None,
+        error_kind: str = "reserved note",
+    ) -> dict[str, Any] | None:
         payload = self._readonly_records.list_records(session_id, kind="note", space_id=space_id)
         records = payload.get("records") or []
         matches = [
@@ -132,8 +150,21 @@ class SyncService:
             if isinstance(record, dict) and str(record.get("title", "")).strip() == title
         ]
         if len(matches) > 1:
-            raise ValueError(f"invalid_sync_config_note: Multiple reserved sync notes named {title!r} exist in space {space_id}.")
-        return matches[0] if matches else None
+            raise ValueError(f"invalid_sync_config_note: Multiple reserved {error_kind} notes named {title!r} exist in space {space_id}.")
+        if matches:
+            return matches[0]
+        if legacy_prefix is None:
+            return None
+        legacy_matches = [
+            record
+            for record in records
+            if isinstance(record, dict) and str(record.get("title", "")).strip().startswith(legacy_prefix)
+        ]
+        if len(legacy_matches) > 1:
+            raise ValueError(
+                f"invalid_sync_config_note: Multiple reserved {error_kind} notes with prefix {legacy_prefix!r} exist in space {space_id}."
+            )
+        return legacy_matches[0] if legacy_matches else None
 
     def _parse_reserved_manifest_note(self, note: dict[str, Any]) -> SyncManifest:
         try:
@@ -147,12 +178,10 @@ class SyncService:
             space_id = int(space.get("space_id") or 0)
             if space_id <= 0:
                 continue
-            note = self._find_reserved_config_note(session_id, space_id=space_id, key_id=key_id)
+            note = self._find_reserved_config_note(session_id, space_id=space_id)
             if note is None:
                 continue
             manifest = self._parse_reserved_manifest_note(note)
-            if manifest.key_id != key_id:
-                raise ValueError("invalid_sync_config_note: Reserved sync config note key_id does not match the active agent key.")
             for job in manifest.jobs:
                 if job.space_id != space_id:
                     raise ValueError("invalid_sync_config_note: Sync job space_id does not match the containing Space.")
@@ -160,8 +189,8 @@ class SyncService:
         return manifests
 
     def _upsert_manifest(self, session_id: str, *, space_id: int, key_id: str, manifest: SyncManifest) -> dict[str, Any]:
-        title = reserved_sync_config_note_title(key_id)
-        current = self._find_reserved_config_note(session_id, space_id=space_id, key_id=key_id)
+        title = reserved_sync_config_note_title()
+        current = self._find_reserved_config_note(session_id, space_id=space_id)
         if current is None:
             return self._writable_records.create_note(
                 session_id,
@@ -181,12 +210,11 @@ class SyncService:
         self,
         session_id: str,
         *,
-        key_id: str,
         job: SyncRuntimeJob,
     ) -> None:
         if not job.archive_id:
             return
-        note = self._find_reserved_config_note(session_id, space_id=job.space_id, key_id=key_id)
+        note = self._find_reserved_config_note(session_id, space_id=job.space_id)
         if note is None:
             return
         manifest = self._parse_reserved_manifest_note(note)
@@ -194,7 +222,6 @@ class SyncService:
         if target is None or target.archive_id == job.archive_id:
             return
         next_manifest = SyncManifest(
-            key_id=manifest.key_id,
             jobs=tuple(
                 replace(config_job, archive_id=job.archive_id) if config_job.sync_id == job.sync_id else config_job
                 for config_job in manifest.jobs
@@ -203,7 +230,7 @@ class SyncService:
         self._upsert_manifest(
             session_id,
             space_id=job.space_id,
-            key_id=key_id,
+            key_id=None,
             manifest=next_manifest,
         )
 
@@ -211,14 +238,13 @@ class SyncService:
         self,
         session_id: str,
         *,
-        key_id: str,
         space_id: int,
         sync_id: str,
         archive_id: str | None,
         reason: str,
         message: str,
     ) -> None:
-        title = reserved_sync_events_note_title(key_id)
+        title = reserved_sync_events_note_title()
         event = SyncEvent(
             level="error",
             event=reason,
@@ -229,7 +255,7 @@ class SyncService:
             reason=reason,
         )
         line = event.to_json_line()
-        current = self._find_reserved_note(session_id, space_id=space_id, title=title)
+        current = self._find_reserved_events_note(session_id, space_id=space_id)
         try:
             if current is None:
                 self._writable_records.create_note(
@@ -252,7 +278,6 @@ class SyncService:
         self,
         session_id: str,
         *,
-        key_id: str,
         job: SyncRuntimeJob,
         reason: str,
         message: str,
@@ -266,7 +291,6 @@ class SyncService:
                 return job
         self._append_error_event(
             session_id,
-            key_id=key_id,
             space_id=job.space_id,
             sync_id=job.sync_id,
             archive_id=job.archive_id,
@@ -280,8 +304,7 @@ class SyncService:
         )
 
     def refresh_from_remote(self, session_id: str, *, key_id: str | None) -> dict[str, Any]:
-        resolved_key_id = self._require_key_id(key_id)
-        manifests = self._load_manifests(session_id, key_id=resolved_key_id)
+        manifests = self._load_manifests(session_id, key_id=(key_id or ""))
         runtime = self._runtime_store.load()
         reconciled = reconcile_manifests(manifests, runtime)
         self._runtime_store.save(reconciled)
@@ -291,8 +314,7 @@ class SyncService:
         }
 
     def list_syncs(self, session_id: str, *, key_id: str | None) -> dict[str, Any]:
-        resolved_key_id = self._require_key_id(key_id)
-        manifests = self._load_manifests(session_id, key_id=resolved_key_id)
+        manifests = self._load_manifests(session_id, key_id=(key_id or ""))
         runtime = self._runtime_store.load()
         reconciled = reconcile_manifests(manifests, runtime)
         self._runtime_store.save(reconciled)
@@ -362,7 +384,6 @@ class SyncService:
         if not selected_jobs:
             raise ValueError("record_not_found: Sync job not found for sync_id.")
 
-        resolved_key_id = self._require_key_id(key_id)
         updated_jobs: list[SyncRuntimeJob] = []
         results: list[dict[str, Any]] = []
         selected_ids = {job.sync_id for job in selected_jobs}
@@ -386,13 +407,11 @@ class SyncService:
             if updated_job.archive_id and updated_job.archive_id != job.archive_id:
                 self._persist_job_archive_binding(
                     session_id,
-                    key_id=resolved_key_id,
                     job=updated_job,
                 )
             if updated_job.status in {"blocked", "error"}:
                 updated_job = self._record_error_event_if_needed(
                     session_id,
-                    key_id=resolved_key_id,
                     job=updated_job,
                     reason=str(result.get("reason") or "sync_failed"),
                     message=str(result.get("message") or result.get("reason") or "sync_failed"),
@@ -426,7 +445,6 @@ class SyncService:
         poll_seconds: int = DEFAULT_SYNC_POLL_SECONDS,
         debounce_seconds: int = DEFAULT_SYNC_DEBOUNCE_SECONDS,
     ) -> dict[str, Any]:
-        resolved_key_id = self._require_key_id(key_id)
         source_path = Path(local_path).expanduser().resolve(strict=False)
         if not source_path.exists() or not source_path.is_file():
             raise ValueError("invalid_input: local_path must point to an existing file.")
@@ -447,14 +465,14 @@ class SyncService:
             debounce_seconds=debounce_seconds,
         )
 
-        manifests = self._load_manifests(session_id, key_id=resolved_key_id)
-        target_note = self._find_reserved_config_note(session_id, space_id=space_id, key_id=resolved_key_id)
-        target_manifest = SyncManifest(key_id=resolved_key_id, jobs=())
+        manifests = self._load_manifests(session_id, key_id=(key_id or ""))
+        target_note = self._find_reserved_config_note(session_id, space_id=space_id)
+        target_manifest = SyncManifest(jobs=())
         if target_note is not None:
             target_manifest = self._parse_reserved_manifest_note(target_note)
 
         next_jobs = tuple([*target_manifest.jobs, sync_job])
-        next_manifest = SyncManifest(key_id=resolved_key_id, jobs=next_jobs)
+        next_manifest = SyncManifest(jobs=next_jobs)
         all_manifests = [
             manifest
             for manifest in manifests
@@ -463,7 +481,7 @@ class SyncService:
         all_manifests.append(next_manifest)
 
         reconciled = reconcile_manifests(all_manifests, self._runtime_store.load())
-        self._upsert_manifest(session_id, space_id=space_id, key_id=resolved_key_id, manifest=next_manifest)
+        self._upsert_manifest(session_id, space_id=space_id, key_id=None, manifest=next_manifest)
         refreshed_job = next(job for job in reconciled.jobs if job.sync_id == sync_job.sync_id)
         self._runtime_store.save(reconciled)
         return {
@@ -479,14 +497,13 @@ class SyncService:
         sync_id: str,
         enabled: bool,
     ) -> dict[str, Any]:
-        resolved_key_id = self._require_key_id(key_id)
-        self.list_syncs(session_id, key_id=resolved_key_id)
+        self.list_syncs(session_id, key_id=key_id)
         state = self._runtime_store.load()
         target_job = next((job for job in state.jobs if job.sync_id == sync_id), None)
         if target_job is None:
             raise ValueError("record_not_found: Sync job not found for sync_id.")
 
-        manifests = self._load_manifests(session_id, key_id=resolved_key_id)
+        manifests = self._load_manifests(session_id, key_id=(key_id or ""))
         target_manifest = next(
             (
                 manifest
@@ -499,7 +516,6 @@ class SyncService:
             raise ValueError("invalid_sync_config_note: Sync job is missing from the reserved sync config note.")
 
         next_manifest = SyncManifest(
-            key_id=resolved_key_id,
             jobs=tuple(
                 replace(job, enabled=enabled) if job.sync_id == sync_id else job
                 for job in target_manifest.jobs
@@ -508,7 +524,7 @@ class SyncService:
         self._upsert_manifest(
             session_id,
             space_id=target_job.space_id,
-            key_id=resolved_key_id,
+            key_id=None,
             manifest=next_manifest,
         )
 
@@ -580,12 +596,11 @@ class SyncService:
         sync_id: str,
         delete_remote: bool = False,
     ) -> dict[str, Any]:
-        resolved_key_id = self._require_key_id(key_id)
-        self.list_syncs(session_id, key_id=resolved_key_id)
+        self.list_syncs(session_id, key_id=key_id)
         state = self._runtime_store.load()
         target_job = self._resolve_runtime_job(state, sync_id)
 
-        manifests = self._load_manifests(session_id, key_id=resolved_key_id)
+        manifests = self._load_manifests(session_id, key_id=(key_id or ""))
         target_manifest = next(
             (
                 manifest
@@ -598,13 +613,12 @@ class SyncService:
             raise ValueError("invalid_sync_config_note: Sync job is missing from the reserved sync config note.")
 
         next_manifest = SyncManifest(
-            key_id=resolved_key_id,
             jobs=tuple(job for job in target_manifest.jobs if job.sync_id != target_job.sync_id),
         )
         self._upsert_manifest(
             session_id,
             space_id=target_job.space_id,
-            key_id=resolved_key_id,
+            key_id=None,
             manifest=next_manifest,
         )
 
@@ -635,8 +649,7 @@ class SyncService:
         output_path: str | None = None,
         overwrite: bool = False,
     ) -> dict[str, Any]:
-        resolved_key_id = self._require_key_id(key_id)
-        self.list_syncs(session_id, key_id=resolved_key_id)
+        self.list_syncs(session_id, key_id=key_id)
         state = self._runtime_store.load()
         target_job = self._resolve_runtime_job(state, sync_id)
         if not target_job.archive_id:
@@ -653,7 +666,6 @@ class SyncService:
         except Exception as exc:
             self._append_error_event(
                 session_id,
-                key_id=resolved_key_id,
                 space_id=target_job.space_id,
                 sync_id=target_job.sync_id,
                 archive_id=target_job.archive_id,

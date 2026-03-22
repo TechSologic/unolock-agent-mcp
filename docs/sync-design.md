@@ -81,21 +81,23 @@ Use a reserved title namespace instead of an ordinary human note title.
 
 Recommended title pattern:
 
-* `@unolock-agent.sync-config:<key_id>`
+* `@unolock-agent.sync-config`
 
-Why include `key_id`:
+Why this should be Space-scoped instead of key-scoped:
 
-* avoids collisions if multiple agent keys exist in the same Space
-* avoids one device or agent key overwriting another agent's local-path config
-* keeps the reserved note deterministic and discoverable
+* sync is meant to back up agent working files, so a clean reinstall must be able to discover and restore them
+* a new agent registration in the same Space should be able to adopt the existing sync configuration automatically
+* the Space is the durable ownership boundary for the backed-up Cloud files, not one particular local key instance
 
-If `key_id` is unavailable, the daemon should block config writes instead of inventing an unstable fallback.
+Backward compatibility rule:
+
+* if an older `@unolock-agent.sync-config:<key_id>` note exists, the daemon should read it and migrate it to the canonical Space-scoped title on the next write
 
 Use a separate reserved note for human-readable sync events.
 
 Recommended title pattern:
 
-* `@unolock-agent.sync-events:<key_id>`
+* `@unolock-agent.sync-events`
 
 This note is for diagnostics and operator visibility only. It must not be the source of truth for config or runtime state.
 
@@ -108,7 +110,6 @@ Example:
 ```json
 {
   "schema_version": 1,
-  "key_id": "unolock-agent",
   "jobs": [
     {
       "sync_id": "syn_01",
@@ -232,7 +233,7 @@ Arguments:
 * `--mime-type <type>` optional remote MIME override
 * `--archive-id <id>` optional if binding to an existing Cloud file instead of creating a new one
 * `--poll-seconds <n>` optional per-job override, default from daemon config
-* `--debounce-seconds <n>` optional per-job override, defaults to `2`
+* `--debounce-seconds <n>` optional per-job override, defaults to `10`
 * `--disabled` optional, create the watch without enabling uploads yet
 
 Behavior:

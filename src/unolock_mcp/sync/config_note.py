@@ -10,8 +10,10 @@ DEFAULT_SYNC_SCHEMA_VERSION = 1
 DEFAULT_SYNC_POLL_SECONDS = 60
 DEFAULT_SYNC_DEBOUNCE_SECONDS = 10
 VALID_SYNC_MODES = frozenset({"push", "pull", "bidirectional"})
-SYNC_CONFIG_NOTE_PREFIX = "@unolock-agent.sync-config:"
-SYNC_EVENTS_NOTE_PREFIX = "@unolock-agent.sync-events:"
+SYNC_CONFIG_NOTE_TITLE = "@unolock-agent.sync-config"
+SYNC_CONFIG_NOTE_PREFIX = f"{SYNC_CONFIG_NOTE_TITLE}:"
+SYNC_EVENTS_NOTE_TITLE = "@unolock-agent.sync-events"
+SYNC_EVENTS_NOTE_PREFIX = f"{SYNC_EVENTS_NOTE_TITLE}:"
 
 
 def _require_non_empty_string(value: str, field_name: str) -> str:
@@ -33,12 +35,22 @@ def _normalize_mode(mode: str | None) -> str:
     return candidate
 
 
-def reserved_sync_config_note_title(key_id: str) -> str:
-    return f"{SYNC_CONFIG_NOTE_PREFIX}{_require_non_empty_string(key_id, 'key_id')}"
+def reserved_sync_config_note_title(key_id: str | None = None) -> str:
+    return SYNC_CONFIG_NOTE_TITLE
 
 
-def reserved_sync_events_note_title(key_id: str) -> str:
-    return f"{SYNC_EVENTS_NOTE_PREFIX}{_require_non_empty_string(key_id, 'key_id')}"
+def reserved_sync_events_note_title(key_id: str | None = None) -> str:
+    return SYNC_EVENTS_NOTE_TITLE
+
+
+def is_reserved_sync_config_note_title(title: str) -> bool:
+    normalized = title.strip()
+    return normalized == SYNC_CONFIG_NOTE_TITLE or normalized.startswith(SYNC_CONFIG_NOTE_PREFIX)
+
+
+def is_reserved_sync_events_note_title(title: str) -> bool:
+    normalized = title.strip()
+    return normalized == SYNC_EVENTS_NOTE_TITLE or normalized.startswith(SYNC_EVENTS_NOTE_PREFIX)
 
 
 @dataclass(frozen=True)
@@ -111,12 +123,15 @@ class SyncJobConfig:
 
 @dataclass(frozen=True)
 class SyncManifest:
-    key_id: str
     jobs: tuple[SyncJobConfig, ...]
+    key_id: str | None = None
     schema_version: int = DEFAULT_SYNC_SCHEMA_VERSION
 
     def __post_init__(self) -> None:
-        object.__setattr__(self, "key_id", _require_non_empty_string(self.key_id, "key_id"))
+        normalized_key_id = None
+        if self.key_id is not None:
+            normalized_key_id = _require_non_empty_string(self.key_id, "key_id")
+        object.__setattr__(self, "key_id", normalized_key_id)
         if int(self.schema_version) != DEFAULT_SYNC_SCHEMA_VERSION:
             raise ValueError(f"Unsupported sync schema_version: {self.schema_version}")
         object.__setattr__(self, "schema_version", int(self.schema_version))
@@ -136,11 +151,13 @@ class SyncManifest:
         object.__setattr__(self, "jobs", tuple(normalized_jobs))
 
     def to_json(self) -> dict[str, Any]:
-        return {
+        payload = {
             "schema_version": self.schema_version,
-            "key_id": self.key_id,
             "jobs": [job.to_json() for job in self.jobs],
         }
+        if self.key_id is not None:
+            payload["key_id"] = self.key_id
+        return payload
 
     def to_note_text(self) -> str:
         return json.dumps(self.to_json(), indent=2, sort_keys=True)
@@ -154,7 +171,7 @@ class SyncManifest:
             raise ValueError("sync manifest jobs must be a JSON array.")
         return cls(
             schema_version=int(raw.get("schema_version") or DEFAULT_SYNC_SCHEMA_VERSION),
-            key_id=str(raw.get("key_id", "")),
+            key_id=str(raw["key_id"]) if raw.get("key_id") is not None else None,
             jobs=tuple(SyncJobConfig.from_json(job) for job in jobs_raw),
         )
 
