@@ -17,6 +17,10 @@ class RegistrationStore:
     def __init__(self, path: Path | None = None) -> None:
         self._path = path or (default_state_dir() / "registration.json")
 
+    @property
+    def path(self) -> Path:
+        return self._path
+
     def load(self) -> RegistrationState:
         if not self._path.exists():
             return RegistrationState()

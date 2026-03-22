@@ -607,6 +607,9 @@ def create_mcp_server() -> FastMCP:
     )
     server.unolock_keepalive = daemon_keepalive
     server.unolock_sync_poll = daemon_sync_poll
+    export_handoff_state = getattr(agent_auth, "export_local_handoff_state", None)
+    if callable(export_handoff_state):
+        server.unolock_export_handoff_state = export_handoff_state
 
     @server.resource(
         "unolock://registration/status",

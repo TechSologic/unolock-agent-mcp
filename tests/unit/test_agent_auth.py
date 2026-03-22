@@ -12,6 +12,7 @@ from unolock_mcp.auth.agent_auth import AgentAuthClient
 from unolock_mcp.auth.registration_store import RegistrationStore
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.domain.models import CallbackAction, FlowSession, RegistrationState
+from unolock_mcp.sync.runtime_store import SyncRuntimeState, SyncRuntimeStore
 from unolock_mcp.tpm.test_tpm import TestTpmDao
 
 
@@ -229,7 +230,9 @@ class AgentAuthClientTest(unittest.TestCase):
                     current_callback=CallbackAction(type="GetPin"),
                 )
             )
-            client = AgentAuthClient(Mock(), session_store, store, tpm_dao=dao)
+            sync_runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            sync_runtime_store.save(SyncRuntimeState())
+            client = AgentAuthClient(Mock(), session_store, store, tpm_dao=dao, sync_runtime_store=sync_runtime_store)
             client.set_agent_pin("1111")
 
             summary = client.submit_connection_url(
@@ -250,6 +253,7 @@ class AgentAuthClientTest(unittest.TestCase):
                 dao.get_public_key("agent-old-access")
             self.assertEqual(session_store.list(), [])
             self.assertFalse(client.runtime_status()["has_agent_pin"])
+            self.assertFalse(sync_runtime_store.path.exists())
 
     def test_submit_connection_url_rejects_regular_register_url(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -305,7 +309,9 @@ class AgentAuthClientTest(unittest.TestCase):
                     current_callback=CallbackAction(type="GetPin"),
                 )
             )
-            client = AgentAuthClient(Mock(), session_store, store, tpm_dao=dao)
+            sync_runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            sync_runtime_store.save(SyncRuntimeState())
+            client = AgentAuthClient(Mock(), session_store, store, tpm_dao=dao, sync_runtime_store=sync_runtime_store)
             client.set_agent_pin("1")
 
             result = client.disconnect()
@@ -320,6 +326,7 @@ class AgentAuthClientTest(unittest.TestCase):
             self.assertFalse(store.load().registered)
             self.assertEqual(session_store.list(), [])
             self.assertFalse(client.runtime_status()["has_agent_pin"])
+            self.assertFalse(sync_runtime_store.path.exists())
 
     def test_agent_registration_code_failure_reports_consumed_or_invalid_key(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:

@@ -7,6 +7,7 @@ import re
 import secrets
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
 from unolock_mcp.auth.flow_client import UnoLockFlowClient
@@ -14,6 +15,7 @@ from unolock_mcp.auth.registration_store import RegistrationStore, parse_connect
 from unolock_mcp.auth.session_store import SessionStore
 from unolock_mcp.crypto.safe_keyring import SafeKeyringManager
 from unolock_mcp.domain.models import CallbackAction, FlowSession, RegistrationState
+from unolock_mcp.sync.runtime_store import SyncRuntimeStore
 from unolock_mcp.tpm.base import TpmDao
 from unolock_mcp.tpm.factory import create_tpm_dao
 
@@ -29,11 +31,21 @@ class AgentAuthClient:
         session_store: SessionStore,
         registration_store: RegistrationStore,
         tpm_dao: TpmDao | None = None,
+        sync_runtime_store: SyncRuntimeStore | None = None,
     ) -> None:
         self._flow_client = flow_client
         self._session_store = session_store
         self._registration_store = registration_store
         self._tpm = tpm_dao
+        if sync_runtime_store is not None:
+            self._sync_runtime_store = sync_runtime_store
+        else:
+            registration_path = getattr(registration_store, "path", None)
+            self._sync_runtime_store = (
+                SyncRuntimeStore(Path(registration_path).parent / "syncs.json")
+                if isinstance(registration_path, Path)
+                else None
+            )
         self._data_keyrings: dict[str, SafeKeyringManager] = {}
         self._agent_pin: str | None = None
         self._pending_server_keys: dict[str, str] = {}
@@ -70,6 +82,12 @@ class AgentAuthClient:
     def clear_agent_pin(self) -> dict[str, Any]:
         self._agent_pin = None
         return self.runtime_status()
+
+    def export_local_handoff_state(self) -> dict[str, Any]:
+        payload: dict[str, Any] = {}
+        if self._agent_pin is not None:
+            payload["agent_pin"] = self._agent_pin
+        return payload
 
     def disconnect(self) -> dict[str, Any]:
         registration = self._load_registration()
@@ -110,6 +128,7 @@ class AgentAuthClient:
                 self._get_tpm().delete_secret(secret_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
+        self._reset_local_sync_runtime(errors)
 
         self._agent_pin = None
         self._session_store.clear()
@@ -217,6 +236,7 @@ class AgentAuthClient:
                 self._get_tpm().delete_secret(secret_id)
             except Exception as exc:
                 errors.append(f"Failed to delete local secret '{secret_id}': {exc}")
+        self._reset_local_sync_runtime(errors)
 
         if errors:
             return {
@@ -234,6 +254,14 @@ class AgentAuthClient:
         self._session_store.clear()
         self._registration_store.reset()
         return None
+
+    def _reset_local_sync_runtime(self, errors: list[str]) -> None:
+        if self._sync_runtime_store is None:
+            return
+        try:
+            self._sync_runtime_store.reset()
+        except Exception as exc:
+            errors.append(f"Failed to clear local sync runtime '{self._sync_runtime_store.path}': {exc}")
 
     def secure_registration_material(self) -> dict[str, Any]:
         registration = self._load_registration()

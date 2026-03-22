@@ -424,7 +424,10 @@ class SyncService:
         target_note = self._find_reserved_config_note(session_id, space_id=space_id, key_id=resolved_key_id)
         target_manifest = SyncManifest(key_id=resolved_key_id, jobs=())
         if target_note is not None:
-            target_manifest = SyncManifest.from_note_text(str(target_note.get("plain_text", "")))
+            try:
+                target_manifest = SyncManifest.from_note_text(str(target_note.get("plain_text", "")))
+            except ValueError as exc:
+                raise ValueError(f"invalid_sync_config_note: {exc}") from exc
 
         next_jobs = tuple([*target_manifest.jobs, sync_job])
         next_manifest = SyncManifest(key_id=resolved_key_id, jobs=next_jobs)

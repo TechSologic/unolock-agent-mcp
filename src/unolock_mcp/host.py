@@ -40,6 +40,7 @@ DEFAULT_DAEMON_LIST_TIMEOUT = 60.0
 DEFAULT_DAEMON_CALL_TIMEOUT = 300.0
 DAEMON_KEEPALIVE_POLL_SECONDS = 10.0
 DEFAULT_SYNC_POLL_SECONDS = 5.0
+DEFAULT_DAEMON_HANDOFF_TIMEOUT = 15.0
 
 
 @dataclass
@@ -259,6 +260,15 @@ class ToolHostController:
             "started_at": self._started_at,
             "tool_count": len(self._tools),
         }
+
+    def export_handoff_payload(self) -> dict[str, Any]:
+        exporter = getattr(self._server, "unolock_export_handoff_state", None)
+        payload: dict[str, Any] = {"version": MCP_VERSION}
+        if callable(exporter):
+            exported = exporter()
+            if isinstance(exported, dict):
+                payload.update(self._to_jsonable(exported))
+        return payload
 
     def close(self) -> None:
         self._keepalive_stop.set()
@@ -484,6 +494,18 @@ class _ControlRequestHandler(socketserver.StreamRequestHandler):
                 self._write({"ok": True, "result": {"stopping": True}})
                 threading.Thread(target=self.server.shutdown, daemon=True).start()
                 return
+            if command == "handoff_and_shutdown":
+                self._write(
+                    {
+                        "ok": True,
+                        "result": {
+                            "stopping": True,
+                            "handoff": self.server.controller.export_handoff_payload(),
+                        },
+                    }
+                )
+                threading.Thread(target=self.server.shutdown, daemon=True).start()
+                return
             raise LocalHostError(f"Unknown daemon command: {command}")
         except Exception as exc:
             self._write({
@@ -582,16 +604,69 @@ def _serve_stdio_locally() -> int:
         controller.close()
 
 
+def _handoff_and_stop_stale_daemon(
+    state: LocalDaemonState,
+    *,
+    timeout: float = DEFAULT_DAEMON_HANDOFF_TIMEOUT,
+) -> dict[str, Any] | None:
+    response = _request_daemon(
+        state,
+        {"command": "handoff_and_shutdown", "requested_version": MCP_VERSION},
+        timeout=timeout,
+    )
+    result = response.get("result") if isinstance(response.get("result"), dict) else {}
+    handoff = dict(result.get("handoff") or {}) if isinstance(result, dict) else {}
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if not _pid_is_running(state.pid):
+            return handoff or None
+        time.sleep(0.1)
+    raise LocalHostError("UnoLock local daemon did not stop within the handoff timeout window.")
+
+
+def _restore_handoff_to_daemon(
+    state: LocalDaemonState,
+    handoff: dict[str, Any] | None,
+    *,
+    timeout: float = DEFAULT_DAEMON_CALL_TIMEOUT,
+) -> None:
+    if not isinstance(handoff, dict):
+        return
+    agent_pin = handoff.get("agent_pin")
+    if not isinstance(agent_pin, str) or not agent_pin:
+        return
+    response = _request_daemon(
+        state,
+        {
+            "command": "call",
+            "tool": "unolock_set_agent_pin",
+            "arguments": {"pin": agent_pin},
+        },
+        timeout=timeout,
+    )
+    if not response.get("ok"):
+        raise LocalHostError("UnoLock local daemon PIN handoff failed during upgrade.")
+
+
 def ensure_daemon_running(timeout: float = DEFAULT_DAEMON_START_TIMEOUT) -> dict[str, Any]:
-    status = get_daemon_status()
+    state = load_daemon_state()
+    status = get_daemon_status() if state is not None else {"ok": True, "running": False}
+    handoff: dict[str, Any] | None = None
     if status.get("running") and not _status_shows_version_mismatch(status):
         return status
     if _status_shows_version_mismatch(status):
-        stopped = stop_daemon()
-        if not stopped.get("ok") or stopped.get("running"):
+        if state is None:
             raise LocalHostError(
                 "A stale UnoLock local daemon is still running after an upgrade. Stop it before retrying."
             )
+        try:
+            handoff = _handoff_and_stop_stale_daemon(state)
+        except LocalHostError:
+            stopped = stop_daemon()
+            if not stopped.get("ok") or stopped.get("running"):
+                raise LocalHostError(
+                    "A stale UnoLock local daemon is still running after an upgrade. Stop it before retrying."
+                )
 
     _ensure_state_dir()
     log_file = daemon_log_path().open("a", encoding="utf8")
@@ -619,6 +694,11 @@ def ensure_daemon_running(timeout: float = DEFAULT_DAEMON_START_TIMEOUT) -> dict
     while time.time() < deadline:
         status = get_daemon_status()
         if status.get("running"):
+            if handoff is not None:
+                state = load_daemon_state()
+                if state is None:
+                    raise LocalHostError("UnoLock local daemon started but did not publish local state.")
+                _restore_handoff_to_daemon(state, handoff, timeout=timeout)
             return status
         if process.poll() is not None:
             raise LocalHostError(
@@ -708,7 +788,11 @@ def proxy_stdio_to_daemon(*, auto_start: bool = True, timeout: float | None = No
     if state is None or not status.get("running") or _status_shows_version_mismatch(status):
         if not auto_start:
             raise LocalHostError("UnoLock local daemon is not running.")
-        return _serve_stdio_locally()
+        try:
+            ensure_daemon_running()
+            state = load_daemon_state()
+        except LocalHostError:
+            return _serve_stdio_locally()
     if state is None:
         return _serve_stdio_locally()
 

@@ -119,6 +119,40 @@ class SyncServiceTest(unittest.TestCase):
                     local_path=str(local_path),
                 )
 
+    def test_add_sync_reports_invalid_sync_config_note_for_malformed_reserved_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")
+            local_path = Path(tmpdir) / "notes.txt"
+            local_path.write_text("hello", encoding="utf8")
+            readonly_records = Mock()
+            readonly_records.list_spaces.return_value = {
+                "spaces": [
+                    {
+                        "space_id": 1773,
+                        "writable": True,
+                    }
+                ]
+            }
+            readonly_records.list_records.return_value = {
+                "records": [
+                    {
+                        "title": reserved_sync_config_note_title("agent-key"),
+                        "plain_text": '{"key_id":"agent-key","jobs":[]}\n{"oops":true}',
+                        "record_ref": "archive-notes:1",
+                        "version": 1,
+                    }
+                ]
+            }
+            service = SyncService(readonly_records, Mock(), Mock(), Mock(), runtime_store)
+
+            with self.assertRaisesRegex(ValueError, "invalid_sync_config_note"):
+                service.add_sync(
+                    "session-1",
+                    key_id="agent-key",
+                    space_id=1773,
+                    local_path=str(local_path),
+                )
+
     def test_run_syncs_uploads_new_file_and_updates_runtime_state(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             runtime_store = SyncRuntimeStore(Path(tmpdir) / "syncs.json")

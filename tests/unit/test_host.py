@@ -264,10 +264,14 @@ class DaemonVersionCompatibilityTest(unittest.TestCase):
             self.assertFalse(_status_shows_version_mismatch({"running": False, "version": "0.0.1"}))
 
     def test_ensure_daemon_running_restarts_stale_daemon(self) -> None:
+        old_state = LocalDaemonState(pid=123, token="old-secret", version="0.1.0", started_at=1.0, socket_path="/tmp/old.sock")
+        new_state = LocalDaemonState(pid=456, token="new-secret", version="9.9.9", started_at=2.0, socket_path="/tmp/new.sock")
         with (
             patch("unolock_mcp.host.MCP_VERSION", "9.9.9"),
+            patch("unolock_mcp.host.load_daemon_state", side_effect=[old_state, new_state]),
             patch("unolock_mcp.host.get_daemon_status", side_effect=[{"ok": True, "running": True, "version": "0.1.0"}, {"ok": True, "running": True, "version": "9.9.9", "pid": 456}]),
-            patch("unolock_mcp.host.stop_daemon", return_value={"ok": True, "running": False, "stopped": True}) as stop_mock,
+            patch("unolock_mcp.host._request_daemon", side_effect=[{"ok": True, "result": {"stopping": True, "handoff": {"agent_pin": "1"}}}, {"ok": True, "result": {"has_agent_pin": True}}]) as request_mock,
+            patch("unolock_mcp.host._pid_is_running", return_value=False),
             patch("unolock_mcp.host._ensure_state_dir"),
             patch("unolock_mcp.host.daemon_log_path", return_value=Path("/tmp/unolock-daemon.log")),
             patch("pathlib.Path.open"),
@@ -277,12 +281,15 @@ class DaemonVersionCompatibilityTest(unittest.TestCase):
             popen_mock.return_value.poll.return_value = None
             status = ensure_daemon_running(timeout=0.1)
 
-        stop_mock.assert_called_once()
         popen_mock.assert_called_once()
+        self.assertEqual(request_mock.call_args_list[0].args[1]["command"], "handoff_and_shutdown")
+        self.assertEqual(request_mock.call_args_list[1].args[1]["tool"], "unolock_set_agent_pin")
         self.assertEqual(status["version"], "9.9.9")
 
     def test_ensure_daemon_running_sets_pyinstaller_reset_environment_when_frozen(self) -> None:
+        new_state = LocalDaemonState(pid=456, token="secret", version="9.9.9", started_at=2.0, socket_path="/tmp/new.sock")
         with (
+            patch("unolock_mcp.host.load_daemon_state", return_value=new_state),
             patch("unolock_mcp.host.get_daemon_status", side_effect=[{"ok": True, "running": False}, {"ok": True, "running": True, "version": "9.9.9", "pid": 456}]),
             patch("unolock_mcp.host._ensure_state_dir"),
             patch("unolock_mcp.host.daemon_log_path", return_value=Path("/tmp/unolock-daemon.log")),
@@ -315,18 +322,21 @@ class DaemonVersionCompatibilityTest(unittest.TestCase):
         self.assertEqual(result["result"]["pong"], True)
 
     def test_proxy_stdio_auto_restarts_stale_daemon(self) -> None:
-        state = LocalDaemonState(pid=123, token="secret", version="0.1.0", started_at=1.0, socket_path="/tmp/daemon.sock")
+        old_state = LocalDaemonState(pid=123, token="old-secret", version="0.1.0", started_at=1.0, socket_path="/tmp/old.sock")
+        new_state = LocalDaemonState(pid=456, token="new-secret", version="9.9.9", started_at=2.0, socket_path="/tmp/new.sock")
         stdin_payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
         with (
-            patch("unolock_mcp.host.load_daemon_state", side_effect=[state, state]),
+            patch("unolock_mcp.host.load_daemon_state", side_effect=[old_state, new_state]),
             patch("unolock_mcp.host.MCP_VERSION", "9.9.9"),
             patch("unolock_mcp.host.get_daemon_status", return_value={"ok": True, "running": True, "version": "0.1.0"}),
-            patch("unolock_mcp.host.create_mcp_server", return_value=_fake_server()),
+            patch("unolock_mcp.host.ensure_daemon_running", return_value={"ok": True, "running": True, "version": "9.9.9"}) as ensure_mock,
+            patch("unolock_mcp.host._request_daemon", return_value={"ok": True, "has_response": True, "response": {"jsonrpc": "2.0", "id": 1, "result": {}}}),
             patch("sys.stdin", new=iter([stdin_payload])),
             patch("builtins.print") as print_mock,
         ):
             exit_code = proxy_stdio_to_daemon()
 
+        ensure_mock.assert_called_once()
         print_mock.assert_called_once()
         self.assertEqual(exit_code, 0)
 
@@ -340,10 +350,11 @@ class DaemonVersionCompatibilityTest(unittest.TestCase):
 
         self.assertEqual(result, {"ok": True, "result": {"ok": True, "text": "hello"}})
 
-    def test_proxy_stdio_runs_locally_when_no_daemon_is_running(self) -> None:
+    def test_proxy_stdio_falls_back_to_local_mode_when_daemon_start_fails(self) -> None:
         stdin_payload = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "ping"}) + "\n"
         with (
             patch("unolock_mcp.host.load_daemon_state", return_value=None),
+            patch("unolock_mcp.host.ensure_daemon_running", side_effect=LocalHostError("boom")),
             patch("unolock_mcp.host.create_mcp_server", return_value=_fake_server()),
             patch("sys.stdin", new=iter([stdin_payload])),
             patch("builtins.print") as print_mock,
